@@ -1333,7 +1333,8 @@ function preparePokemonPacks(rom, folder) {
   const pokemon = [...loaded.pokemon, ...loaded.generationPokemon], { moves, rules, types } = loaded.built, { ownRows } = loaded;
   // Colosseum's Move Deleter at Mt. Battle also makes a Pokémon remember a move, as later games' Move Relearner does (on
   // unless turned off; XD's Move Teacher there is one of its own). It reminds a Pokémon of its own level-up moves, or a
-  // later generation's when that's on.
+  // later generation's when that's on, and the Fairy moves it's past the level for
+  // with the Fairy type (Gardevoir's Moonblast).
   const relearner = supports('moveRelearner') && config.settings.moveRelearner !== false;
   const looks = pbrOwnModels(loaded.tables);
   if (!pokemon.length && !moves.length && !rules && !ownRows.length && !looks.length && !relearner && !types) return { file: null, own: 0 };
