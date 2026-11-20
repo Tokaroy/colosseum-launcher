@@ -1,10 +1,10 @@
 {
   "beta": {
     "launcher": [
-      "Fairy type: the type from generation 6, in Colosseum and XD, under either battle rules. Clefairy, Gardevoir, Togepi, Marill, Mawile and the other Pokémon that became Fairy types are Fairy types, and so are Charm, Sweet Kiss and Moonlight; Dragon moves don't affect them, and Steel types no longer resist Ghost and Dark moves. Fairy Wind, Disarming Voice, Draining Kiss, Play Rough, Moonblast, Dazzling Gleam and Baby-Doll Eyes are new moves, learned at the levels they are in generation 6; Pokémon already in your save are Fairy types too, and can remember a Fairy move they're past the level for from the Move Deleter on Mt. Battle (XD's Move Teacher). Turn it on under Gameplay; the Pokédex and team builder show it, and an online room has it when its host turns on Fairy type under Create room."
+      "Gen 6 types: the Fairy type and generation 6's type chart, in Colosseum and XD, under either battle rules. Clefairy, Gardevoir, Togepi, Marill, Mawile and the other Pokémon that became Fairy types are Fairy types, and so are Charm, Sweet Kiss and Moonlight; Dragon moves don't affect them, and Steel types no longer resist Ghost and Dark moves. Fairy Wind, Disarming Voice, Draining Kiss, Play Rough, Moonblast, Dazzling Gleam and Baby-Doll Eyes are new moves, learned at the levels they are in generation 6; Pokémon already in your save are Fairy types too, and can remember a Fairy move they're past the level for from the Move Deleter on Mt. Battle (XD's Move Teacher). Turn on Gen 6 types under Gameplay; the Pokédex and team builder show it, and an online room has it when its host turns on Gen 6 types under Create room."
     ],
     "game": [
-      "Fairy type: with the setting on, both games have the Fairy type, with generation 6's type chart, a Fairy type picture in each game's own style on every screen that shows types, and its new moves, Draining Kiss giving back three quarters of the damage."
+      "Gen 6 types: with the setting on, both games have the Fairy type, with generation 6's type chart, a Fairy type picture in each game's own style on every screen that shows types, and its new moves, Draining Kiss giving back three quarters of the damage. With it off again, a Pokémon that learned a Fairy move forgets it, leaving the slot empty, and the same for a Generation 4 move with Generation 4 off, so a save from either still loads."
     ]
   },
   "releases": [
