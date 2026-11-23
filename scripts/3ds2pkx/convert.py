@@ -276,6 +276,22 @@ def _pick_diffuse_texcoord(gf_mat, tex_dict):
     return gf_mat['tex_coords'][0], None
 
 
+def _iris_mask(gf_mat, tex_dict):
+    """(texture coordinate, texture) of the mask an iris is seen through, or None. A 3DS iris is its own mesh over
+    the eye, drawn see-through (render layer 1) and multiplied by the alpha of its material's third texture: the
+    eye's ...EyeNor.tga, whose alpha is where the eye is open, read as the eye's own material reads it. Without it,
+    an iris was drawn over the eyelid (Zorua's red lid, Tepig's orange one)."""
+    if not gf_mat or 'iris' not in gf_mat.get('shader', '').lower() or not gf_mat.get('blend_enabled'):
+        return None
+    units = gf_mat.get('tex_coords') or []
+    if len(units) < 3:
+        return None
+    tex = tex_dict.get(units[2]['name'].lower())
+    if not tex or all(a == 255 for a in tex['rgba_flipped'][3::4]):
+        return None
+    return units[2], tex
+
+
 def _apply_uv_transform(u, v, tc):
     """Apply PICA200 / Maya GFTextureCoord (scale, rotation, translation) to (u, v)."""
     if not tc:
@@ -325,6 +341,24 @@ def _material_of(gf_mat, tex_dict, images, max_size, hideable=False):
             color_blend=LayerBlendMode.MIX,
             alpha_blend=LayerBlendMode.NONE if alpha == 'opaque' else LayerBlendMode.MULTIPLY,
             blend_factor=1.0, lightmap_channel=LightmapChannel.DIFFUSE, is_bump=False, combiner=None,
+        ))
+
+    mask = _iris_mask(gf_mat, tex_dict) if layers else None
+    if mask:
+        mtc, mtex = mask
+        key = mtex['name'].lower() + '#alpha'
+        if key not in images:
+            px = bytearray(mtex['rgba_flipped'])
+            px[0::4] = px[1::4] = px[2::4] = b'\xff' * (len(px) // 4)
+            images[key] = _make_ir_image(dict(mtex, name=mtex['name'][:-4] + 'Alpha.tga', rgba_flipped=px),
+                                         0x7000 + len(images), max_size)
+        layers.append(IRTextureLayer(
+            image=images[key], coord_type=CoordType.UV, uv_index=1,
+            rotation=(0.0, 0.0, 0.0), scale=(1.0, 1.0, 1.0), translation=(0.0, 0.0, 0.0),
+            wrap_s=PICA_WRAP.get(mtc['wrap_u'], WrapMode.REPEAT), wrap_t=PICA_WRAP.get(mtc['wrap_v'], WrapMode.REPEAT),
+            repeat_s=1, repeat_t=1, interpolation=None, color_blend=LayerBlendMode.PASS,
+            alpha_blend=LayerBlendMode.MULTIPLY, blend_factor=1.0, lightmap_channel=LightmapChannel.DIFFUSE,
+            is_bump=False, combiner=None,
         ))
 
     added = bool(gf_mat and gf_mat.get('blend_dst') == 1)
@@ -536,12 +570,15 @@ def _portraits(gf, order, meshes, geometry, bone_fields, parsed_motions, slot_ac
             kind = 'cut' if fb is not None else 'blend'
         else:
             kind = 'opaque'
+        seen = mat.texture_layers[1] if len(mat.texture_layers) > 1 and len(m.uv_layers) > 1 else None
         on_head = [sum(w for bi, w in lw if names[bi] == head) if head else 0.0 for lw in weights]
         parts.append(dict(vertices=vertices, faces=m.faces, normals=normals, uvs=m.uv_layers[0].uvs,
                           image=layer.image if layer else None,
                           wrap=(layer.wrap_s.value, layer.wrap_t.value) if layer else ('REPEAT', 'REPEAT'),
                           kind=kind, lit=mat.lighting == LightingModel.LIT, cull=m.cull_back, head=on_head,
-                          eye='eye' in (mat_name or '').lower()))
+                          eye='eye' in (mat_name or '').lower(),
+                          mask=(seen.image, (seen.wrap_s.value, seen.wrap_t.value)) if seen else None,
+                          mask_uvs=m.uv_layers[1].uvs if seen else None))
     return portrait.render(parts, has_head=bool(head))
 
 
@@ -770,6 +807,8 @@ def build(model_data, tex_blobs, battle_blobs, name, max_texture=256, log=print,
                     continue
                 gf_mat = gf_mats.get(sm['name'])
                 tc, _ = _pick_diffuse_texcoord(gf_mat, tex_dict)
+                mask = _iris_mask(gf_mat, tex_dict)
+                mask_uvs = []
                 n_verts = len(sm['positions'])
                 vertices = [(float(x) * UNIT, float(y) * UNIT, float(z) * UNIT) for x, y, z in sm['positions']]
                 raw_norms = sm['normals']
@@ -787,6 +826,8 @@ def build(model_data, tex_blobs, battle_blobs, name, max_texture=256, log=print,
                         normals.append((float(nrm[0]), float(nrm[1]), float(nrm[2])))
                         u, v = raw_uv0[vi] if vi < len(raw_uv0) else (0.0, 0.0)
                         uvs.append(_apply_uv_transform(u, v, tc))
+                        if mask:
+                            mask_uvs.append(_apply_uv_transform(u, v, mask[0]))
                 if not faces:
                     continue
 
@@ -819,7 +860,7 @@ def build(model_data, tex_blobs, battle_blobs, name, max_texture=256, log=print,
                     id=mesh_id,
                     vertices=vertices,
                     faces=faces,
-                    uv_layers=[IRUVLayer(name='UVMap', uvs=uvs)],
+                    uv_layers=[IRUVLayer(name='UVMap', uvs=uvs)] + ([IRUVLayer(name='UVMap.1', uvs=mask_uvs)] if mask else []),
                     normals=normals,
                     bone_weights=weights,
                     parent_bone_index=parent_bi,

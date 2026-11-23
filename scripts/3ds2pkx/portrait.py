@@ -10,7 +10,8 @@ size and averaged down.
 render(parts, head) -> (body PNG, face PNG)
   parts: dicts with 'vertices' (model space), 'faces' (triangles), 'normals' and 'uvs' (one per corner),
          'image' (IRImage, bottom-up RGBA, or None), 'wrap' ((s, t) WrapMode names), 'kind' ('opaque', 'cut',
-         'blend' or 'add'), 'lit', 'cull', 'head' (a weight on the head for each vertex, 0..1), 'eye' (an eye's)
+         'blend' or 'add'), 'lit', 'cull', 'head' (a weight on the head for each vertex, 0..1), 'eye' (an eye's),
+         and optionally 'mask' ((IRImage, wrap) whose alpha the part's is multiplied by, read at 'mask_uvs')
 """
 import math
 
@@ -66,6 +67,15 @@ def _sampler(image, wrap):
     return sample
 
 
+def _masked(sample, mask):
+    """`sample` with its alpha times `mask`'s, read at a second pair of coordinates: an iris seen only where
+    the eye is open, as the 3DS draws it."""
+    def both(u, v, mu, mv):
+        r, g, b, a = sample(u, v)
+        return r, g, b, a * mask(mu, mv)[3] // 255
+    return both
+
+
 def _draw(parts, size, window):
     """RGBA (top-down rows) of the parts seen through `window` ((x0, y0, side) in view space)."""
     x0, y0, side = window
@@ -76,10 +86,13 @@ def _draw(parts, size, window):
 
     for part in parts:
         sample = _sampler(part['image'], part['wrap'])
+        uvs = part['uvs']
+        if part.get('mask'):
+            sample = _masked(sample, _sampler(*part['mask']))
+            uvs = [tuple(t) + tuple(m) for t, m in zip(uvs, part['mask_uvs'])]
         pts = [_view(v) for v in part['vertices']]
         scr = [((p[0] - x0) * scale, (y0 + side - p[1]) * scale, p[2]) for p in pts]
         nrm = [_view(n) for n in part['normals']]
-        uvs = part['uvs']
         corner = 0
         for f in part['faces']:
             a, b, c = f[0], f[1], f[2]
@@ -127,7 +140,7 @@ def _raster(tri, size, depth, color, solid):
             i = y * size + x
             if z <= depth[i]:
                 continue
-            r, g, b, a = sample(w0 * t0[0] + w1 * t1[0] + w2 * t2[0], w0 * t0[1] + w1 * t1[1] + w2 * t2[1])
+            r, g, b, a = sample(*[w0 * t0[k] + w1 * t1[k] + w2 * t2[k] for k in range(len(t0))])
             if kind == 'cut' and a < 128:
                 continue
             if lit:
