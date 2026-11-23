@@ -21,6 +21,8 @@ const SHORTEST_MOTION = 20;
 const MOTION_LABEL = { idle: 'Idle', physical: 'Physical move', special: 'Special move', hit: 'Hit', faint: 'Faint', extra: 'Extra' };
 
 let species = null, packProblems = [], canMakePacks = false, loading = null, visible = false, filter = 'all', selected = null, form = null, viewer = null;
+// The Look menu's choice (a look that isn't a shiny one) and the Shiny switch, which stays on from one Pokémon to the next
+let look = null, shiny = false;
 // The newest choice: a slower answer to an older one is dropped.
 let request = 0;
 // Each entry's button, by its key: a disc Pokémon's National Pokédex number, or a pack Pokémon's "pack:<pack>/<folder>".
@@ -236,10 +238,30 @@ function renderEvolutions(entry) {
     Object.assign(document.createElement('li'), { textContent: `${note.from.name} to ${note.into.join(' or ')}: ${note.text}` })));
 }
 
+// An entry's looks for the Look menu: each one but the shiny ones, with its shiny one beside it (labelled "Shiny" for
+// "Normal", else "Shiny <its name>") for the Shiny switch. A look with none (Castform's weather) shows the same shiny.
+function lookChoices(entry) {
+  const byLabel = new Map(entry.forms.map(item => [item.label, item]));
+  const shinyOf = label => byLabel.get(label === 'Normal' ? 'Shiny' : `Shiny ${label}`) || null;
+  const isShiny = item => item.label === 'Shiny' ? byLabel.has('Normal') : item.label.startsWith('Shiny ') && byLabel.has(item.label.slice('Shiny '.length));
+  return entry.forms.filter(item => !isShiny(item)).map(item => ({ ...item, shiny: shinyOf(item.label) }));
+}
+// The look shown: the chosen one, or its shiny one with the switch on
+function chosenLook(entry) {
+  const choices = lookChoices(entry), chosen = choices.find(item => item.id === look) || choices[0];
+  return chosen && shiny && chosen.shiny ? chosen.shiny.id : chosen?.id;
+}
+
 function renderForms(entry) {
-  $('pokedex-form-field').hidden = entry.forms.length < 2;
-  $('pokedex-form').replaceChildren(...entry.forms.map(item => new Option(item.label, item.id)));
-  $('pokedex-form').value = form;
+  const choices = lookChoices(entry), chosen = choices.find(item => item.id === look) || choices[0];
+  $('pokedex-form-field').hidden = choices.length < 2;
+  $('pokedex-form').replaceChildren(...choices.map(item => new Option(item.label, item.id)));
+  $('pokedex-form').value = chosen?.id ?? '';
+  const button = $('pokedex-shiny');
+  button.hidden = !choices.some(item => item.shiny);
+  button.disabled = !chosen?.shiny;
+  button.setAttribute('aria-pressed', String(shiny));
+  button.title = chosen?.shiny ? (shiny ? 'Show it as it usually looks' : 'Show its shiny look') : 'This look has no shiny one of its own';
 }
 
 // A model's motions to choose from: its battle motions, named by what the game plays them for, from its header; or, for
@@ -308,9 +330,10 @@ async function showModel(entry) {
 function select(entry) {
   selected = entry;
   cry.show(entry);
-  form = entry.forms[0]?.id;
+  look = lookChoices(entry)[0]?.id ?? null;
+  form = chosenLook(entry);
   for (const [key, button] of entries) button.classList.toggle('selected', key === entry.key);
-  renderInfo(entry);
+  renderInfo(asLook(entry, form));
   renderForms(entry);
   // Make a pack: for the game's own Pokémon (a pack's is one already)
   $('pokedex-make-pack').hidden = !canMakePacks || !/^\d+$/.test(entry.key);
@@ -355,10 +378,20 @@ async function load(choose = null) {
 const cry = createCry($('pokedex-cry'), { onError: setStatus });
 
 $('pokedex-search').addEventListener('input', () => { if (species) applyFilter(); });
-$('pokedex-form').addEventListener('change', event => {
-  form = event.target.value;
+// A look chosen, or the Shiny switch turned: the look's model and what it has of its own
+function showLook() {
+  form = chosenLook(selected);
   renderInfo(asLook(selected, form));
+  renderForms(selected);
   showModel(selected);
+}
+$('pokedex-shiny').addEventListener('click', () => {
+  shiny = !shiny;
+  if (selected) showLook();
+});
+$('pokedex-form').addEventListener('change', event => {
+  look = event.target.value;
+  showLook();
 });
 $('pokedex-motion').addEventListener('change', async event => {
   const mine = ++request;
