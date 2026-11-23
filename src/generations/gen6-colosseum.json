@@ -781,5 +781,27 @@
       "effect": 453,
       "exact": true
     }
+  },
+  "oldMoves": {
+    "String Shot": {
+      "effect": 60,
+      "note": "Generation 6: Speed down two (the game's Scary Face)."
+    },
+    "Sweet Scent": {
+      "effect": 64,
+      "note": "Generation 6: evasion down two."
+    },
+    "Tail Glow": {
+      "effect": 262,
+      "note": "Generation 5 and 6: Sp. Atk up three (host/gen6_moves.inc)."
+    },
+    "Growth": {
+      "effect": 263,
+      "note": "Generation 5 and 6: Attack and Sp. Atk up one, two in the sun."
+    },
+    "Minimize": {
+      "effect": 264,
+      "note": "Generation 5 and 6: evasion up two."
+    }
   }
 }
