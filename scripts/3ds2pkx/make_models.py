@@ -6,7 +6,9 @@ ROM_3DS is the player's own decrypted Pokémon Ultra Sun, Ultra Moon, Sun, or Mo
 WORK is the launcher's folder for it, where this keeps:
   addon/     StarsMmd's Blender-Addon-Gamecube-Models at the commit downloads.json pins
              (reused from GAMECUBE_ADDON or sibling ../battle-revolution/addon when already present)
-  models/N/  each Pokémon's pokemon.json, model.pkx, model-shiny.pkx, icons and cry.wav
+  models/N/  each Pokémon's pokemon.json, model.pkx, model-shiny.pkx, icons and cry.wav, and its other forms in forms/
+             (make_pack.py); and models/N/forms/ for each Pokémon below 494 the ROM has other models of (Megas, Primal
+             Reversion, Alola forms, female models), which the disc's or Battle Revolution's model is the base of
 """
 import hashlib
 import json
@@ -97,6 +99,8 @@ def main():
     with rom3ds.Rom3DS(rom_path) as rom:
         if rom.product_code not in rom3ds.PRODUCT_CODES:
             raise SystemExit("That 3DS ROM (%s) isn't Pokémon Ultra Sun, Ultra Moon, Sun, or Moon." % rom.product_code)
+        earlier = [n for n in range(1, 494) if n not in numbers and rom.variations(n)]
+    numbers = earlier + numbers
     say('Making models for %d Pokémon' % len(numbers))
     sys.argv = [sys.argv[0], '--by-number', '--keep', rom_path, os.path.join(work, 'models'), 'Ultra Sun / Ultra Moon'] + [str(n) for n in numbers]
     import make_pack

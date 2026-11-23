@@ -619,3 +619,35 @@ test('a pack\'s cry.wav and a Battle Revolution one are read beside their Pokém
     assert.match(entry.status.note, /with its cry from your Battle Revolution disc\. Umbreon stands in for its looks until its Battle Revolution assets are made\./);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test('a 3DS Pokémon\'s forms are Pokédex looks, each then its shiny one, and only folders it has', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'forms-'));
+  try {
+    const put = (name, files) => {
+      fs.mkdirSync(path.join(root, 'forms', name), { recursive: true });
+      for (const file of files) fs.writeFileSync(path.join(root, 'forms', name, file), 'x');
+    };
+    put('mega-charizard-x', ['model.pkx', 'model-shiny.pkx']);
+    put('female', ['model.pkx']);
+    put('not-made', []);
+    fs.writeFileSync(path.join(root, 'forms', 'forms.json'), JSON.stringify([
+      { folder: 'mega-charizard-x', name: 'Mega Charizard X', form: 1, female: false, kind: 'mega', types: ['Fire', 'Dragon'],
+        stats: [78, 130, 111, 130, 85, 100], abilities: ['Tough Claws'], height: 1.7, weight: 110.5 },
+      { folder: 'female', name: 'Female', form: 0, female: true, kind: 'female' },
+      { folder: 'not-made', name: 'Not made', form: 2, female: false },
+      { folder: '../escape', name: 'Escape', form: 3, female: false }]));
+    const mega = { title: 'Mega Evolution', note: 'Mega Evolution isn\'t in the game, so no Pokémon becomes this: its model from your 3DS ROM, to look at.',
+      info: { types: ['Fire', 'Dragon'], stats: [78, 130, 111, 130, 85, 100], abilities: ['Tough Claws'], height: '5\'07"', weight: '243.6 lbs' } };
+    const female = { title: 'Female look', note: 'How a female one looks in the 3DS games. The game shows female and male ones alike, as the usual model.', info: {} };
+    assert.deepEqual(packs.formLooks(root), [
+      { id: 'form:mega-charizard-x', label: 'Mega Charizard X', ...mega }, { id: 'form:mega-charizard-x:shiny', label: 'Shiny Mega Charizard X', ...mega },
+      { id: 'form:female', label: 'Female', ...female }]);
+    assert.equal(packs.formModelFile(root, 'form:mega-charizard-x:shiny'), path.join(root, 'forms', 'mega-charizard-x', 'model-shiny.pkx'));
+    assert.equal(packs.formModelFile(root, 'form:female'), path.join(root, 'forms', 'female', 'model.pkx'));
+    for (const bad of ['form:../escape', 'form:female:other', 'model', 'form:a:shiny:more', 'form:'])
+      assert.throws(() => packs.formModelFile(root, bad), /no such form/);
+    assert.deepEqual(packs.formLooks(path.join(root, 'nowhere')), [], 'none before they are made');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

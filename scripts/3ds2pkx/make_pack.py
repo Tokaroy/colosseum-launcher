@@ -104,7 +104,15 @@ def make_forms(n, folder, lines):
         if key in used:   # Genesect's drives are all named Genesect; Zygarde has two 10% Formes
             key = '%s-%d' % (key, form)
         used.add(key)
-        listing.append({'folder': key, 'name': name, 'form': form, 'female': female})
+        entry = {'folder': key, 'name': name, 'form': form, 'female': female,
+                 'kind': 'female' if female else 'battle' if BATTLE_FORMS.get(n) == form
+                 else 'mega' if name.startswith(('Mega ', 'Primal')) else 'form'}
+        info = None if female else game.form_info(n, form)
+        if n == 493 and not female:   # Arceus's type is its plate's, so its forms share its personal data
+            info = {'types': [name]}
+        if info:
+            entry.update(info)
+        listing.append(entry)
         sub = os.path.join(folder, FORMS, key)
         battle = not female and BATTLE_FORMS.get(n) == form
         tops = [os.path.join(folder, 'model-form1.pkx'), os.path.join(folder, 'model-form1-shiny.pkx')] if battle else []

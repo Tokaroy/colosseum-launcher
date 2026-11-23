@@ -875,6 +875,8 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .pokedex-stage-controls { position: absolute; top: 12px; right: 12px; display: flex; gap: 7px; }
 .pokedex-stage-controls label { display: grid; gap: 3px; color: var(--dex-muted); font-size: 10px; font-weight: 700; }
 .pokedex-stage-controls select { width: 112px; padding: 5px 8px; font-size: 12px; }
+/* Look names a 3DS form in full ("Shiny Mega Charizard X"); still kept off the motion and buttons beside it */
+#pokedex-form { width: auto; min-width: 112px; max-width: 220px; }
 
 /* Customize: the heroes down the left, the model, and its colours on the right (the Pokédex's stage and colours) */
 .customize-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(150px, 190px) minmax(0, 1fr) minmax(240px, 290px); }

@@ -99,6 +99,22 @@ class USUMData:
         self._evo_parents = None
         self._form_names = None
 
+    def form_info(self, national, form):
+        """A form's own types, base stats (HP, Attack, Defense, Sp. Atk, Sp. Def, Speed), abilities (its hidden one
+        last), height (m) and weight (kg), from its own personal data: the Pokémon's form stats index (0x1C), then one
+        entry for each form. None for a form that shares the Pokémon's (Vivillon's patterns, Unown's letters)."""
+        base = self.personal.get_entry(national)
+        first = struct.unpack_from('<H', base, 0x1C)[0]
+        if not first or not 1 <= form < base[0x20]:
+            return None
+        d = self.personal.get_entry(first + form - 1)
+        hp, atk, df, spe, spa, spd = d[0:6]
+        types = list(dict.fromkeys([TYPES[d[6]], TYPES[d[7]]]))
+        abilities = [self.ability_names[a] for a in dict.fromkeys((d[0x18], d[0x19], d[0x1A])) if 0 < a < len(self.ability_names)]
+        height, weight = struct.unpack_from('<HH', d, 0x24)
+        return {'types': types, 'stats': [hp, atk, df, spa, spd, spe], 'abilities': abilities,
+                'height': round(height / 100.0, 2), 'weight': round(weight / 10.0, 1)}
+
     def form_name(self, national, form):
         """A form's name as the games show it ('Mega Charizard X', 'Zen Mode', 'Polar Pattern'), or ''. Text file 119
         lists the National Dex's names (0-808), then each Pokémon's other forms in turn from 809, in National Dex

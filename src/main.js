@@ -1636,7 +1636,9 @@ function generationDex(rom, generation = 4) {
     const each = pokemon[i];
     const sprite = made(each.national) ? `data:image/png;base64,${fs.readFileSync(path.join(dirOf(each.national), String(each.national), pokemonPacks.FILES.body)).toString('base64')}`
       : disc.find(item => item.national === each.base.national)?.sprite || null;
-    return { id: each.id, name: entry.name, national: each.national, types: entry.types, abilities: entry.abilities, stats: entry.stats, sprite, generation };
+    const shinyFile = path.join(dirOf(each.national), String(each.national), pokemonPacks.FILES.bodyShiny);
+    const spriteShiny = made(each.national) && fs.existsSync(shinyFile) ? `data:image/png;base64,${fs.readFileSync(shinyFile).toString('base64')}` : null;
+    return { id: each.id, name: entry.name, national: each.national, types: entry.types, abilities: entry.abilities, stats: entry.stats, sprite, spriteShiny, generation };
   });
   generationDexCache = { stamp, list };
   return list;
@@ -1673,6 +1675,25 @@ function fairyBattleData(rom) {
   return { moves, retyped: Object.keys(fairy.moves).map(Number), learnsets };
 }
 
+// A Pokémon's 3DS forms (pokemonPacks.formLooks): its female model, Megas, Primal Reversion, regional, battle and other
+// forms, each then its shiny one. None without Generation 5 and 6 Pokémon turned on, or before Make assets made them.
+function usumForms(national) {
+  if (!Number.isInteger(national) || national < 1 || !usumWanted().length) return [];
+  return pokemonPacks.formLooks(path.join(usumModels(), String(national)));
+}
+// An entry with its 3DS forms after its own looks. A disc Pokémon that has other looks of its own (Unown's letters,
+// Castform's weather, XD's Deoxys) keeps just those: they're what the game shows.
+function withUsumForms(entry, national = entry.national) {
+  if ((entry.forms || []).length > 2) return entry;
+  const more = usumForms(national);
+  return more.length ? { ...entry, forms: [...(entry.forms || []), ...more] } : entry;
+}
+function usumFormLook(national, form) {
+  const file = pokemonPacks.formModelFile(path.join(usumModels(), String(national)), form);
+  if (!fs.existsSync(file)) throw new Error('That form\'s model isn\'t made yet: press Make assets under Generation 5 and 6 Pokémon.');
+  return { pkx: fs.readFileSync(file) };
+}
+
 function pokedexList(rom) {
   let species = withPbrForms(withHdSprites(rom, pokedexData.list(rom)));
   let packs = [], problems = [];
@@ -1688,11 +1709,14 @@ function pokedexList(rom) {
       pokedexPacks = new Map();
       packs = entries.map((entry, i) => {
         const each = all[i], base = species.find(item => item.national === each.base.national);
-        pokedexPacks.set(entry.pack.key, { base: each.base.national, files: { model: each.assets.model, modelShiny: each.assets.modelShiny },
+        pokedexPacks.set(entry.pack.key, { base: each.base.national, national: each.generation ? each.national : null,
+          files: { model: each.assets.model, modelShiny: each.assets.modelShiny },
           cry: own ? each.row.readUInt16BE(pokemonCries.VOICE) : pokedexCries.soundOf(rom, each.base.national), ownCry: ownCry(each) });
-        return { ...entry, key: `pack:${entry.pack.key}`,
+        const listed = { ...entry, key: `pack:${entry.pack.key}`,
           sprite: each.images.body ? `data:image/png;base64,${each.images.body.toString('base64')}` : base?.sprite || null,
           forms: each.assets.model ? [{ id: 'model', label: 'Normal' }, ...(each.assets.modelShiny ? [{ id: 'modelShiny', label: 'Shiny' }] : [])] : base?.forms || [] };
+        // a later generation's Pokémon's 3DS forms (a pack of the player's own is only its own looks)
+        return each.generation ? withUsumForms(listed, each.national) : listed;
       });
       // The game's own Pokémon's evolutions into a later generation's (Yanma into Yanmega) or a pack's ("evolvesFrom"), and
       // how those can be had
@@ -1736,6 +1760,7 @@ function pokedexList(rom) {
     if (pokedexPacks.get(String(key).slice('pack:'.length))?.ownCry) return true;
     try { return pokedexCries.has(rom, pokedexCry(rom, key)); } catch (_) { return false; }
   };
+  species = species.map(entry => withUsumForms(entry));
   // canMakePacks: Make a pack is offered for the game's own Pokémon. A pack's speciesId is its number in the chosen game's
   // saves (XD's Generation 4 Pokémon are numbered 2 past Colosseum's), for the Pokémon tab to find it by.
   return { species: species.map(entry => ({ ...entry, hasCry: hasCry(entry.national) })),
@@ -1781,6 +1806,7 @@ function withPbrForms(species) {
 function pokedexLook(key, form) {
   const name = String(key);
   if (!name.startsWith('pack:')) {
+    if (form.startsWith(pokemonPacks.FORM_LOOK)) return usumFormLook(Number(name), form);
     const pbr = PBR_FORMS[form];
     if (!pbr) return { national: Number(name) };
     const file = path.join(pbrModels(), String(Number(name)), pbr);
@@ -1789,6 +1815,7 @@ function pokedexLook(key, form) {
   }
   const entry = pokedexPacks.get(name.slice('pack:'.length));
   if (!entry) throw new Error('That Pokémon isn\'t in your packs any more.');
+  if (form.startsWith(pokemonPacks.FORM_LOOK) && entry.national) return usumFormLook(entry.national, form);
   if (form !== 'model' && form !== 'modelShiny') return { national: entry.base };
   if (!entry.files[form]) throw new Error('That Pokémon has no such model.');
   return { pkx: entry.files[form] };

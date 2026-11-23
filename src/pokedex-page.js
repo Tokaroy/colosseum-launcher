@@ -140,6 +140,14 @@ function renderList() {
 
 // --- The chosen Pokémon --------------------------------------------------------------
 
+// An entry as a look of its shows it: a 3DS form's own types, stats, abilities, height and weight, and what the form
+// is in the game in place of how the Pokémon can be had (pokemon-packs.js formLooks)
+function asLook(entry, id) {
+  const look = entry.forms.find(item => item.id === id);
+  if (!look?.note) return entry;
+  return { ...entry, ...look.info, status: { ...entry.status, label: look.title, note: look.note, locked: false, kind: 'form' } };
+}
+
 function renderInfo(entry) {
   $('pokedex-info').hidden = false;
   $('pokedex-number').textContent = number(entry.national);
@@ -349,6 +357,7 @@ const cry = createCry($('pokedex-cry'), { onError: setStatus });
 $('pokedex-search').addEventListener('input', () => { if (species) applyFilter(); });
 $('pokedex-form').addEventListener('change', event => {
   form = event.target.value;
+  renderInfo(asLook(selected, form));
   showModel(selected);
 });
 $('pokedex-motion').addEventListener('change', async event => {

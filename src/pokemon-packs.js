@@ -1171,8 +1171,64 @@ function pokedexEntries(pokemon, tables) {
   });
 }
 
+// A Pokémon's other models made from a 3DS ROM (scripts/3ds2pkx make_pack.py), in `folder`/forms/<name>/ and listed in
+// forms/forms.json ([{ folder, name, form, female, kind, types, stats, abilities, height (m), weight (kg) }]): its female
+// model, Megas, Primal Reversion, regional, battle and other forms. As Pokédex looks, each then its shiny one:
+// [{ id: 'form:<name>' or 'form:<name>:shiny', label, title, note, info }], `title` and `note` saying what the form is in the game and
+// `info` what it has of its own in the Pokédex's shape (types, stats, abilities, height and weight as the entries
+// show them). One whose model isn't there is left out.
+const FORM_NOTES = {
+  female: ['Female look', 'How a female one looks in the 3DS games. The game shows female and male ones alike, as the usual model.'],
+  battle: ['Battle form', 'It changes into this form in battle, with these types and stats. The game shows its usual model while it\'s in this form.'],
+  mega: [null, null],
+  form: ['Other form', 'The game has no way to have this form: its model from your 3DS ROM, to look at.']
+};
+function formNote(each) {
+  if (each.kind === 'mega') {
+    const what = String(each.name).startsWith('Primal') ? 'Primal Reversion' : 'Mega Evolution';
+    return [what, `${what} isn't in the game, so no Pokémon becomes this: its model from your 3DS ROM, to look at.`];
+  }
+  return FORM_NOTES[each.kind] || FORM_NOTES.form;
+}
+function formInfo(each) {
+  const info = {};
+  if (Array.isArray(each.types) && each.types.length) info.types = each.types.map(String);
+  if (Array.isArray(each.stats) && each.stats.length === 6) info.stats = each.stats.map(Number);
+  if (Array.isArray(each.abilities) && each.abilities.length) info.abilities = each.abilities.map(String);
+  if (Number(each.height) > 0) {
+    const inches = Math.round(Number(each.height) * 39.3701);
+    info.height = `${Math.floor(inches / 12)}'${String(inches % 12).padStart(2, '0')}"`;
+  }
+  if (Number(each.weight) > 0) info.weight = `${(Number(each.weight) * 2.20462).toFixed(1)} lbs`;
+  return info;
+}
+const FORM_LOOK = 'form:';
+const FORM_FOLDER = /^[a-z0-9][a-z0-9-]{0,47}$/;
+function formLooks(folder) {
+  let listed;
+  try { listed = JSON.parse(fs.readFileSync(path.join(folder, 'forms', 'forms.json'), 'utf8')); } catch (_) { return []; }
+  if (!Array.isArray(listed)) return [];
+  const looks = [];
+  for (const each of listed) {
+    if (!FORM_FOLDER.test(String(each?.folder))) continue;
+    const dir = path.join(folder, 'forms', each.folder), label = String(each.name || each.folder);
+    if (!fs.existsSync(path.join(dir, FILES.model))) continue;
+    const [title, note] = formNote(each), info = formInfo(each);
+    looks.push({ id: `${FORM_LOOK}${each.folder}`, label, title, note, info });
+    if (fs.existsSync(path.join(dir, FILES.modelShiny))) looks.push({ id: `${FORM_LOOK}${each.folder}:shiny`, label: `Shiny ${label}`, title, note, info });
+  }
+  return looks;
+}
+// The model file of a look formLooks gave, under `folder`; an error for any other
+function formModelFile(folder, look) {
+  const [name, shiny, ...rest] = String(look).slice(FORM_LOOK.length).split(':');
+  if (!String(look).startsWith(FORM_LOOK) || !FORM_FOLDER.test(name) || rest.length || (shiny !== undefined && shiny !== 'shiny'))
+    throw new Error('That Pokémon has no such form.');
+  return path.join(folder, 'forms', name, shiny ? FILES.modelShiny : FILES.model);
+}
+
 module.exports = { FIRST_ID, LAST_ID, FIRST_PAST_GAP, REGISTRY_FILE, FILES, packsDirectory, readGameTables, readRegistry, writeRegistry, assignIds,
   decodePng, resize, encodeRgba8, spriteFile, battleRevolutionFace, boxIcon, buildRow, evolutionBytes, loadPacks, compile, generationPokemon, ownRows, ownModels, OWN_NATIONALS, pokedexEntries, readCry,
-  exportSpec, formatJson, ENTRY_FILE, PACK_FILE, FOLDER,
+  exportSpec, formatJson, ENTRY_FILE, PACK_FILE, FOLDER, FORM_LOOK, formLooks, formModelFile,
   // A species the original game hasn't: a pack's, or a later generation's
   isPackSpecies: id => (id >= FIRST_ID && id <= LAST_ID) || id >= 413 };

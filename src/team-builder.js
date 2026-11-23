@@ -84,10 +84,12 @@
   const dex = () => ({ species: pickable(), moves: movesOf(), items: [...itemById.values()], balls: data.balls,
     abilities: id => speciesInfo(id)?.abilities || [], gender: id => speciesInfo(id)?.gender ?? T.GENDER.none });
 
-  function sprite(id, size, className = '') {
+  // A Pokémon's sprite, its shiny one for a shiny set where it has one (a later generation's Pokémon made from the
+  // player's 3DS ROM or Battle Revolution disc: main.js generationDex)
+  function sprite(id, size, className = '', shiny = false) {
     const entry = byId.get(id);
     if (!entry?.sprite) return el('span', { className: `tb-no-sprite ${className}`, textContent: entry ? '' : '?' });
-    const image = el('img', { src: entry.sprite, alt: '', width: size, height: size, className });
+    const image = el('img', { src: (shiny && entry.spriteShiny) || entry.sprite, alt: '', width: size, height: size, className });
     image.loading = 'lazy';
     return image;
   }
@@ -122,7 +124,7 @@
         const odd = unlearnable(set).length;
         button.title = `${displayName(set)}: edit its set`;
         button.setAttribute('aria-current', String(i === current && view === 'set'));
-        button.append(...[sprite(set.species, 44),
+        button.append(...[sprite(set.species, 44, '', set.shiny),
           el('span', { className: 'tb-slot-text' },
             el('strong', { textContent: displayName(set) }),
             el('small', { textContent: set.item ? itemById.get(set.item)?.name || 'Item' : set.moves.length ? `${set.moves.length} move${set.moves.length === 1 ? '' : 's'}` : 'Level-up moves' })),
@@ -234,6 +236,8 @@
     if (!set) { $('tb-set').replaceChildren(); return; }
     const entry = byId.get(set.species), info = speciesInfo(set.species) || { abilities: [], gender: T.GENDER.none };
     const update = () => { refresh(); renderTeam(); };
+    const portraitParts = () => [sprite(set.species, 96, '', set.shiny), set.shiny ? el('span', { className: 'tb-shiny-mark', title: 'Shiny', textContent: '★' }) : null].filter(Boolean);
+    const portrait = el('div', { className: 'tb-portrait' }, ...portraitParts());
 
     // Who it is
     const nickname = el('input', { className: 'online-input', type: 'text', maxLength: T.NICKNAME_LENGTH, value: set.nickname, placeholder: entry?.name || '', spellcheck: false, autocomplete: 'off' });
@@ -250,7 +254,7 @@
     gender.addEventListener('change', () => { set.gender = gender.value; update(); });
 
     const shiny = el('input', { type: 'checkbox', checked: set.shiny });
-    shiny.addEventListener('change', () => { set.shiny = shiny.checked; update(); });
+    shiny.addEventListener('change', () => { set.shiny = shiny.checked; portrait.replaceChildren(...portraitParts()); update(); });
 
     const ball = el('select');
     for (const each of data.balls) ball.append(el('option', { value: each.id, textContent: each.name }));
@@ -261,7 +265,7 @@
     friendship.addEventListener('change', () => { set.friendship = Math.max(0, Math.min(255, Math.round(Number(friendship.value)) || 0)); friendship.value = set.friendship; refresh(); });
 
     const identity = el('div', { className: 'tb-identity' },
-      el('div', { className: 'tb-portrait' }, sprite(set.species, 96), set.shiny ? el('span', { className: 'tb-shiny-mark', title: 'Shiny', textContent: '★' }) : null),
+      portrait,
       el('div', { className: 'tb-identity-main' },
         el('div', { className: 'tb-species' },
           el('h2', { textContent: entry?.name || speciesName(set.species) }),
