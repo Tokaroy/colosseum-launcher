@@ -93,7 +93,8 @@
   function setTitle(set) {
     const data = builder().data(), name = set.nickname || builder().speciesName(set.species);
     if (!data) return name;
-    const item = [...data.items, ...(data.generations?.[4]?.items || [])].find(each => each.id === set.item)?.name, moves = set.moves.map(id => data.moves.find(move => move.id === id)?.name).filter(Boolean);
+    const later = Object.values(data.generations || {}), allMoves = [...data.moves, ...later.flatMap(each => each.moves || [])];
+    const item = [...data.items, ...later.flatMap(each => each.items || [])].find(each => each.id === set.item)?.name, moves = set.moves.map(id => allMoves.find(move => move.id === id)?.name).filter(Boolean);
     return `${name}${item ? ` @ ${item}` : ''}\n${moves.length ? moves.join(' · ') : 'Level-up moves'}`;
   }
 
@@ -200,8 +201,10 @@
 
   function names() {
     const data = builder().data();
-    const moves = [...(data?.generations?.[4]?.moves || []), ...(data?.moves || [])];
-    const items = [...(data?.items || []), ...(data?.generations?.[4]?.items || [])];
+    // the later generations' too (generation 6's has the fifth's and sixth's moves and items)
+    const later = Object.values(data?.generations || {});
+    const moves = [...later.flatMap(each => each.moves || []), ...(data?.moves || [])];
+    const items = [...(data?.items || []), ...later.flatMap(each => each.items || [])];
     return { species: id => builder().speciesName(id) || undefined, item: id => items.find(item => item.id === id)?.name,
       move: id => moves.find(move => move.id === id)?.name };
   }

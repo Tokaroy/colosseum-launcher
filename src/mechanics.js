@@ -43,11 +43,11 @@
     { id: 'soundSubstitute', bit: 11, generation: 6, engine: true, name: 'Sound moves pass substitutes',
       note: 'Sound moves such as Hyper Voice hit through a substitute.' },
     { id: 'moves', bit: 12, generation: 6, engine: true, name: 'Gen 6 move effects',
-      note: 'Knock Off does half again to a Pokémon holding an item, Hidden Power is always 60, Toxic never misses when a Poison type uses it, Defog clears hazards from both sides, Wring Out and Crush Grip go by the HP as generation 5 works it, Disable, Encore and Taunt last generation 6\'s turns, and binding moves last 4 or 5 turns (7 with Grip Claw) and hurt an eighth.' },
+      note: 'X and Y battle rules bring every move of generations 5 and 6, from Hone Claws to Hyperspace Fury. With this on, old moves work as they do there too: Knock Off does half again to a Pokémon holding an item, Hidden Power is always 60, Toxic never misses when a Poison type uses it, Defog clears hazards from both sides, Wring Out and Crush Grip go by the HP as generation 5 works it, Disable, Encore and Taunt last generation 6\'s turns, and binding moves last 4 or 5 turns (7 with Grip Claw) and hurt an eighth.' },
     { id: 'abilities', bit: 13, generation: 6, engine: true, name: 'Gen 6 abilities',
-      note: 'Sturdy survives a hit from full HP with 1 HP left, Lightning Rod and Storm Drain take their type\'s moves and raise Sp. Atk, Effect Spore doesn\'t affect Grass types, Keen Eye ignores the target\'s raised evasion, Frisk shows every foe\'s item, Oblivious stops Taunt, and Stench may make the target flinch.' },
+      note: 'X and Y battle rules bring every ability of generations 5 and 6, from Pickpocket to Delta Stream. With this on, old abilities work as they do there too: Sturdy survives a hit from full HP with 1 HP left, Lightning Rod and Storm Drain take their type\'s moves and raise Sp. Atk, Effect Spore doesn\'t affect Grass types, Keen Eye ignores the target\'s raised evasion, Frisk shows every foe\'s item, Oblivious stops Taunt, and Stench may make the target flinch.' },
     { id: 'items', bit: 14, generation: 6, engine: true, name: 'Gen 6 items',
-      note: 'Assault Vest, Eviolite, Rocky Helmet and Weakness Policy can be held, in the team builder and online, and Mental Herb also cures Taunt, Encore, Torment and Disable.' },
+      note: 'The held items of generations 5 and 6 can be held, in the team builder and online: Assault Vest, Eviolite, Rocky Helmet, Weakness Policy, Air Balloon, Red Card, Eject Button, Safety Goggles, the Roseli, Kee and Maranga Berries and the rest. Mental Herb also cures Taunt, Encore, Torment and Disable.' },
     { id: 'hiddenAbilities', bit: 15, generation: 5, engine: true, name: 'Hidden abilities',
       note: 'A Pokémon can have its hidden ability, where it\'s one the game has (Ninetales\' Drought), in the team builder and online.' }
   ];

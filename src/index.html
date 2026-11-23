@@ -537,6 +537,7 @@
             <div class="settings-group" data-feature="generations">
               <label class="field"><span>Battle rules<small id="battle-rules-note"></small></span><select id="battleRules"><option id="battle-rules-gen3" value="3">Colosseum (Gen 3)</option><option value="4">Diamond and Pearl (Gen 4)</option><option id="battle-rules-gen6" value="6">X and Y (Gen 6)</option></select></label>
               <label class="switch"><span><strong>Generation 4 Pokémon</strong><small id="generation4-note"></small></span><input id="generation4Pokemon" type="checkbox"><i></i></label>
+              <label class="switch"><span><strong>Generation 5 and 6 Pokémon</strong><small id="generation6-note"></small></span><input id="generation6Pokemon" type="checkbox"><i></i></label>
               <details id="mechanics-panel" class="mechanics-panel"><summary><span><strong>Customize rules <small id="mechanics-changed"></small></strong><small id="mechanics-note">Turn single changes on or off on top of your battle rules.</small></span></summary>
                 <label class="switch"><span><strong>Gen 6 types</strong><small id="fairy-type-note">Gen 6. The Fairy type and Gen 6's type chart: Clefairy, Gardevoir and the others become Fairy types, and Moonblast, Play Rough and the other Fairy moves are learned. Turned off, a Pokémon forgets its Fairy moves.</small></span><input id="fairyType" type="checkbox"><i></i></label>
                 <div id="mechanics-list" class="mechanics-list"></div></details>
@@ -848,7 +849,7 @@
           <input id="party-name" class="tb-name" type="text" maxlength="24" spellcheck="false" autocomplete="off" aria-label="Party name">
         </div>
         <div class="tb-head-actions">
-          <label class="tb-generation" title="Gen 3: Colosseum's Pokémon and moves, under any battle rules. Gen 4: adds Diamond, Pearl and Platinum's, under Diamond and Pearl or X and Y battle rules. Gen 6: X and Y's moves, hidden abilities and new items, under X and Y battle rules."><span>Generation</span><select id="party-generation"><option value="3">3</option><option value="4">4</option><option value="6">6</option></select></label>
+          <label class="tb-generation" title="Gen 3: Colosseum's Pokémon and moves, under any battle rules. Gen 4: adds Diamond, Pearl and Platinum's, under Diamond and Pearl or X and Y battle rules. Gen 6: adds Generation 5 and 6's Pokémon, every move of theirs, hidden abilities and new items, under X and Y battle rules."><span>Generation</span><select id="party-generation"><option value="3">3</option><option value="4">4</option><option value="6">6</option></select></label>
           <button id="party-import" class="subtle" title="Paste a team in Pokémon Showdown's text format">Import</button>
           <button id="party-export" class="subtle" title="Copy this team as Pokémon Showdown text">Export</button>
           <button id="party-editor-close" class="modal-close" aria-label="Close">×</button>

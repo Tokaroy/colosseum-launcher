@@ -230,7 +230,8 @@ test('Generation 4 held items play only under Diamond and Pearl battle rules, an
   assert.deepEqual(four([LIFE_ORB, FOCUS_SASH, CHOICE_SCARF, ENIGMA_BERRY, 0x224, 0x289]), []);   // Adamant Orb to Zoom Lens
   assert.deepEqual(four([200]), []);                                                              // the disc's own still
   assert.match(four([0x28a])[0], /item #650, a Generation 6 item, which plays only in a room with Gen 6 items/);   // Assault Vest
-  assert.match(four([0x28e])[0], /item #654, which a Pokémon can't hold/);                         // past Weakness Policy
+  assert.match(four([0x2a4])[0], /item #676, a Generation 6 item, which plays only in a room with Gen 6 items/);   // Sachet
+  assert.match(four([0x2a5])[0], /item #677, which a Pokémon can't hold/);                         // past Sachet
   assert.match(four([289])[0], /which a Pokémon can't hold/);                                      // TM01
   assert.ok(formats.problems({ format: 'gen3ou', battleRules: 4 }, ids, party([LIFE_ORB]), names).includes(
     'Snorlax holds Life Orb, a Generation 4 item, which Gen 3 OU doesn\'t have.'));

@@ -177,9 +177,8 @@ function laterGeneration(rom, base, generation = 4, tables = null, before = null
   const generations = require('./generations'), pokemonPacks = require('./pokemon-packs');
   const data = generations.load(generation), learned = require(`./generations/gen${generation}-learnsets.json`).species;
   tables ||= pokemonPacks.readGameTables(rom);
-  // the generation's own Pokémon, or for one with none of its own the fourth's (generation 6's rules play them)
-  const withPokemon = data.newSpecies[0] <= data.newSpecies[1] ? generation : 4;
-  const built = generations.build(tables, { battleRules: generation, generationPokemon: [withPokemon] });
+  // the generation's own Pokémon and those of each generation before it (generation 6's rules play the fourth's too)
+  const built = generations.build(tables, { battleRules: generation, generationPokemon: generations.pokemonGenerations(generation) });
   const rows = pokemonPacks.generationPokemon(tables, built).pokemon;
   const moveId = number => number < generations.FIRST_NEW_MOVE ? number : number + generations.MOVE_OFFSET;
   const disc = new Map(base.moves.map(move => [move.id, move])), added = new Set(built.moves.map(move => move.id));
@@ -197,7 +196,7 @@ function laterGeneration(rom, base, generation = 4, tables = null, before = null
 
   // the game's numbers for each National Pokédex number: its own Pokémon's, then the generation's
   const idOf = new Map(), nationalOf = new Map();
-  for (const each of tables.species) if (each.national >= 1 && each.national < data.newSpecies[0] && !idOf.has(each.national)) idOf.set(each.national, each.id);
+  for (const each of tables.species) if (each.national >= 1 && each.national <= 386 && !idOf.has(each.national)) idOf.set(each.national, each.id);
   for (const each of rows) idOf.set(each.national, each.id);
   for (const [national, id] of idOf) nationalOf.set(id, national);
 
@@ -205,7 +204,9 @@ function laterGeneration(rom, base, generation = 4, tables = null, before = null
   const discAbilities = new Map();
   for (const entry of Object.values(base.species)) for (const ability of entry.abilities) discAbilities.set(ability.id, ability);
   const ability = (id, slot) => {
-    const later = data.abilities[id === 124 ? 77 : id], own = discAbilities.get(id);   // 124: Tangled Feet (generations.js colosseumAbility)
+    // 124: Tangled Feet, and from 125 generations 5 and 6's (generations.js colosseumAbility); the game's 76 is Ruby's
+    // Cacophony, which no later game has, and its 77 Air Lock, which they number 76
+    const later = data.abilities[id === 76 ? 0 : id === 77 ? 76 : generations.abilityNumber(id)], own = discAbilities.get(id);
     const name = own?.name || (later && pokedex.displayName(later.name));
     return name ? { slot, id, name, doc: later?.description || own?.doc || '' } : null;
   };
@@ -234,7 +235,7 @@ function laterGeneration(rom, base, generation = 4, tables = null, before = null
 
   const species = {};
   for (const [id, national] of nationalOf) {
-    const row = rows.find(each => each.id === id)?.row || tables.species.find(each => each.id === id && each.national < data.newSpecies[0])?.row;
+    const row = rows.find(each => each.id === id)?.row || tables.species.find(each => each.id === id && each.national <= 386)?.row;
     if (!row) continue;
     const learnset = new Map();
     for (let form = national, depth = 0; form && depth < 3; form = parent.get(form), depth++) {

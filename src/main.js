@@ -1263,11 +1263,13 @@ function pbrModels() { return path.join(pbrWork(), 'models'); }
 function pbrReplacing(settings = config.settings) { return Boolean(settings.pbrReplaceAll && config.repo && port.playsOwnModels(config.repo)); }
 // The National Pokédex numbers a model is wanted for: the Pokémon of each generation imported, then with Replace all
 // models the game's own, Bulbasaur to Deoxys
+const PBR_LAST_NATIONAL = 493;
 function pbrWanted(settings = config.settings) {
   const numbers = [];
   for (const generation of settings.generationPokemon || []) {
+    // (Battle Revolution has the Pokémon to Arceus: generations 5 and 6's have none there)
     const [first, last] = generations.load(generation).newSpecies;
-    for (let n = first; n <= last; n++) numbers.push(n);
+    for (let n = first; n <= Math.min(last, PBR_LAST_NATIONAL); n++) numbers.push(n);
   }
   if (pbrReplacing(settings)) numbers.push(...pokemonPacks.OWN_NATIONALS);
   return numbers;
@@ -1368,8 +1370,8 @@ function preparePokemonPacks(rom, folder) {
 // Battle Revolution models make it, or as its stand-in does, which changes nothing in the battle.
 function prepareBattleRules(rom, folder, battleRules, fairyType = false, mechanicChanges = {}) {
   if (packTables?.rom !== rom) packTables = { rom, tables: pokemonPacks.readGameTables(rom) };
-  // the generation's Pokémon: generation 6's rules play the fourth's (it brought none the game has)
-  const generationPokemon = battleRules >= 6 ? [4] : battleRules > generations.COLOSSEUM_RULES ? [battleRules] : [];
+  // the generation's Pokémon and each earlier one's: generation 6's rules play the fourth's, fifth's and sixth's
+  const generationPokemon = battleRules > generations.COLOSSEUM_RULES ? generations.pokemonGenerations(battleRules) : [];
   const built = generations.build(packTables.tables, { battleRules, generationPokemon, fairyType, mechanicChanges });
   const { pokemon, problems } = pokemonPacks.generationPokemon(packTables.tables, built, { modelsDirectory: pbrModels() });
   for (const problem of problems) log(`Generation ${battleRules} Pokémon ${packLabel(problem)}: ${problem.message}`);
@@ -1541,9 +1543,8 @@ function generationDex(rom, generation = 4) {
   if (packTables?.rom !== rom) packTables = { rom, tables: pokemonPacks.readGameTables(rom) };
   const made = n => fs.existsSync(path.join(pbrModels(), String(n), pokemonPacks.FILES.model)) && fs.existsSync(path.join(pbrModels(), String(n), pokemonPacks.FILES.body));
   const fairyType = Boolean(withFairyType(config.settings).fairyType);
-  // generation 6 brought none the game has: its party picks the fourth's
-  const withPokemon = generation >= 6 ? 4 : generation;
-  const built = generations.build(packTables.tables, { battleRules: generation, generationPokemon: [withPokemon], fairyType });
+  // the generation's Pokémon and each earlier one's: a Generation 6 party picks the fourth's, fifth's and sixth's
+  const built = generations.build(packTables.tables, { battleRules: generation, generationPokemon: generations.pokemonGenerations(generation), fairyType });
   const { pokemon } = pokemonPacks.generationPokemon(packTables.tables, built);
   const stamp = `${rom}:${generation}:${fairyType}:${pokemon.filter(each => made(each.national)).map(each => each.national).join(',')}`;
   if (generationDexCache?.stamp === stamp) return generationDexCache.list;
@@ -3121,10 +3122,12 @@ function battleParty(size, { cross = false, platinum = false } = {}) {
 function partyNames() {
   try {
     const rom = teamDisc(), data = battleData(rom);
-    const later = data.generations?.[4];
-    const species = new Map([...Object.entries(later?.species || {}).map(([id, entry]) => [Number(id), entry.name]),
+    // the later generations' (generation 6's has the fifth's and sixth's Pokémon, moves and items too)
+    const later = Object.values(data.generations || {});
+    const species = new Map([...later.flatMap(each => Object.entries(each.species || {})).map(([id, entry]) => [Number(id), entry.name]),
       ...pokedexData.list(rom).map(entry => [entry.id, entry.name])]);
-    const moves = new Map([...(later?.moves || []), ...data.moves].map(move => [move.id, move.name])), items = new Map([...(later?.items || []), ...data.items].map(item => [item.id, item.name]));
+    const moves = new Map([...later.flatMap(each => each.moves || []), ...data.moves].map(move => [move.id, move.name]));
+    const items = new Map([...later.flatMap(each => each.items || []), ...data.items].map(item => [item.id, item.name]));
     return { species: id => species.get(id), move: id => moves.get(id), item: id => items.get(id) };
   } catch (_) { return {}; }
 }

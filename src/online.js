@@ -52,7 +52,9 @@ const formats = require('./formats');
 // 11: a room may play by X and Y's battle rules (battleRules 6) and turn mechanics on or off (mechanics, src/formats.js
 //    and src/mechanics.js), a party may be of generation 6 (hidden abilities, its held items): a launcher before 11
 //    would start its game by other rules.
-const PROTOCOL = 11;
+// 12: under X and Y's rules a room's games have generations 5 and 6's Pokémon, moves, abilities and held items, which
+//    a Generation 6 party may have: a launcher before 12 would start its game without them.
+const PROTOCOL = 12;
 const STAGES = 6;              // the game's stadiums a room can use
 const PING_EVERY = 30000;      // ms between WebSocket keepalives
 const STATUS_EVERY = 30000;    // ms between a host's refreshes of its row on the room list

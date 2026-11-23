@@ -22,16 +22,17 @@
 //
 // A room may play by X and Y's battle rules (6): generation 6's mechanics (src/mechanics.js), each of which a host can
 // turn on or off on top of a room's rules (`mechanics`, the changes to its rules' preset, as the Settings page keeps
-// them), with generation 6's learnsets (src/gen6-learnsets.js: its own and the fourth's), hidden abilities (a member's
-// ability 2, where the room has them) and the held items it brought (Assault Vest, Eviolite, Rocky Helmet, Weakness
-// Policy, where the room has Gen 6 items).
+// them), with generations 5 and 6's Pokémon and moves (only there), generation 6's learnsets (src/gen6-learnsets.js:
+// its own and the fourth's), hidden abilities (a member's ability 2, where the room has them) and the held items
+// generations 5 and 6 brought (Assault Vest to Sachet, where the room has Gen 6 items).
 //
 // A room can have the Fairy type too, under either battle rules (`fairy`, the launcher's src/generations.js): both games
 // then have generation 6's type chart and Fairy types, and its Fairy-type moves, which a party can know only there; each
 // one the Pokémon could know in generation 6 (src/fairy-learnsets.js).
 //
 // Species, moves, items and abilities are the game's numbers: the third generation's, with the Hoenn Pokémon at
-// 277 to 411, and the fourth's Pokémon at 413 to 519 and moves at 358 to 470 (src/generations.js). Shared by the main
+// 277 to 411, the fourth's Pokémon at 413 to 519 and moves at 358 to 470, and the fifth and sixth's Pokémon at 520 to
+// 747 and moves at 471 to 624 (src/generations.js). Shared by the main
 // process, the Online page and the room server, so it needs nothing but itself, src/gen3-learnsets.js,
 // src/gen4-learnsets.js, src/gen6-learnsets.js, src/fairy-learnsets.js and src/mechanics.js (loaded before it on the
 // page).
@@ -57,24 +58,32 @@
   const BATTLE_RULES = [3, 4, 6];
   const PLATINUM_RULES = 'Diamond and Pearl battle rules';
   const RULES_NAMES = { 4: PLATINUM_RULES, 6: 'X and Y battle rules' };
-  // Generation 6's held items, by the game's numbers (host/gen6_items.h): Assault Vest, Eviolite, Rocky Helmet,
-  // Weakness Policy
-  const GEN6_ITEMS = [0x28A, 0x28D];
+  // Generations 5 and 6's held items, by the game's numbers (host/gen6_items.h): Assault Vest to Sachet
+  const GEN6_ITEMS = [0x28A, 0x2A4];
   const gen6Item = id => id >= GEN6_ITEMS[0] && id <= GEN6_ITEMS[1];
   const FAIRY_RULES = 'Gen 6 types';
   // The Fairy type's moves, by the game's numbers (3 past theirs: src/generations.js): Disarming Voice, Draining Kiss,
   // Play Rough, Fairy Wind, Moonblast, Dazzling Gleam, Baby-Doll Eyes
   const FAIRY_MOVES = [577, 580, 586, 587, 588, 608, 611];
   const fairyMove = id => FAIRY_MOVES.includes(id);
+  // Generations 5 and 6's Pokémon (Victini to Volcanion, 26 past their National Pokédex numbers) and moves (Hone Claws
+  // to Hyperspace Fury, 3 past theirs), which play only under X and Y's rules; the Fairy moves among them play wherever
+  // the room has Gen 6 types. Victini to Genesect are the fifth's.
+  const GEN6_SPECIES = [520, 747], GEN6_MOVES = [471, 624], LAST_GEN5_SPECIES = 675;
+  const gen6Species = id => id >= GEN6_SPECIES[0] && id <= GEN6_SPECIES[1];
+  const gen6Move = id => id >= GEN6_MOVES[0] && id <= GEN6_MOVES[1] && !fairyMove(id);
 
   // Box legendaries, mythical Pokémon, and the other legendaries (the game's numbers, which are the National Pokédex's
   // up to Celebi, and 26 past it from Turtwig on).
-  // Mewtwo, Lugia, Ho-Oh, Kyogre, Groudon, Rayquaza; Dialga, Palkia, Giratina
-  const RESTRICTED = [150, 249, 250, 404, 405, 406, 509, 510, 513];
-  // Mew, Celebi, Jirachi, Deoxys; Phione, Manaphy, Darkrai, Shaymin, Arceus
-  const MYTHICAL = [151, 251, 409, 410, 515, 516, 517, 518, 519];
-  // birds, beasts, Regis, Latias, Latios; the lake trio, Heatran, Regigigas, Cresselia
-  const LEGENDARY = [144, 145, 146, 243, 244, 245, 401, 402, 403, 407, 408, 506, 507, 508, 511, 512, 514];
+  // Mewtwo, Lugia, Ho-Oh, Kyogre, Groudon, Rayquaza; Dialga, Palkia, Giratina; Reshiram, Zekrom, Kyurem; Xerneas,
+  // Yveltal, Zygarde
+  const RESTRICTED = [150, 249, 250, 404, 405, 406, 509, 510, 513, 669, 670, 672, 742, 743, 744];
+  // Mew, Celebi, Jirachi, Deoxys; Phione, Manaphy, Darkrai, Shaymin, Arceus; Victini, Keldeo, Meloetta, Genesect;
+  // Diancie, Hoopa, Volcanion
+  const MYTHICAL = [151, 251, 409, 410, 515, 516, 517, 518, 519, 520, 673, 674, 675, 745, 746, 747];
+  // birds, beasts, Regis, Latias, Latios; the lake trio, Heatran, Regigigas, Cresselia; Cobalion, Terrakion, Virizion,
+  // Tornadus, Thundurus, Landorus
+  const LEGENDARY = [144, 145, 146, 243, 244, 245, 401, 402, 403, 407, 408, 506, 507, 508, 511, 512, 514, 664, 665, 666, 667, 668, 671];
   // The fourth generation's Pokémon, moves and held items, by the game's numbers (Colosseum's own moves 355 to 357 come
   // before; its items past the game's own, and the Enigma Berry, whose row Colosseum leaves blank).
   const LATER_SPECIES = [413, 519], LATER_MOVES = [358, 470], LATER_ITEMS = [0x224, 0x289], ENIGMA_BERRY = 175;
@@ -341,7 +350,8 @@
     const out = [], generationLearnset = learnsets[generation] || learnsets[3];
     // with the Fairy type, its moves as generation 6 teaches them
     const learnset = { learns: (id, move) => fairy && fairyMove(move) && generation < 6 ? fairyLearnsets.learns(id, move) : generationLearnset.learns(id, move) };
-    const known = move => Number.isInteger(move) && move >= 1 && (move <= LAST_MOVE || (generation >= 4 && laterMove(move)) || (fairy && fairyMove(move)));
+    const known = move => Number.isInteger(move) && move >= 1 && (move <= LAST_MOVE || (generation >= 4 && laterMove(move))
+      || (generation >= 6 && gen6Move(move)) || (fairy && fairyMove(move)));
     for (const each of team) {
       const wire = each.wire;
       if (!wire) continue;   // its species alone: the moves it learns by level
@@ -349,7 +359,7 @@
       const moves = [wire[7], wire[9], wire[11], wire[13]].filter(move => move);
       const seen = new Set();
       for (const move of moves) {
-        if (!known(move)) { if (!laterMove(move) && !fairyMove(move)) out.push(`${name} knows a move this game doesn't have as a Pokémon's own (#${move}).`); }
+        if (!known(move)) { if (!laterMove(move) && !fairyMove(move) && !gen6Move(move)) out.push(`${name} knows a move this game doesn't have as a Pokémon's own (#${move}).`); }
         else if (seen.has(move)) out.push(`${name} knows ${moveName(move)} twice.`);
         else if (!learnset.learns(each.species, move))
           out.push(fairyMove(move) ? `${name} can't learn ${moveName(move)} in generation 6.` : `${name} can't learn ${moveName(move)} in the ${GENERATION_WORDS[generation]} generation.`);
@@ -382,6 +392,12 @@
     }
     if (!rules.fairy) for (const each of team) for (const move of each.moves.filter(fairyMove))
       out.push(`${species(each.species)} knows ${moveName(move)}, a Fairy-type move, which plays only in a room with Gen 6 types.`);
+    // generations 5 and 6's Pokémon and moves: only under X and Y's rules
+    const sixthWhy = rules.battleRules < 6 ? 'which play only under X and Y battle rules' : rules.format === 'gen3ou' ? 'which Gen 3 OU doesn\'t have' : null;
+    if (sixthWhy) for (const each of team) {
+      if (gen6Species(each.species)) out.push(`${species(each.species)} is a Generation ${each.species <= LAST_GEN5_SPECIES ? 5 : 6} Pokémon, ${sixthWhy}.`);
+      for (const move of each.moves.filter(gen6Move)) out.push(`${species(each.species)} knows ${moveName(move)}, a Generation 5 or 6 move, ${sixthWhy}.`);
+    }
     if (!why) return out;
     for (const each of team) {
       if (laterSpecies(each.species)) out.push(`${species(each.species)} is a Generation 4 Pokémon, ${why}.`);
@@ -430,7 +446,8 @@
   const toWin = games => Math.floor(bestOf(games) / 2) + 1;
 
   const api = { LEVELS, BEST_OF, SIZES, POOLS, SLEEP, TURN_TIMES, BATTLE_TIMES, TIMER_RANGE, TIMERS, BATTLE_RULES, FORMATS, FORMAT_IDS, SETTINGS,
-    VARIANTS, RESTRICTED, MYTHICAL, LEGENDARY, UBERS, LATER_SPECIES, LATER_MOVES, LATER_ITEMS, laterSpecies, laterMove, laterItem, gen6Item, GEN6_ITEMS, RULES_NAMES, chosenMechanics, normalize, withoutTimers, bestOf, changes, describe, rulesText, rulesLine, member,
+    VARIANTS, RESTRICTED, MYTHICAL, LEGENDARY, UBERS, LATER_SPECIES, LATER_MOVES, LATER_ITEMS, laterSpecies, laterMove, laterItem, gen6Item, GEN6_ITEMS,
+    GEN6_SPECIES, GEN6_MOVES, gen6Species, gen6Move, RULES_NAMES, chosenMechanics, normalize, withoutTimers, bestOf, changes, describe, rulesText, rulesLine, member,
     problems, validPick, toWin };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.coloFormats = api;

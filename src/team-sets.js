@@ -20,8 +20,9 @@
   // The fourth generation's Pokémon (Turtwig to Arceus), its last move (Shadow Force) and its held items (Adamant Orb to
   // Zoom Lens, and the Enigma Berry, blank in Colosseum), by the game's numbers.
   const LATER = { 4: { species: [413, 519], lastMove: 470, items: [0x224, 0x289], enigmaBerry: 175 },
-    // generation 6's held items (Assault Vest, Eviolite, Rocky Helmet, Weakness Policy); its moves are the Fairy type's
-    6: { items: [0x28A, 0x28D] } };
+    // generations 5 and 6's Pokémon (Victini to Volcanion), their last move (Hyperspace Fury) and their held items
+    // (Assault Vest to Sachet), which a Generation 6 party has
+    6: { species: [520, 747], lastMove: 624, items: [0x28A, 0x2A4] } };
   // A set's ability: its species' first (0), second (1), or with generation 6 its hidden ability (2)
   const HIDDEN_ABILITY = 2;
   const ITEM_LAST = 0xffff;
@@ -53,15 +54,19 @@
   // The species a party of the generation can have: the game numbers its own up to 411, with a gap between the second
   // generation and the third.
   const validSpecies = (id, generation = 3) => Number.isInteger(id) && ((id >= 1 && id <= 251) || (id >= 277 && id <= 411)
-    || (generation >= 4 && id >= LATER[4].species[0] && id <= LATER[4].species[1]));
-  // The last move a party of the generation can have: the third's, or the fourth's new ones after the game's own.
-  const lastMove = generation => generation >= 4 ? LATER[4].lastMove : MOVE_LAST;
+    || (generation >= 4 && id >= LATER[4].species[0] && id <= LATER[4].species[1])
+    || (generation >= 6 && id >= LATER[6].species[0] && id <= LATER[6].species[1]));
+  // The last move a party of the generation can have: the third's, the fourth's new ones after the game's own, or the
+  // fifth and sixth's after those.
+  const lastMove = generation => generation >= 6 ? LATER[6].lastMove : generation >= 4 ? LATER[4].lastMove : MOVE_LAST;
   // The Fairy type's moves (src/generations.js: 3 past their own numbers), which a party in a room with the type can
   // know under either battle rules (src/formats.js)
   const FAIRY_MOVES = [577, 580, 586, 587, 588, 608, 611];
   // Whether the species or move is one only a later generation's party can have: the generation, or 3.
-  const speciesGeneration = id => id >= LATER[4].species[0] && id <= LATER[4].species[1] ? 4 : 3;
-  const moveGeneration = id => id > MOVE_LAST && id <= LATER[4].lastMove ? 4 : 3;
+  const speciesGeneration = id => id >= LATER[6].species[0] && id <= LATER[6].species[1] ? 6 : id >= LATER[4].species[0] && id <= LATER[4].species[1] ? 4 : 3;
+  // (the Fairy type's moves are any party's, in a room with the type)
+  const moveGeneration = id => id > LATER[4].lastMove && id <= LATER[6].lastMove && !FAIRY_MOVES.includes(id) ? 6
+    : id > MOVE_LAST && id <= LATER[4].lastMove ? 4 : 3;
   const itemGeneration = id => id >= LATER[6].items[0] && id <= LATER[6].items[1] ? 6
     : id === LATER[4].enigmaBerry || (id >= LATER[4].items[0] && id <= LATER[4].items[1]) ? 4 : 3;
 
@@ -233,9 +238,11 @@
       const named = /^(.*)\(([^()]+)\)$/.exec(first);
       const speciesName = named ? named[2].trim() : first, nickname = named ? named[1].trim() : '';
       // a form's name (Unown-B, Castform-Sunny) is its species' here
-      const species = find(dex.species, speciesName) || find(dex.species, speciesName.replace(/-[^-]*$/, ''));
+      // (Basculin-Blue-Striped, Pumpkaboo-Super: a form's name of more than one word)
+      const species = find(dex.species, speciesName) || find(dex.species, speciesName.replace(/-[^-]*$/, '')) || find(dex.species, speciesName.replace(/-.*$/, ''));
       if (!species || !validSpecies(species.id, generation)) {
         problems.push(species && validSpecies(species.id, 4) ? `${speciesName}: a Generation 4 Pokémon, which only a Generation 4 party can have.`
+          : species && validSpecies(species.id, 6) ? `${speciesName}: a Generation ${species.id <= 649 + 26 ? 5 : 6} Pokémon, which only a Generation 6 party can have.`
           : `${speciesName}: not a Pokémon this game has.`);
         continue;
       }

@@ -105,8 +105,9 @@
   // Whether the party has a Pokémon, move or held item only a Generation 4 party can have.
   const hasLater = sets => sets.some(set => T.speciesGeneration(set.species) >= 4 || set.moves.some(move => T.moveGeneration(move) >= 4)
     || T.itemGeneration(set.item) >= 4);
-  // what only a Generation 6 party has: a hidden ability, or one of its held items
-  const hasSixth = sets => sets.some(set => set.ability === T.HIDDEN_ABILITY || T.itemGeneration(set.item) >= 6);
+  // what only a Generation 6 party has: a Pokémon or move of generations 5 and 6, a hidden ability, or one of its held items
+  const hasSixth = sets => sets.some(set => set.ability === T.HIDDEN_ABILITY || T.itemGeneration(set.item) >= 6
+    || T.speciesGeneration(set.species) >= 6 || set.moves.some(move => T.moveGeneration(move) >= 6));
 
   function setStatus(text) { $('party-editor-status').textContent = text || ''; }
 
@@ -599,7 +600,7 @@
   // --- The editor as a whole
   function render() {
     const note = loadError || (data && !data.gameTakesSets ? 'Your game is from before sets: it battles with these Pokémon\'s level-up moves until you update it from the Play page.' : '')
-      || (data && generation >= 4 && !later()?.dex?.length ? 'The Generation 4 Pokémon couldn\'t be read from your disc: the Activity log says why.' : '');
+      || (data && generation >= 4 && !later()?.dex?.length ? `The Generation ${generation >= 6 ? '4 to 6' : 4} Pokémon couldn't be read from your disc: the Activity log says why.` : '');
     $('party-dex-note').textContent = note;
     $('party-dex-note').hidden = !note;
     if (!data) { renderTeam(); return; }
@@ -668,7 +669,7 @@
     }
     if (wanted < 6 && hasSixth(editing?.sets || [])) {
       event.target.value = String(generation);
-      setStatus('Take out its hidden abilities and Generation 6 items first: only a Generation 6 party can have them.');
+      setStatus('Take out its Generation 5 and 6 Pokémon and moves, hidden abilities and Generation 6 items first: only a Generation 6 party can have them.');
       return;
     }
     useGeneration(wanted);
