@@ -301,14 +301,9 @@ def _material_of(gf_mat, tex_dict, images, max_size, hideable=False):
     if gf_mat:
         em = gf_mat.get('emission', (0.0, 0.0, 0.0, 0.0))
         mat_lo = gf_mat['name'].lower()
-        if max(em[:3]) > 0.35 or 'fire' in mat_lo or 'flame' in mat_lo:
+        # PROTO: 'emission'/'diffuse' were Constant0/Constant2; only added (glowing) parts are unlit
+        if gf_mat.get('blend_dst') == 1 or 'fire' in mat_lo or 'flame' in mat_lo:
             lighting = LightingModel.UNLIT
-            if not tex:
-                d = gf_mat.get('diffuse', (1.0, 1.0, 1.0, 1.0))
-                diffuse = tuple(min(1.0, a + b) for a, b in zip(d[:3], em[:3])) + (1.0,)
-        elif not tex:
-            d = gf_mat.get('diffuse', (1.0, 1.0, 1.0, 1.0))
-            diffuse = d[:3] + (1.0,)
 
     if tex:
         key = tex['name'].lower()
@@ -330,12 +325,17 @@ def _material_of(gf_mat, tex_dict, images, max_size, hideable=False):
             blend_factor=1.0, lightmap_channel=LightmapChannel.DIFFUSE, is_bump=False, combiner=None,
         ))
 
-    is_blend = (alpha == 'blend') or (gf_mat and gf_mat.get('blend_enabled') and alpha != 'opaque')
+    added = bool(gf_mat and gf_mat.get('blend_dst') == 1)
+    is_blend = (alpha == 'blend') or (gf_mat and gf_mat.get('blend_enabled') and alpha != 'opaque') or added
     translucent = bool(is_blend or hideable)
     cut = None if translucent or alpha != 'cut' else FragmentBlending(
         effect=OutputBlendEffect.OPAQUE, source_factor=BlendFactor.ONE, dest_factor=BlendFactor.ZERO,
         alpha_test_threshold_0=4, alpha_test_threshold_1=7, alpha_test_op=0, depth_compare=3,
     )
+    if added:
+        cut = FragmentBlending(effect=OutputBlendEffect.ADDITIVE_ALPHA, source_factor=BlendFactor.SRC_ALPHA,
+                               dest_factor=BlendFactor.ONE, alpha_test_threshold_0=4, alpha_test_threshold_1=7,
+                               alpha_test_op=0, depth_compare=3)
     return IRMaterial(
         diffuse_color=diffuse, ambient_color=ambient, specular_color=(1.0, 1.0, 1.0, 1.0),
         alpha=1.0, shininess=50.0, color_source=ColorSource.MATERIAL, alpha_source=ColorSource.MATERIAL,

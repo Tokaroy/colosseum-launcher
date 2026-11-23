@@ -193,19 +193,24 @@ def _parse_material(data, start, length):
     cull_mode = 2  # back-face culling default
     alpha_test = False
     blend_enabled = False
+    blend_src, blend_dst, alpha_func, alpha_ref, depth_write = 1, 0, 0, 0, True
     render_priority = 0
     render_layer = 0
     if pos + 16 <= end:
         cmd_len, render_priority, _unk, render_layer = struct.unpack_from('<4I', data, pos)
-        pos += 16
+        pos += 32  # the header, then four LUT hashes (SPICA GFMaterial) before the commands
         if cmd_len > 0 and pos + cmd_len <= end:
             for reg, val, _mask in _read_pica_commands(data, pos, cmd_len // 4):
                 if reg == PICA_GPUREG_FACECULLING_CONFIG:
                     cull_mode = val & 3  # 0=never, 1=front, 2=back
                 elif reg == PICA_GPUREG_FRAGOP_ALPHA_TEST:
                     alpha_test = bool(val & 1)
-                elif reg == PICA_GPUREG_COLOR_OPERATION:
-                    blend_enabled = bool((val >> 8) & 1)
+                    alpha_func, alpha_ref = val >> 4 & 7, val >> 8 & 0xFF
+                elif reg == PICA_GPUREG_BLEND_FUNC:
+                    blend_src, blend_dst = val >> 16 & 15, val >> 20 & 15
+                elif reg == 0x0107:
+                    depth_write = bool(val >> 12 & 1)
+        blend_enabled = (blend_src, blend_dst) != (1, 0)
 
     return {
         'name': mat_name,
@@ -220,6 +225,7 @@ def _parse_material(data, start, length):
         'cull_mode': cull_mode,
         'alpha_test': alpha_test,
         'blend_enabled': blend_enabled,
+        'blend_src': blend_src, 'blend_dst': blend_dst, 'alpha_func': alpha_func, 'alpha_ref': alpha_ref, 'depth_write': depth_write,
         'render_layer': render_layer,
         'render_priority': render_priority,
     }
