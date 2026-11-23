@@ -1252,3 +1252,14 @@ test('Customize rules lists only the mechanics the battle rules can play, and sa
   assert.equal(ui.elements.get('mechanics-changed').textContent, '· 2 changed');
   assert.match(ui.elements.get('battle-rules-note').textContent, /^X and Y's damage, critical hits and status, hidden abilities and the Fairy type\./);
 });
+
+test('index.html loads mechanics.js and every helper script renderer.js reads before renderer.js', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '../src/index.html'), 'utf8');
+  const scripts = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)].map(match => match[1]);
+  const rendererAt = scripts.indexOf('renderer.js');
+  assert.ok(rendererAt > 0, 'renderer.js is loaded in index.html');
+  for (const dependency of ['bindings.js', 'presets.js', 'activity-log.js', 'changelog-text.js', 'update-status.js', 'gamepad-nav.js', 'play-stage.js', 'mechanics.js']) {
+    const at = scripts.indexOf(dependency);
+    assert.ok(at >= 0 && at < rendererAt, `${dependency} must load before renderer.js`);
+  }
+});
