@@ -86,7 +86,7 @@ async function renderer(data = state(), copyError = null, notes = { releases: []
       addEventListener(event, callback) { (listeners.window ||= {})[event] = [...(listeners.window[event] || []), callback]; }, removeEventListener() {}, ...extra }, document: {
     getElementById(id) { assert.ok(elements.has(id), `Missing HTML element ${id}`); return elements.get(id); },
     querySelectorAll(selector) {
-      const modals = ['mac-tools-help', 'path-too-long', 'pbr-offer'].map(id => elements.get(id));
+      const modals = ['mac-tools-help', 'path-too-long', 'pbr-offer', 'usum-offer'].map(id => elements.get(id));
       return selector === '.launcher-modal' ? modals : selector === '.launcher-modal[open]' ? modals.filter(modal => modal.open)
         : selector === '[data-feature]' ? featured : [];
     }, createElement: () => element()
@@ -432,6 +432,50 @@ test('cancelling the disc picker makes nothing, and the models stay stand-ins', 
   await ui.click('pbr-offer-confirm');
   await new Promise(setImmediate);
   assert.deepEqual(ui.calls.filter(call => typeof call === 'string'), ['choosePbrDisc']);
+});
+
+function gen6State(usum) {
+  const data = state();
+  data.usum = { supported: true, wanted: 228, made: 0, outdated: 0, rom: null, romFound: false, ...usum };
+  return data;
+}
+async function turnOnGen6(ui) {
+  ui.elements.get('generation6Pokemon').checked = true;
+  ui.elements.get('generation6Pokemon').dispatch('change');
+  await new Promise(setImmediate);
+}
+
+test('turning on Generation 5 and 6 Pokémon asks for a 3DS Pokémon ROM, and choosing it makes the assets', async () => {
+  const data = gen6State();
+  const ui = await renderer(data);
+  ui.window.colo.chooseUsumRom = async () => {
+    ui.calls.push('chooseUsumRom');
+    data.usum = { ...data.usum, rom: '/games/UltraMoon.3ds', romFound: true,
+      choice: { ok: true, file: '/games/UltraMoon.3ds', message: 'Pokémon Ultra Moon (CTR-P-A2BA).', at: 1 } };
+    return data;
+  };
+  ui.window.colo.makeUsumModels = async () => { ui.calls.push('makeUsumModels'); return data; };
+  await turnOnGen6(ui);
+  assert.equal(ui.calls.at(-1)[1].generation6Pokemon, true);
+  assert.equal(ui.elements.get('usum-offer').open, true);
+  assert.equal(ui.elements.get('usum-offer-confirm').textContent, 'Choose ROM');
+  assert.match(ui.elements.get('usum-offer-lead').textContent, /Ultra Sun, Ultra Moon, Sun or Moon/);
+  await ui.click('usum-offer-confirm');
+  for (let i = 0; i < 4; i++) await new Promise(setImmediate);
+  assert.equal(ui.elements.get('usum-offer').open, false);
+  assert.deepEqual(ui.calls.filter(call => typeof call === 'string'), ['chooseUsumRom', 'makeUsumModels']);
+  assert.equal(ui.elements.get('usum-check').hidden, false);
+  assert.equal(ui.elements.get('usum-check-title').textContent, '3DS Pokémon ROM found');
+});
+
+test('a kept 3DS ROM that cannot be used is flagged on Play and in Settings, and Make assets is off', async () => {
+  const ui = await renderer(gen6State({ rom: '/games/encrypted.3ds', romFound: true, romProblem: 'This ROM is still encrypted.' }));
+  assert.equal(ui.elements.get('usum-banner').hidden, false);
+  assert.equal(ui.elements.get('usum-banner-title').textContent, 'Your 3DS Pokémon ROM can\'t be used');
+  assert.equal(ui.elements.get('usum-banner-make').textContent, 'Open Settings');
+  assert.equal(ui.elements.get('usum-check').hidden, false);
+  assert.match(ui.elements.get('usum-check-detail').textContent, /^encrypted\.3ds: This ROM is still encrypted\./);
+  assert.equal(ui.elements.get('make-usum-models').disabled, true);
 });
 
 test('Back up automatically shows the setting and is saved with the others', async () => {

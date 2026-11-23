@@ -137,3 +137,61 @@ test('a Generation 5 Pokémon with its move and hidden ability is legal under X 
   assert.ok(formats.RESTRICTED.includes(743), 'Yveltal');
   assert.ok(formats.MYTHICAL.includes(520), 'Victini');
 });
+
+test('3DS Pokémon assets command and per-generation model lookup work for Gen 5 and 6', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const port = require('../src/port');
+  const pokemonPacks = require('../src/pokemon-packs');
+  const pokedex = require('../src/pokedex');
+
+  assert.ok(fs.existsSync(port.usumModelsScript()), 'scripts/3ds2pkx/make_models.py is bundled');
+  const cmd = port.usumModelsCommand('/roms/ultrasun.3ds', '/data/usum-models', [494, 658], 'linux', {});
+  assert.equal(cmd.command, 'python3');
+  assert.equal(path.basename(cmd.args[0]), 'make_models.py');
+  assert.equal(path.basename(cmd.cwd), '3ds2pkx');
+  assert.deepEqual(cmd.args.slice(1), ['/roms/ultrasun.3ds', '/data/usum-models', '494', '658']);
+
+  // Verify generationPokemon reads Gen 5-6 models/icons from modelsDirectories[6] (3DS) without touching Gen 4's PBR dir
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'usum-gen6-'));
+  try {
+    const pbrDir = path.join(dir, 'pbr'), usumDir = path.join(dir, 'usum');
+    const greninjaDir = path.join(usumDir, '658');
+    fs.mkdirSync(pbrDir, { recursive: true });
+    fs.mkdirSync(greninjaDir, { recursive: true });
+    fs.writeFileSync(path.join(greninjaDir, pokemonPacks.FILES.model), Buffer.alloc(0x200, 0x11));
+    fs.writeFileSync(path.join(greninjaDir, pokemonPacks.FILES.modelShiny), Buffer.alloc(0x200, 0x22));
+    const png = pokedex.png(8, 8, Buffer.alloc(8 * 8 * 4, 255));
+    fs.writeFileSync(path.join(greninjaDir, pokemonPacks.FILES.body), png);
+    fs.writeFileSync(path.join(greninjaDir, pokemonPacks.FILES.face), png);
+
+    const key = text => String(text).toLowerCase().replace(/[\s_]+/g, ' ').replace(/é/g, 'e').trim();
+    const baseRow = Buffer.alloc(0x11c);
+    baseRow.writeUInt16BE(1, 0x12);
+    const tables = {
+      species: ['Swampert', 'Blaziken', 'Gardevoir', 'Salamence', 'Metagross', 'Absol', 'Gengar', 'Alakazam', 'Ralts', 'Kirlia', 'Mudkip', 'Marshtomp', 'Torchic', 'Combusken', 'Treecko', 'Grovyle', 'Sceptile', 'Pikachu', 'Raichu', 'Taillow', 'Swellow', 'Aron', 'Lairon', 'Aggron', 'Trapinch', 'Vibrava', 'Flygon', 'Shuppet', 'Banette', 'Dusclops', 'Snorunt', 'Glalie', 'Bagon', 'Shelgon', 'Poochyena', 'Mightyena', 'Beldum', 'Metang', 'Gulpin', 'Swalot', 'Makuhita', 'Hariyama', 'Zigzagoon', 'Linoone', 'Wurmple', 'Silcoon', 'Beautifly', 'Lotad', 'Lombre', 'Ludicolo', 'Seedot', 'Nuzleaf', 'Shiftry', 'Wingull', 'Pelipper', 'Electrike', 'Manectric', 'Vulpix', 'Ninetales', 'Ponyta', 'Rapidash', 'Mewtwo', 'Deoxys']
+        .map((name, i) => ({ id: i + 1, national: i + 1, name, row: Buffer.from(baseRow) })),
+      moves: new Map(Array.from({ length: 354 }, (_, i) => [`move-${i + 1}`, i + 1])),
+      tmMoves: new Map(),
+      moveRows: Array.from({ length: 358 }, () => Buffer.alloc(0x38)),
+      abilities: new Map([['torrent', 67], ['overgrow', 65], ['blaze', 66]]),
+      types: [...pokedex.TYPES.map(key), 'fairy'],
+      headers: { body: Buffer.alloc(0x80), face: Buffer.alloc(0x80) }
+    };
+    const data = generations.load(6);
+    const spec = generations.speciesSpec(tables, data, 658, [], true);
+    const built = { species: [{ id: generations.speciesId(658), number: 658, generation: 6, spec }], moves: [], abilities: [['Protean', 169]], typeNames: tables.types };
+    const { pokemon, problems } = pokemonPacks.generationPokemon(tables, built, { modelsDirectory: pbrDir, modelsDirectories: { 4: pbrDir, 5: usumDir, 6: usumDir } });
+    assert.deepEqual(problems, []);
+    assert.equal(pokemon.length, 1);
+    assert.equal(pokemon[0].converted, true);
+    assert.equal(pokemon[0].assetSource, '3ds');
+    assert.ok(pokemon[0].assets.model && pokemon[0].assets.modelShiny && pokemon[0].assets.body && pokemon[0].assets.face);
+    const [dexEntry] = pokemonPacks.pokedexEntries(pokemon, tables);
+    assert.match(dexEntry.status.note, /3DS Pokémon ROM/);
+    assert.match(dexEntry.pack.credits, /SPICA/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
