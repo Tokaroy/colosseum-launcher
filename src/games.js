@@ -10,7 +10,7 @@ const path = require('node:path');
 const FEATURES = ['online', 'generations', 'randomizer', 'widescreen', 'hdText', 'hdModels', 'hdTextures', 'languagePacks',
   'discordPresence', 'storyParty', 'pcBoxes', 'gbaLink', 'quickMoves', 'battleSpeed', 'fastForward', 'skipMovies', 'starters',
   'shiny', 'shinyStarters', 'pokemonPacks', 'pbrAssets', 'pokedex', 'jukebox', 'teamBuilder', 'gciSaves', 'tmNames', 'playAs', 'customize',
-  'partnerPass', 'moveRelearner', 'pokeSpots', 'infiniteTms', 'expAll', 'cstickMove', 'coop', 'shinyOdds', 'difficulty'];
+  'partnerPass', 'moveRelearner', 'pokeSpots', 'infiniteTms', 'expAll', 'cstickMove', 'coop', 'shinyOdds', 'difficulty', 'battleLighting'];
 
 const GAMES = {
   colosseum: {
@@ -64,7 +64,7 @@ const GAMES = {
     // host/gameplay.c's, with XD's own TM and EXP calls; the C-Stick already moves like the Control Stick in XD.
     // Split-screen co-op is host/xd/coop.c. Shiny odds are host/shiny.c's, for Eevee, the Poké Spots and Shadow Pokémon
     // Difficulty is host/randomizer.c's, on the story deck's trainers (series-xd/460 gives the deck room for more).
-    features: ['online', 'teamBuilder', 'generations', 'widescreen', 'hdText', 'hdTextures', 'fastForward', 'skipMovies', 'gciSaves', 'discordPresence',
+    features: ['online', 'teamBuilder', 'generations', 'widescreen', 'hdText', 'hdTextures', 'fastForward', 'skipMovies', 'gciSaves', 'discordPresence', 'battleLighting',
       'battleSpeed', 'quickMoves', 'shiny', 'starters', 'pokemonPacks', 'pbrAssets', 'gbaLink', 'randomizer', 'storyParty', 'pokedex', 'jukebox', 'tmNames', 'playAs', 'customize',
       'languagePacks', 'pokeSpots', 'infiniteTms', 'expAll', 'coop', 'shinyOdds', 'difficulty']
   }

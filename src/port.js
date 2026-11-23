@@ -228,6 +228,9 @@ function normalizeSettings(input = {}, platform = process.platform, arch = gameA
     coopHero: choiceSetting(input.coopHero, ['auto', 'michael', 'wes', 'brendan', 'may', 'red', 'leaf'], 'auto'),
     coopSplit: choiceSetting(input.coopSplit, ['side', 'stacked'], 'side'),
     coopPads: choiceSetting(input.coopPads, ['controllers', 'keyboard'], 'controllers'),
+    // In battle, the lights behind the Pokémon come from the front and all are 15% brighter (host/battlelight.c). On
+    // unless turned off.
+    battleLighting: input.battleLighting !== false,
     // XD: a Poké Spot draws from every Pokémon a player could find in the wild, not only its own three. Off unless chosen.
     pokeSpotPool: input.pokeSpotPool !== false,
     // A New Game asks who to play as (Wes, or a Game Boy Advance hero Mt. Battle shows) before the name, and the save
@@ -430,6 +433,7 @@ const FEATURE_ENVIRONMENT = {
   expAll: ['COLO_EXP_ALL'],
   cstickMove: ['COLO_CSTICK_MOVE'],
   partnerPass: ['COLO_PARTNER_PASS'],
+  battleLighting: ['COLO_BATTLE_LIGHT'],
   pokeSpots: ['COLO_POKESPOT_POOL'],
   coop: ['COLO_COOP', 'COLO_COOP_HERO', 'COLO_COOP_SPLIT', 'COLO_COOP_PADS'],
   playAs: ['COLO_CHOOSE_HERO', 'COLO_PLAYER'],
@@ -504,6 +508,7 @@ function buildEnvironment(settings, disc, root, { customTextures = null, pbrText
   if (settings.partnerPass === false) env.COLO_PARTNER_PASS = '0';
   // Unset is on in the game: the Trade Center opens before the story's end.
   if (settings.gbaTradeAnytime === false) env.COLO_GBA_TRADE_ANYTIME = '0';
+  if (settings.battleLighting === false) env.COLO_BATTLE_LIGHT = '0';
   if (settings.pokeSpotPool === false) env.COLO_POKESPOT_POOL = '0';
   if (settings.chooseHero === false) env.COLO_CHOOSE_HERO = '0';
   env.COLO_COOP = settings.coop === false ? '0' : '1';

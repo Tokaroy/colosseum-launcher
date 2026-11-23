@@ -326,6 +326,20 @@ test('Split-screen co-op is on unless turned off, with player 2\'s hero, layout 
   }
 });
 
+test('Battle lighting is on unless turned off, in Colosseum and XD', () => {
+  const env = (settings, options) => port.buildEnvironment(port.normalizeSettings(settings), 'disc', '/port', options);
+  const saved = process.env.COLO_BATTLE_LIGHT;
+  delete process.env.COLO_BATTLE_LIGHT;
+  try {
+    assert.equal(port.normalizeSettings({}).battleLighting, true);
+    assert.equal(env({}).COLO_BATTLE_LIGHT, undefined, 'unset is on in the game');
+    assert.equal(env({ battleLighting: false }).COLO_BATTLE_LIGHT, '0');
+    assert.equal(env({ battleLighting: false }, { game: 'xd' }).COLO_BATTLE_LIGHT, '0');
+  } finally {
+    if (saved !== undefined) process.env.COLO_BATTLE_LIGHT = saved;
+  }
+});
+
 test('More Poké Spot Pokémon is on unless turned off, and is XD only', () => {
   const env = (settings, options) => port.buildEnvironment(port.normalizeSettings(settings), 'disc', '/port', options);
   const saved = process.env.COLO_POKESPOT_POOL;
