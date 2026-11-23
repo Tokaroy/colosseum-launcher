@@ -11,7 +11,7 @@
 
 const ITEMS = { 93: 'Sun Stone', 94: 'Moon Stone', 95: 'Fire Stone', 96: 'Thunder Stone', 97: 'Water Stone', 98: 'Leaf Stone',
   187: 'King\'s Rock', 192: 'Deep Sea Tooth', 193: 'Deep Sea Scale', 199: 'Metal Coat', 201: 'Dragon Scale', 218: 'Up-Grade',
-  516: 'Sun Shard', 517: 'Moon Shard' };
+  516: 'Sun Shard', 517: 'Moon Shard', 0x2a2: 'Prism Scale', 0x2a3: 'Whipped Dream', 0x2a4: 'Sachet' };
 const NO_CLOCK = 'The game keeps no time of day, so it can\'t evolve this way here.';
 
 const itemName = id => ITEMS[id] || 'an item';

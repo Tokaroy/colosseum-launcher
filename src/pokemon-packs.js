@@ -55,7 +55,8 @@ const EVOLVE = { friendship: 1, friendshipDay: 2, friendshipNight: 3, level: 4, 
 // Items that make a Pokémon evolve, by the game's numbers for them.
 const EVOLUTION_ITEMS = { 'sun stone': 93, 'moon stone': 94, 'fire stone': 95, 'thunder stone': 96, 'thunderstone': 96, 'water stone': 97,
   'leaf stone': 98, "king's rock": 187, 'deep sea tooth': 192, 'deepseatooth': 192, 'deep sea scale': 193, 'deepseascale': 193,
-  'metal coat': 199, 'dragon scale': 201, 'up-grade': 218 };
+  'metal coat': 199, 'dragon scale': 201, 'up-grade': 218,
+  'prism scale': 0x2a2, 'whipped dream': 0x2a3, 'sachet': 0x2a4 };
 // The letters the game's font has for a name.
 const NAME_CHARACTERS = /^[A-Za-z0-9 .'\-♂♀éÉ]+$/u;
 

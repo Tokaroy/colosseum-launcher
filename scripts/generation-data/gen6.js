@@ -141,6 +141,8 @@ async function main() {
     const from = dex.species.get(s.prevo).num;
     (evolvesInto.get(from) || evolvesInto.set(from, []).get(from)).push(s.name);
   }
+  // Feebas gained trade holding Prism Scale in generation 5 (in addition to its Beauty evolution)
+  (evolvesInto.get(349) || evolvesInto.set(349, []).get(349)).push('Milotic');
 
   const species = {}, learnsets = {};
   let hidden = 0;

@@ -78,11 +78,21 @@ test('generations 5 and 6\'s held items are there, by the engine\'s numbers', ()
   assert.equal(formats.gen6Item(676), true);
   assert.equal(formats.gen6Item(677), false);
   assert.equal(teamSets.itemGeneration(676), 6);
-  // the trade items are a level in the story, as generation 4's are
+  // Prism Scale, Whipped Dream and Sachet are real trade-holding-item evolutions (kind 6)
   const data = generations.load(6);
-  assert.deepEqual(generations.evolutionOf(data, { into: 685, trade: 'Whipped Dream' }, n => n), { into: 'generation:685', level: 40 });
-  assert.deepEqual(generations.evolutionOf(data, { into: 683, trade: 'Sachet' }, n => n), { into: 'generation:683', level: 40 });
+  assert.deepEqual(generations.evolutionOf(data, { into: 685, trade: 'Whipped Dream' }, n => n), { into: 'generation:685', trade: 'Whipped Dream' });
+  assert.deepEqual(generations.evolutionOf(data, { into: 683, trade: 'Sachet' }, n => n), { into: 'generation:683', trade: 'Sachet' });
+  assert.deepEqual(generations.evolutionOf(data, { into: 350, trade: 'Prism Scale' }, n => n), { into: 350, trade: 'Prism Scale' });
+  assert.ok(data.species[349].evolutions.some(e => e.into === 350 && e.trade === 'Prism Scale'), 'Feebas evolves holding Prism Scale');
   assert.equal(data.colosseum.evolutionItems['Dusk Stone'], 35, 'generation 4\'s kept');
+  const evolutionWays = require('../src/evolution-ways');
+  assert.equal(evolutionWays.describe(6, 0x2a2).text, 'Trade holding Prism Scale');
+  assert.equal(evolutionWays.describe(6, 0x2a3).text, 'Trade holding Whipped Dream');
+  assert.equal(evolutionWays.describe(6, 0x2a4).text, 'Trade holding Sachet');
+  const { TRADE_EVOLUTIONS } = require('../src/online-trades');
+  assert.deepEqual(TRADE_EVOLUTIONS.get(328), [[0x2a2, 329]]);
+  assert.deepEqual(TRADE_EVOLUTIONS.get(708), [[0x2a4, 709]]);
+  assert.deepEqual(TRADE_EVOLUTIONS.get(710), [[0x2a3, 711]]);
 });
 
 test('a generation 5 Pokémon says so, and a sixth\'s its own', () => {

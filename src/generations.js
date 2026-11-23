@@ -367,7 +367,7 @@ function ownSpecies(tables, data, moves, evolveData = data) {
     const entry = each.national >= 1 && each.national <= 386 ? data.species[each.national] : null;
     if (!entry || !each.row) continue;
     const evolveFrom = evolveData?.species[each.national];
-    const evolutions = (evolveFrom?.evolutions || []).filter(evolution => evolution.into > 386)
+    const evolutions = (evolveFrom?.evolutions || []).filter(evolution => evolution.into > 386 || evolution.trade === 'Prism Scale')
       .map(evolution => evolutionOf(evolveData, evolution, usable)).filter(Boolean);
     out.push({ id: each.id, national: each.national, levelUp: levelUpMoves(entry, usable), evolutions });
   }

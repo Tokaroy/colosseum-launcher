@@ -1,11 +1,7 @@
 {
   "about": "How the game plays generation 6's moves: as generation 4's file says (inherits), with the Fairy type's moves as fairy-colosseum.json has them. Generations 5 and 6's own moves each borrow an old move's animation (`as`) and play their own effect (300 on: the port's, host/gen6_moves.inc, 300 plus the move's number past 468). Generation 6's changes to what old moves, abilities and items do are mechanics the port plays (src/mechanics.js), not stand-ins.",
   "inherits": 4,
-  "evolutionItems": {
-    "Prism Scale": 30,
-    "Whipped Dream": 40,
-    "Sachet": 40
-  },
+  "evolutionItems": {},
   "moves": {
     "Fairy Wind": {
       "as": "Gust",

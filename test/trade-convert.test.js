@@ -90,6 +90,11 @@ test('a trade evolution is foreseen as the game would see it: the item, an Evers
   assert.equal(tradeEvolution('colosseum', colosseum({ species: 95 })), 0);
   assert.equal(tradeEvolution('colosseum', colosseum({ species: 95, item: 199 })), 208);
   assert.equal(tradeEvolution('colosseum', colosseum({ species: 373, item: 193 })), 375);
+  assert.equal(tradeEvolution('colosseum', colosseum({ species: 328, item: 0x2a2 })), 329);
+  assert.equal(tradeEvolution('colosseum', colosseum({ species: 708, item: 0x2a4 })), 709);
+  assert.equal(tradeEvolution('colosseum', colosseum({ species: 710, item: 0x2a3 })), 711);
+  const xdSwirlix = tc.convert('colosseum', colosseum({ species: 710, item: 0x2a3 }), { ...anyReceiver('xd'), gen6Pokemon: true, gen6Moves: true, gen6Items: true }).bytes;
+  assert.equal(tradeEvolution('xd', xdSwirlix), 713);
   const card = summary('colosseum', colosseum(), 'xd');
   assert.deepEqual([card.species, card.nickname, card.level, card.otName, card.otId, card.evolvesInto], [64, 'KADABRA', 30, 'LEO', 0x618b, 0]);
 });

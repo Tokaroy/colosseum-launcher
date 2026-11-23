@@ -2433,9 +2433,11 @@ function onlineTradeAccess(game) {
 // What a game's save can take (src/trade-convert.js problems): the fourth generation's Pokémon, moves and held items only
 // with the settings that put them in the game
 function tradeReceiver(game) {
-  const settings = config.settings || {}, later = (settings.generationPokemon || []).map(Number).includes(4);
+  const settings = config.settings || {}, gens = (settings.generationPokemon || []).map(Number);
+  const later = gens.includes(4), gen6 = gens.includes(6);
   const rules = Number(settings.battleRules) || 0;
-  return { game, laterPokemon: later, laterMoves: later || rules >= 4, laterItems: rules >= 4 };
+  return { game, laterPokemon: later, laterMoves: later || rules >= 4, laterItems: rules >= 4,
+    gen6Pokemon: gen6, gen6Moves: gen6 || rules >= 6, gen6Items: rules >= 6 };
 }
 
 function syncOnlineTrades() {

@@ -12,11 +12,14 @@
 // Colosseum's fourth-generation ones (464, 472). Pack Pokémon have rows each launcher numbers itself: they can't travel.
 const SIZE = { colosseum: 0x138, xd: 0xc4 };
 const LATER_SPECIES = [413, 519];             // Colosseum's fourth generation (national + 26)
+const GEN6_SPECIES = [520, 747];              // Colosseum's fifth and sixth generations (national + 26)
 const XD_BONSLY = 413, XD_MUNCHLAX = 414, COLO_BONSLY = 464, COLO_MUNCHLAX = 472;
 const SHADOW_MOVES = { colosseum: [355, 357], xd: [355, 374] };
 const LATER_MOVES = [358, 470];               // Colosseum's numbers (national + 3); XD's are 17 more
+const GEN6_MOVES = [471, 624];                // Colosseum's fifth and sixth generation moves (national + 3)
 const FAIRY_MOVES = [577, 580, 586, 587, 588, 608, 611];   // the Fairy type's, in Colosseum's numbers too
 const LATER_ITEMS = [0x224, 0x289];           // Colosseum's; XD's are 0x2E more
+const GEN6_ITEMS = [0x28a, 0x2a4];            // Colosseum's fifth and sixth generation items (Assault Vest to Sachet)
 const KEY_ITEMS = { colosseum: [0x1f4, 0x223], xd: [0x1f4, 0x251] };
 // the third generation's held items both games have alike (src/crossplay.js, host/crossplay.c ITEMS)
 const HOLDABLE = [[1, 51], [63, 71], [73, 81], [83, 86], [93, 98], [103, 104], [106, 111], [133, 174], [179, 225], [254, 258]];
@@ -29,13 +32,13 @@ function speciesToColosseum(game, id) {
   if (game === 'colosseum') return id;
   if (id === XD_BONSLY) return COLO_BONSLY;
   if (id === XD_MUNCHLAX) return COLO_MUNCHLAX;
-  return id >= 415 && id <= 521 ? id - 2 : id;
+  return id >= 415 && id <= 749 ? id - 2 : id;
 }
 function speciesFromColosseum(game, id) {
   if (game === 'colosseum') return id;
   if (id === COLO_BONSLY) return XD_BONSLY;
   if (id === COLO_MUNCHLAX) return XD_MUNCHLAX;
-  return within(LATER_SPECIES, id) ? id + 2 : id;
+  return within(LATER_SPECIES, id) || within(GEN6_SPECIES, id) ? id + 2 : id;
 }
 // a move id into Colosseum's: 0 for a Shadow move
 function moveToColosseum(game, id) {
@@ -104,18 +107,23 @@ function problems(p, receiver = {}) {
   if (p.shadowNow) say('shadow', 'A Shadow Pokémon can\'t be traded until it\'s purified.');
   const s = p.species;
   if (!s || s === EGG) say('invalid', 'This Pokémon\'s data is damaged.');
-  else if (s >= 252 && s <= 276 || s > LATER_SPECIES[1]) say('pack', 'Pokémon from a Pokémon pack can\'t be traded: each launcher numbers them its own way.');
+  else if (s >= 252 && s <= 276 || s > GEN6_SPECIES[1]) say('pack', 'Pokémon from a Pokémon pack can\'t be traded: each launcher numbers them its own way.');
+  else if (within(GEN6_SPECIES, s) && !receiver.gen6Pokemon)
+    say('later-species', 'The other player\'s game doesn\'t have Generation 5 and 6 Pokémon turned on.');
   else if (within(LATER_SPECIES, s) && !(receiver.game === 'xd' && (s === COLO_BONSLY || s === COLO_MUNCHLAX)) && !receiver.laterPokemon)
     say('later-species', 'The other player\'s game doesn\'t have Generation 4 Pokémon turned on.');
   const kept = p.moves.filter(m => !m.shadow);
   if (kept.some(m => within(LATER_MOVES, m.id)) && !receiver.laterMoves)
     say('later-move', 'It knows a Generation 4 move the other player\'s game doesn\'t have turned on.');
-  // the Fairy type's moves (src/generations.js), which a trade doesn't carry: the other game may not have the type
-  if (kept.some(m => FAIRY_MOVES.includes(m.id))) say('move', 'It knows a Fairy-type move, which trades don\'t carry: make it forget the move first.');
-  else if (kept.some(m => m.id > LATER_MOVES[1] || m.id < 1)) say('move', 'It knows a move the other game doesn\'t have.');
+  // the Fairy type's moves (src/generations.js), which a trade doesn't carry unless the other game has Gen 6 moves
+  if (kept.some(m => FAIRY_MOVES.includes(m.id)) && !receiver.gen6Moves) say('move', 'It knows a Fairy-type move, which trades don\'t carry: make it forget the move first.');
+  else if (kept.some(m => within(GEN6_MOVES, m.id)) && !receiver.gen6Moves)
+    say('later-move', 'It knows a Generation 5 or 6 move the other player\'s game doesn\'t have turned on.');
+  else if (kept.some(m => m.id > GEN6_MOVES[1] || m.id < 1)) say('move', 'It knows a move the other game doesn\'t have.');
   if (!kept.length) say('no-moves', 'It knows only Shadow moves: teach it another move first.');
   if (p.item < 0) say('key-item', 'It holds an item that can\'t be traded: take it off first.');
   else if (p.item && within(LATER_ITEMS, p.item)) { if (!receiver.laterItems) say('later-item', 'It holds a Generation 4 item the other player\'s game can\'t have: take it off first.'); }
+  else if (p.item && within(GEN6_ITEMS, p.item)) { if (!receiver.gen6Items) say('later-item', 'It holds a Generation 5 or 6 item the other player\'s game can\'t have: take it off first.'); }
   else if (p.item && !holdable(p.item)) say('item', 'It holds an item the other game doesn\'t have: take it off first.');
   if (p.ivs.some(v => v > 31) || p.evs.some(v => v > 255) || p.evs.reduce((a, v) => a + v, 0) > 510) say('invalid', 'This Pokémon\'s data is damaged.');
   return out.filter((each, i) => out.findIndex(other => other.code === each.code) === i);
