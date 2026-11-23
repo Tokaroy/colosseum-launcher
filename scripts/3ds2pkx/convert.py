@@ -43,6 +43,7 @@ from exporter.phases.plan.helpers.scene import refine_bone_flags                
 from exporter.phases.compose.compose import compose_scene                                 # noqa: E402
 import exporter.phases.compose.compose as compose_phase                                   # noqa: E402
 import exporter.phases.compose.helpers.materials as compose_materials                     # noqa: E402
+import exporter.phases.compose.helpers.meshes as compose_meshes                           # noqa: E402
 from exporter.phases.serialize.serialize import serialize                                 # noqa: E402
 from exporter.phases.package.package import package_output                                # noqa: E402
 
@@ -420,6 +421,40 @@ def _prepare_skeleton(gf_skel):
     return order, orig_to_pos, unique_names, bone_fields
 
 
+def _undeform_normals(mesh, bones):
+    """Turn a mesh's normals as the add-on's compose turns its points, so the game turns both back alike.
+
+    Compose stores a rigid mesh's points in its bone's space, and a skinned mesh's points undone by the
+    matrix each envelope will apply (for a point all on one bone, that bone's world matrix), but writes the
+    normals as given. 3DS bones are turned at rest (often 90 degrees), so the game turned those normals
+    away from their surfaces and lit fronts as backs. This takes the linear part of compose's own
+    un-deformation at each point (_undeform_vertices, or the rigid bone's inverse) and applies it to the
+    normals of the corners there."""
+    if not mesh.normals or not mesh.faces:
+        return
+    bw = mesh.bone_weights
+    if bw and bw.type == SkinType.WEIGHTED and bw.assignments:
+        names = {b.name: i for i, b in enumerate(bones)}
+        emap = compose_meshes._build_envelope_map(bw.assignments, names)
+        undo = lambda vs: compose_meshes._undeform_vertices(vs, emap, bones, names, mesh.parent_bone_index, None)
+        base = undo(mesh.vertices)
+        axes = [undo([tuple(p[i] + (1.0 if i == k else 0.0) for i in range(3)) for p in mesh.vertices]) for k in range(3)]
+        linear = lambda v: [[axes[k][v][r] - base[v][r] for k in range(3)] for r in range(3)]
+    elif bw and bw.type in (SkinType.SINGLE_BONE, SkinType.RIGID) and bones[mesh.parent_bone_index].world_matrix:
+        inv = mat4.inv(bones[mesh.parent_bone_index].world_matrix)
+        rigid = [[inv[r][k] for k in range(3)] for r in range(3)]
+        linear = lambda v: rigid
+    else:
+        return
+    turned, corner = [], 0
+    for face in mesh.faces:
+        for v in face:
+            a, n = linear(v), mesh.normals[corner]
+            turned.append(mat4.normalized(tuple(sum(a[r][k] * n[k] for k in range(3)) for r in range(3))))
+            corner += 1
+    mesh.normals = turned
+
+
 def _select_battle_motions(battle_blobs):
     """Parse available skeletal battle motions from slot +4 and map Colosseum's 17 slots."""
     parsed = {}
@@ -715,6 +750,8 @@ def build(model_data, tex_blobs, battle_blobs, name, max_texture=256, log=print,
     for mi, m in enumerate(meshes):
         bones[m.parent_bone_index].mesh_indices.append(mi)
     refine_bone_flags(bones, meshes, logger=StubLogger())
+    for m in meshes:
+        _undeform_normals(m, bones)
 
     animation_sets = []
     for mot_idx in used_indices:
