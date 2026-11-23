@@ -76,7 +76,9 @@ function load(generation) {
     if (colosseum.inherits) {
       const from = load(colosseum.inherits).colosseum;
       colosseum = { ...from, ...colosseum, moves: { ...from.moves, ...colosseum.moves }, oldMoves: { ...from.oldMoves, ...(colosseum.oldMoves || {}) },
-        abilities: { ...from.abilities, ...(colosseum.abilities || {}) } };
+        abilities: { ...from.abilities, ...(colosseum.abilities || {}) },
+        evolutionItems: { ...from.evolutionItems, ...(colosseum.evolutionItems || {}) },
+        evolutionPlaces: { ...from.evolutionPlaces, ...(colosseum.evolutionPlaces || {}) } };
     }
     data.colosseum = colosseum;
     cache.set(generation, data);
@@ -190,10 +192,18 @@ function newMoves(tables, data) {
     const sameEffect = how.effect === undefined && data.moves[template]?.effect === move.effect;
     const row = writeMove(Buffer.from(from), move, learned, tables, { power, chance: chanceFor(move, from, sameEffect) });
     // The effect the game plays: the template's, or one of the port's own (host/gen4.c's EFFECT_*), or another of the game's.
+    // (or another move's, as fairy-colosseum.json has the Fairy moves: Disarming Voice never misses, as Swift)
+    if (how.effectAs) {
+      const effectFrom = tables.moves.get(key(how.effectAs));
+      if (!effectFrom || effectFrom >= FIRST_NEW_MOVE) throw new Error(`generation ${data.generation}: ${move.name} plays the effect of "${how.effectAs}", which Colosseum hasn't`);
+      row.writeUInt16BE(tables.moveRows[effectFrom].readUInt16BE(MV.effect), MV.effect);
+      // a move with no added effect of its own keeps the chance of the row whose effect it plays (Growl's for Baby-Doll Eyes)
+      if (!move.effectChance) row[MV.chance] = tables.moveRows[effectFrom][MV.chance];
+    }
     if (how.effect !== undefined) row.writeUInt16BE(how.effect, MV.effect);
     // Who it's aimed at, where no move of Colosseum's has its range (Acupressure: the user or its partner).
     if (how.target !== undefined) row[MV.target] = how.target;
-    out.push({ id: colosseumMove(number), number, name: move.name.toUpperCase().slice(0, 12), description: move.description,
+    out.push({ id: colosseumMove(number), number, name: (how.name || move.name.toUpperCase()).slice(0, 12), description: move.description,
       row, exact: Boolean(how.exact), note: how.note || '', as: how.as, category: move.category });
   }
   return out;
@@ -310,6 +320,14 @@ function rules(tables, data, moves, chosen = mechanicList(data)) {
 const levelUpMoves = (entry, usable) =>
   entry.levelUp.map(([level, move]) => [Math.max(1, level), usable(move)]).filter(([, move]) => move).slice(0, 20);
 
+// The generation a Pokémon came in, by its National Pokédex number (generation 6's file has the fifth's too)
+const GENERATION_STARTS = [[650, 6], [494, 5], [387, 4], [252, 3], [152, 2], [1, 1]];
+const generationOf = number => (GENERATION_STARTS.find(([first]) => number >= first) || [0, 0])[1];
+
+// The generations whose Pokémon a generation's rules play (online, and the team builder's party of that generation):
+// it and each before it with Pokémon of their own (generation 6's: the fourth's, and the fifth's and sixth's)
+const pokemonGenerations = generation => available().filter(each => each.hasSpecies && each.generation <= generation).map(each => each.generation);
+
 const intoOf = number => number > 386 ? `generation:${number}` : number;
 
 // An evolution of a later generation's (Pokémon Platinum's, make.js) as pokemon.json says one Colosseum can make
@@ -386,7 +404,7 @@ function speciesSpec(tables, data, number, moves, ownAbilities, learnData = null
   return {
     base: (STAND_INS[types[0]] || STAND_INS.Normal)[stageOf(data, number) - 1],
     name: entry.name.toUpperCase().slice(0, 10), national: number,
-    description: `Generation ${data.generation}, National Pokédex #${number}.`,
+    description: `Generation ${generationOf(number)}, National Pokédex #${number}.`,
     types, stats: entry.stats, ...(entry.evYield ? { evYield: entry.evYield } : {}),
     ...(entry.catchRate ? { catchRate: entry.catchRate } : {}), ...(entry.baseExp ? { baseExp: entry.baseExp } : {}),
     ...(entry.baseFriendship !== undefined ? { baseFriendship: entry.baseFriendship } : {}),
@@ -403,8 +421,11 @@ function speciesSpec(tables, data, number, moves, ownAbilities, learnData = null
 // Everything the settings ask for, for the expansion file: { rules (or null), moves, species: [{ id, number, spec }],
 // ownSpecies (ownSpecies), notes }. tables: src/pokemon-packs.js readGameTables.
 // A later generation's ability by the game's number: its own, but Tangled Feet's 77 is Air Lock's in Colosseum (which keeps
-// Ruby and Sapphire's numbers, Cacophony 76 and Air Lock 77), so it's 124 (host/gen4.c).
-const colosseumAbility = number => number === 77 ? 124 : number;
+// Ruby and Sapphire's numbers, Cacophony 76 and Air Lock 77), so it's 124 (host/gen4.c), and generations 5 and 6's,
+// from Pickpocket's 124, are one past their own (125 to 192).
+const colosseumAbility = number => number === 77 ? 124 : number >= 124 ? number + 1 : number;
+// The other way: a later generation's ability number from the game's
+const abilityNumber = id => id === 124 ? 77 : id > 124 ? id - 1 : id;
 
 // The Pokémon's base stats and hidden abilities, where the mechanics change them (gen6Stats, hiddenAbilities), from
 // generation 6's file: [{ id, stats (6, or null), hidden (the game's ability number, or 0) }] for the game's own Pokémon
@@ -424,6 +445,8 @@ function speciesChanges(tables, chosen, abilityId) {
   }
   return out;
 }
+
+const withoutFairy = types => types.includes('Fairy') ? (types.filter(type => type !== 'Fairy').length ? types.filter(type => type !== 'Fairy') : ['Normal']) : types;
 
 function build(tables, settings) {
   const chosen = normalize(settings), out = { rules: null, moves: [], abilities: [], species: [], ownSpecies: [], types: null,
@@ -460,10 +483,16 @@ function build(tables, settings) {
       out.species.push({ id: speciesId(number), number, generation, spec });
     }
   }
+  // Without Gen 6 types the game has no Fairy type: generation 6's Fairy Pokémon are their other type, or Normal (as
+  // generation 6 made Clefairy Fairy from Normal)
+  if (!chosen.fairyType) for (const each of out.species) each.spec.types = withoutFairy(each.spec.types);
   // the game's own Pokémon learn (and evolve) as the chosen learnsets' generation has them
   if (learnData) {
     const evolveData = chosen.generationPokemon.length ? load(Math.max(...chosen.generationPokemon)) : null;
     out.ownSpecies = ownSpecies(tables, learnData, out.moves, evolveData);
+    // only into the Pokémon imported (generations 5 and 6's without the fourth's: no Magnezone)
+    const imported = new Set(out.species.map(each => intoOf(each.number)));
+    for (const each of out.ownSpecies) each.evolutions = each.evolutions.filter(evolution => typeof evolution.into !== 'string' || imported.has(evolution.into));
   }
   if (chosen.fairyType) {
     const fairy = loadFairy();
@@ -507,5 +536,5 @@ function build(tables, settings) {
   return out;
 }
 
-module.exports = { learnsetGeneration, speciesChanges, mechanicList, SAME_ABILITIES, colosseumAbility, COLOSSEUM_RULES, FIRST_NEW_MOVE, MOVE_OFFSET, SPECIES_OFFSET, FEATURES, MV, FLAGS, FAIRY_TYPE, available, load, loadFairy, normalize, build, moveCategories,
+module.exports = { abilityNumber, generationOf, pokemonGenerations, withoutFairy, learnsetGeneration, speciesChanges, mechanicList, SAME_ABILITIES, colosseumAbility, COLOSSEUM_RULES, FIRST_NEW_MOVE, MOVE_OFFSET, SPECIES_OFFSET, FEATURES, MV, FLAGS, FAIRY_TYPE, available, load, loadFairy, normalize, build, moveCategories,
   newMoves, fairyMoves, fairyTypes, withFairyMoves, rowLevelUp, rules, speciesSpec, ownSpecies, evolutionOf, learnMoveTable, colosseumMove, speciesId, isGenerationSpecies, stageOf };

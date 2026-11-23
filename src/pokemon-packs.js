@@ -1095,7 +1095,10 @@ function speciesRef(tables, id) {
 // A later generation's ability (77 on, which the game has under that generation's rules) by its name there
 function laterAbility(id) {
   if (id <= ABILITY_COUNT) return undefined;
-  try { return require('./generations').load(4).abilities[id === 124 ? 77 : id]?.name; } catch { return undefined; }   // 124: Tangled Feet
+  try {
+    const generations = require('./generations'), number = generations.abilityNumber(id);   // 124: Tangled Feet; 125 on: generations 5 and 6's
+    return (generations.load(4).abilities[number] || generations.load(6).abilities[number])?.name;
+  } catch { return undefined; }
 }
 
 // Where a later generation's Pokémon's looks and cry are from, for the Pokédex.

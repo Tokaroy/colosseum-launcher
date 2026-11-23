@@ -26,8 +26,8 @@ const { readBattleData } = require('../../src/battle-data');
 const FILES = {
   3: { lastMove: 354, least: 386, global: 'coloGen3Learnsets', words: 'third' },
   4: { lastMove: 470, least: 493, global: 'coloGen4Learnsets', words: 'fourth' },
-  // generation 6's (X and Y's rules): the fourth's moves and the Fairy type's (Baby-Doll Eyes, the last, is 611)
-  6: { lastMove: 611, least: 493, global: 'coloGen6Learnsets', words: 'sixth' }
+  // generation 6's (X and Y's rules): every move to Hyperspace Fury (624), and the fourth, fifth and sixth's Pokémon
+  6: { lastMove: 624, least: 721, global: 'coloGen6Learnsets', words: 'sixth' }
 };
 
 function file(generation, species) {

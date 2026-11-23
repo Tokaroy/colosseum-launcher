@@ -1,6 +1,6 @@
 {
   "generation": 6,
-  "source": "the game's host/gen4_items.h (pret's decompilation of Pokémon Platinum, res/items); Assault Vest, Eviolite, Rocky Helmet and Weakness Policy: generation 6 (the game port's host/gen6_items.h)",
+  "source": "the game's host/gen4_items.h (pret's decompilation of Pokémon Platinum, res/items); Assault Vest to Sachet: generations 5 and 6 (the game port's host/gen6_items.h)",
   "items": [
     {
       "id": 175,
@@ -483,6 +483,124 @@
       "id": 653,
       "name": "Weakness Policy",
       "doc": "Hit by a supereffective move, the holder sharply raises its Attack and Sp. Atk, and uses the item up."
+    },
+    {
+      "id": 654,
+      "name": "Air Balloon",
+      "doc": "The holder floats in the air and is immune to Ground-type moves. The balloon pops when the holder is hit."
+    },
+    {
+      "id": 655,
+      "name": "Red Card",
+      "doc": "If the holder is hit by a move, the attacker is forced out of battle. The card is used up."
+    },
+    {
+      "id": 656,
+      "name": "Ring Target",
+      "doc": "Moves that would have no effect on the holder because of its type hit it anyway."
+    },
+    {
+      "id": 657,
+      "name": "Binding Band",
+      "doc": "A band that makes the holder's binding moves, such as Wrap and Fire Spin, do more damage each turn."
+    },
+    {
+      "id": 658,
+      "name": "Absorb Bulb",
+      "doc": "Hit by a Water-type move, the holder raises its Sp. Atk, and uses the item up."
+    },
+    {
+      "id": 659,
+      "name": "Cell Battery",
+      "doc": "Hit by an Electric-type move, the holder raises its Attack, and uses the item up."
+    },
+    {
+      "id": 660,
+      "name": "Eject Button",
+      "doc": "If the holder is hit by a move, it switches out to another Pokémon in the party. The button is used up."
+    },
+    {
+      "id": 661,
+      "name": "Float Stone",
+      "doc": "A very light stone. It halves the holder's weight."
+    },
+    {
+      "id": 662,
+      "name": "Luminous Moss",
+      "doc": "Hit by a Water-type move, the holder raises its Sp. Def, and uses the item up."
+    },
+    {
+      "id": 663,
+      "name": "Snowball",
+      "doc": "Hit by an Ice-type move, the holder raises its Attack, and uses the item up."
+    },
+    {
+      "id": 664,
+      "name": "Safety Goggles",
+      "doc": "Goggles that protect the holder from weather damage and from powder moves."
+    },
+    {
+      "id": 665,
+      "name": "Normal Gem",
+      "doc": "A gem with a Normal essence. It boosts the power of the holder's first Normal-type move, once."
+    },
+    {
+      "id": 666,
+      "name": "Pixie Plate",
+      "doc": "A stone tablet that boosts the power of the holder's Fairy-type moves. Arceus becomes a Fairy type holding it."
+    },
+    {
+      "id": 667,
+      "name": "Roseli Berry",
+      "doc": "If held by a Pokémon, it weakens a foe's supereffective Fairy-type attack.",
+      "berry": true
+    },
+    {
+      "id": 668,
+      "name": "Kee Berry",
+      "doc": "If held by a Pokémon, it raises its Defense when it is hit by a physical attack.",
+      "berry": true
+    },
+    {
+      "id": 669,
+      "name": "Maranga Berry",
+      "doc": "If held by a Pokémon, it raises its Sp. Def when it is hit by a special attack.",
+      "berry": true
+    },
+    {
+      "id": 670,
+      "name": "Douse Drive",
+      "doc": "A cassette for Genesect. It makes Techno Blast a Water-type move."
+    },
+    {
+      "id": 671,
+      "name": "Shock Drive",
+      "doc": "A cassette for Genesect. It makes Techno Blast an Electric-type move."
+    },
+    {
+      "id": 672,
+      "name": "Burn Drive",
+      "doc": "A cassette for Genesect. It makes Techno Blast a Fire-type move."
+    },
+    {
+      "id": 673,
+      "name": "Chill Drive",
+      "doc": "A cassette for Genesect. It makes Techno Blast an Ice-type move."
+    },
+    {
+      "id": 674,
+      "name": "Prism Scale",
+      "doc": "A mysterious scale that makes a certain Pokémon evolve when it is traded holding it."
+    },
+    {
+      "id": 675,
+      "name": "Whipped Dream",
+      "doc": "A soft, sweet treat that makes a certain Pokémon evolve when it is traded holding it."
+    },
+    {
+      "id": 676,
+      "name": "Sachet",
+      "doc": "A sachet of fragrant perfume that makes a certain Pokémon evolve when it is traded holding it."
     }
   ]
 }
