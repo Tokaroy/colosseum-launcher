@@ -56,6 +56,14 @@ test('the game is told only when it is on', () => {
   const env = settings => port.buildEnvironment(port.normalizeSettings(settings), '/disc.iso', '/game');
   assert.equal(env({}).COLO_RANDOMIZER, undefined);
   assert.equal(env({ randomizer: true, randomizerSeed: 'C0FFEE11' }).COLO_RANDOMIZER, 'C0FFEE11:19:7');
+  assert.equal(env({ randomizer: true, randomizerSeed: 'C0FFEE11', randomizerGen4: true, randomizerGen5: true, randomizerGen6: true }).COLO_RANDOMIZER, 'C0FFEE11:19:7');
+  const gen46 = { generationPokemon: [4, 6] };
+  assert.equal(randomizer.environmentValue({ ...on({ randomizerGen4: true, randomizerGen5: true, randomizerGen6: true }), ...gen46 }, { laterGenerations: true, gen6Randomizer: true }), 'C0FFEE11:19:63');
+  assert.equal(randomizer.environmentValue({ ...on({ randomizerGen1: false, randomizerGen2: false, randomizerGen3: false, randomizerGen4: false, randomizerGen5: true, randomizerGen6: false }), ...gen46 }, { gen6Randomizer: true }), 'C0FFEE11:19:16');
+  assert.equal(randomizer.environmentValue({ ...on({ randomizerGen1: false, randomizerGen2: false, randomizerGen3: false, randomizerGen4: false, randomizerGen5: false, randomizerGen6: true }), ...gen46 }, { gen6Randomizer: true }), 'C0FFEE11:19:32');
+  assert.equal(randomizer.hasGen56({ randomizerGen5: true, generationPokemon: [6] }, true), true);
+  assert.equal(randomizer.hasGen56({ randomizerGen6: true, generationPokemon: [6] }, true), true);
+  assert.equal(randomizer.hasGen56({ randomizerGen4: true, generationPokemon: [4] }, true), false);
 });
 
 // A save's slot as the game writes it: the header, then the body scrambled against its own hash.

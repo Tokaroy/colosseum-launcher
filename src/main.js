@@ -1622,7 +1622,7 @@ function generationDex(rom, generation = 4) {
 function fairyBattleData(rom) {
   if (!withFairyType(config.settings).fairyType) return null;
   if (packTables?.rom !== rom) packTables = { rom, tables: pokemonPacks.readGameTables(rom) };
-  const tables = packTables.tables, fairy = generations.loadFairy(), gen4 = generations.load(4);
+  const tables = packTables.tables, fairy = generations.loadFairy(), gen6 = generations.load(6);
   const moves = generations.fairyMoves({ ...tables, types: [...tables.types, 'fairy'] }).map(move => {
     const data = fairy.newMoves[move.number];
     return { id: move.id, name: data.name, type: 'Fairy', power: data.power, accuracy: data.accuracy, pp: data.pp, priority: data.priority,
@@ -1630,15 +1630,15 @@ function fairyBattleData(rom) {
   });
   const idOf = new Map();
   for (const each of tables.species) if (each.national >= 1 && each.national <= 386 && !idOf.has(each.national)) idOf.set(each.national, each.id);
-  for (let n = 387; n <= 493; n++) idOf.set(n, generations.speciesId(n));
+  for (let n = 387; n <= 721; n++) idOf.set(n, generations.speciesId(n));
   const parent = new Map();
-  for (const [national, entry] of Object.entries(gen4.species))
+  for (const [national, entry] of Object.entries(gen6.species))
     for (const evolution of entry.evolutions || []) if (!parent.has(evolution.into)) parent.set(evolution.into, Number(national));
   const HOW = { tm: 'TM', tutor: 'Tutor', egg: 'Egg', event: 'Event' };
   const own = national => [...(fairy.levelUp[national] || []).map(([level, move]) => [move, `Lv ${level} (Gen 6)`]),
     ...Object.entries(fairy.learnsets[national] || {}).flatMap(([kind, list]) => list.map(move => [move, `${HOW[kind]} (Gen 6)`]))];
   const learnsets = {};
-  for (let national = 1; national <= 493; national++) {
+  for (let national = 1; national <= 721; national++) {
     const learned = new Map();
     for (let form = national, depth = 0; form && depth < 3; form = parent.get(form), depth++)
       for (const [move, how] of own(form)) if (!learned.has(generations.colosseumMove(move))) learned.set(generations.colosseumMove(move), depth ? 'Earlier form' : how);
@@ -1964,6 +1964,7 @@ async function playGame(installation = null, battle = null) {
   if (!battle) closeAdoptLink();
   const storyLink = !battle ? await openStoryLink(chosen.id) : null;
   const playEnv = { ...port.buildEnvironment(settings, rom, root, { customTextures: customTextureDirectory(), pbrTextures: pbrTextureFolder(settings), laterGenerations: onlineFeatures(root).randomizerGenerations,
+    gen6Randomizer: onlineFeatures(root).randomizerGen6,
     // a new randomized run can have packs' own Pokémon: there are some, and the game can choose them
     packPokemon: packPokemon > 0 && onlineFeatures(root).randomizerPacks,
     noRepeats: onlineFeatures(root).randomizerNoRepeats, baseForms: onlineFeatures(root).randomizerBaseForms,
@@ -2278,7 +2279,7 @@ function closeStoryLink(link) {
 function trades() {
   if (!shadowtradeTrades) shadowtradeTrades = new shadowtrade.Shadowtrade({ folder: path.join(app.getPath('userData'), 'shadowtrade'),
     fetch: (...args) => net.fetch(...args), log, onChange: view => broadcast('shadowtrade', view), arrivals: arrivals(),
-    takesLater: game => tradeReceiver(game).laterPokemon });
+    takesLater: game => tradeReceiver(game).laterPokemon, takesGen6: game => tradeReceiver(game).gen6Pokemon });
   return shadowtradeTrades;
 }
 
@@ -2426,7 +2427,8 @@ function pokemonPage() {
   }
   if (model) {
     const each = pokemon => pokemon && { ...pokemon, tradeProblem: savePokemon.offerProblem(model, pokemon),
-      tradeLater: pokemon.shadow && savePokemon.shadowtradeKind(game, pokemon.species) === 'later' };
+      tradeLater: pokemon.shadow && savePokemon.shadowtradeKind(game, pokemon.species) === 'later',
+      tradeGen6: pokemon.shadow && savePokemon.shadowtradeKind(game, pokemon.species) === 'gen6' };
     model = { ...model, party: model.party.map(each), boxes: model.boxes.map(box => ({ ...box, pokemon: box.pokemon.map(each) })) };
   }
   const gameRunning = storyGame === game || heldGame()?.game === game;
@@ -3037,8 +3039,9 @@ function onlineFeatures(root, id = config.game) {
         // played them, and XD's once it turns their later generation's numbers into its own (host/xd/online.c)
         platinum: !xd || bytes.includes('online: XD Platinum rules '),
         // and in a room for both games: the shared set of Pokémon (host/crossplay.c) has the fourth generation's under
-        // them, in both games' builds of one commit
+        // them, in both games' builds of one commit, and generations 5 and 6's under X and Y's rules
         crossPlatinum: bytes.includes('online: crossplay set: the fourth generation\'s under Platinum\'s rules'),
+        crossGen6: bytes.includes('online: crossplay set: generations 5 and 6 under X and Y\'s rules'),
         // rooms for either game's players (online.crossBuildId): XD's knows crossplay=1, and Colosseum's needs nothing
         // more than its rules line and whole Pokémon
         crossplay: rules && (story || xd),
@@ -3050,8 +3053,9 @@ function onlineFeatures(root, id = config.game) {
         looks: bytes.includes(xd ? 'online: XD side %d battles as hero' : 'battles as hero'),
         // the randomizer (host/randomizer.c), which XD's game has once it prints its run
         randomizer: bytes.includes('randomizer: seed '),
-        // the randomizer's fourth generation
+        // the randomizer's fourth generation, and generations 5 and 6
         randomizerGenerations: bytes.includes('randomizer: later generations'),
+        randomizerGen6: bytes.includes('randomizer: gen 5 and 6'),
         // and Pokémon packs' own Pokémon
         randomizerPacks: bytes.includes('randomizer: packs\' Pokemon'),
         // no evolution family twice, and starters and Shadow Pokémon of first forms only
@@ -3069,8 +3073,8 @@ function onlineFeatures(root, id = config.game) {
     }
     return onlineBinary;
   } catch (_) {
-    return { online: false, story: false, members: false, rules: false, timers: false, picks: false, platinum: false, crossPlatinum: false, crossplay: false, spectate: false, replays: false,
-      looks: false, randomizer: false, randomizerGenerations: false, randomizerPacks: false, randomizerNoRepeats: false, randomizerBaseForms: false,
+    return { online: false, story: false, members: false, rules: false, timers: false, picks: false, platinum: false, crossPlatinum: false, crossGen6: false, crossplay: false, spectate: false, replays: false,
+      looks: false, randomizer: false, randomizerGenerations: false, randomizerGen6: false, randomizerPacks: false, randomizerNoRepeats: false, randomizerBaseForms: false,
       randomizerSpread: false, fairy: false, mechanics: false, battle: null };
   }
 }
@@ -3191,12 +3195,17 @@ function partyNames() {
   } catch (_) { return {}; }
 }
 
-// What a room for both games takes of the fourth generation under Platinum's rules (src/crossplay.js options): its
-// Pokémon, moves and items, and a second ability wherever that generation gives the species one, from the disc.
-function crossLater() {
+// What a room for both games takes under later battle rules (src/crossplay.js options): Gen 4's and Gen 5-6's
+// Pokémon, moves, items, second abilities, hidden abilities, and Fairy moves.
+function crossLater(rules) {
+  const gen = rules.battleRules >= 6 ? 6 : 4;
   let species = {};
-  try { species = battleData(teamDisc()).generations[4].species; } catch (error) { log(`Team builder: couldn't read abilities from the disc (${error.message}).`); }
-  return { later: true, secondAbility: id => Boolean(species[id]?.abilities?.some(ability => ability.slot === 1)) };
+  try { species = battleData(teamDisc()).generations[gen]?.species || {}; } catch (error) { log(`Team builder: couldn't read abilities from the disc (${error.message}).`); }
+  const chosen = formats.chosenMechanics(rules);
+  return { later: rules.battleRules >= 4, gen6: rules.battleRules >= 6, fairy: Boolean(rules.fairy),
+    gen6Items: mechanics.has(chosen, 'items'), hiddenAbilities: mechanics.has(chosen, 'hiddenAbilities'),
+    secondAbility: id => Boolean(species[id]?.abilities?.some(ability => ability.slot === 1)),
+    hiddenAbility: id => Boolean(species[id]?.abilities?.some(ability => ability.slot === 2)) };
 }
 
 // The party to battle with by a room's rules: what battleParty gives, once it can play by them.
@@ -3213,6 +3222,8 @@ function partyFor(rules, { cross = false } = {}) {
     const what = cross ? 'A room for both games with Diamond and Pearl battle rules' : `Diamond and Pearl battle rules in ${games.get(config.game).shortName}`;
     throw Object.assign(new Error(`${what} need a newer game. Update it from the Play page.`), { problems: ['Diamond and Pearl battle rules'] });
   }
+  if (cross && rules.battleRules >= 6 && !features.crossGen6)
+    throw Object.assign(new Error('A room for both games with X and Y battle rules needs a newer game. Update it from the Play page.'), { problems: ['X and Y battle rules'] });
   // the other game makes a Pokémon from its species differently: each goes whole
   if (cross && config.online.selected !== parties.STORY && !features.members)
     throw new Error('A room for both games needs a newer game. Update it from the Play page.');
@@ -3222,7 +3233,7 @@ function partyFor(rules, { cross = false } = {}) {
   const chosen = battleParty(rules.size, { cross, platinum });
   const problems = formats.problems(rules, chosen.party, chosen.members || null, partyNames());
   // a room for both games: only what both games make alike (src/crossplay.js), or the battle would go otherwise
-  if (cross) problems.push(...crossplay.problems(chosen.party, chosen.members || null, partyNames(), platinum ? crossLater() : {}).filter(each => !problems.includes(each)));
+  if (cross) problems.push(...crossplay.problems(chosen.party, chosen.members || null, partyNames(), (platinum || rules.fairy) ? crossLater(rules) : {}).filter(each => !problems.includes(each)));
   if (problems.length) throw Object.assign(new Error(`Your party can't play ${formats.describe(rules).name}: ${problems.join(' ')}`), { problems });
   return chosen;
 }
@@ -3752,6 +3763,7 @@ function state() {
     // The run on the memory card, and whether the game on disk can play one.
     randomizerSave: saveRun(currentSaveDirectory(), config.game), randomizerReady: repoReady && randomizerReady(config.repo),
     randomizerGenerations: repoReady && onlineFeatures(config.repo).randomizerGenerations,
+    randomizerGen6: repoReady && onlineFeatures(config.repo).randomizerGen6,
     randomizerPacks: repoReady && onlineFeatures(config.repo).randomizerPacks,
     randomizerNoRepeats: repoReady && onlineFeatures(config.repo).randomizerNoRepeats,
     randomizerBaseForms: repoReady && onlineFeatures(config.repo).randomizerBaseForms,

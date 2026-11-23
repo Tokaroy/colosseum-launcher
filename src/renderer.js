@@ -832,7 +832,7 @@ function renderGenerationsText(data, chosen) {
     : `Adds the 228 Pokémon from Victini to Volcanion and their moves. ${story} ${xy} ${usumLooks}`;
   // made from Colosseum's disc, which has to be set up first
   $('generations-disc-note').hidden = own || data.teamDiscReady !== false;
-  $('generations-disc-note').textContent = `Generation 4 in ${chosen.shortName} is made from your Pokémon Colosseum disc. Choose Colosseum on the Play page and set up its disc first; until then ${chosen.shortName} plays by Gen 3 rules.`;
+  $('generations-disc-note').textContent = `Later generations in ${chosen.shortName} are made from your Pokémon Colosseum disc. Choose Colosseum on the Play page and set up its disc first; until then ${chosen.shortName} plays by Gen 3 rules.`;
 }
 
 // The GBA link, as each game has it: Colosseum registers a team and gives Poké Coupons; XD only trades, at the Trade
@@ -1178,7 +1178,7 @@ function refresh(data) {
 
 // The settings that are a list or a range, and the ones that are a switch: each saves under its element's id.
 const SELECTS = ['difficultyLevels', 'difficultyLevelsFrom', 'difficultyTeam', 'difficultyShadows', 'buttonPrompts', 'promptPad', 'battleRules', 'widescreen', 'resolution', 'frameRate', 'vsync', 'fullscreenMode', 'exclusiveResolution', 'display', 'msaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'fsrMode', 'textureLoading', 'renderer', 'hdText', 'expAllShare', 'shinyOdds', 'language', 'battleSpeed', 'fastForward', 'fastForwardSpeed', 'coopHero', 'coopSplit', 'coopPads', 'padMode', 'updateChannel', 'randomizerSeed'];
-const SWITCHES = ['difficultyEvolve', 'randomizer', 'randomizerStarters', 'randomizerShadow', 'randomizerTrainers', 'randomizerGifts', 'randomizerGen1', 'randomizerGen2', 'randomizerGen3', 'randomizerGen4', 'randomizerPacks', 'randomizerSimilar', 'randomizerNoLegendaries', 'randomizerNoRepeats', 'randomizerBaseForms', 'generation4Pokemon', 'generation6Pokemon', 'fairyType', 'pbrReplaceAll', 'pbrTextures', 'fullscreen', 'hudEdges', 'skipMovies', 'skipBattleAnimations', 'quickMoves', 'quickStatus', 'shinyShadow', 'shinyStarters', 'chooseHero', 'chooseStarters', 'tmNames', 'infiniteTms', 'expAll', 'cstickMove', 'partnerPass', 'moveRelearner', 'coop', 'pokeSpotPool', 'overlay', 'backgroundInput', 'gbaAutoPower', 'gbaTradeAnytime', 'fxaa', 'textures', 'hdModels', 'shaderWarmup', 'autoUpdate', 'autoBackups', 'shareUsage', 'discordPresence', 'darkMode'];
+const SWITCHES = ['difficultyEvolve', 'randomizer', 'randomizerStarters', 'randomizerShadow', 'randomizerTrainers', 'randomizerGifts', 'randomizerGen1', 'randomizerGen2', 'randomizerGen3', 'randomizerGen4', 'randomizerGen5', 'randomizerGen6', 'randomizerPacks', 'randomizerSimilar', 'randomizerNoLegendaries', 'randomizerNoRepeats', 'randomizerBaseForms', 'generation4Pokemon', 'generation6Pokemon', 'fairyType', 'pbrReplaceAll', 'pbrTextures', 'fullscreen', 'hudEdges', 'skipMovies', 'skipBattleAnimations', 'quickMoves', 'quickStatus', 'shinyShadow', 'shinyStarters', 'chooseHero', 'chooseStarters', 'tmNames', 'infiniteTms', 'expAll', 'cstickMove', 'partnerPass', 'moveRelearner', 'coop', 'pokeSpotPool', 'overlay', 'backgroundInput', 'gbaAutoPower', 'gbaTradeAnytime', 'fxaa', 'textures', 'hdModels', 'shaderWarmup', 'autoUpdate', 'autoBackups', 'shareUsage', 'discordPresence', 'darkMode'];
 
 // The languages: English, the launcher's packs and any found in the languages folder. One chosen and then
 // removed from the folder stays listed, as the game plays in English without it; so does one this game has no pack
@@ -1779,13 +1779,21 @@ function renderRandomizer(data) {
   $('randomizer-spoilers').hidden = !run;
   $('randomizer-spoilers').disabled = Boolean(data.active);
   $('randomizer-reroll').disabled = Boolean(data.active);
-  // The fourth generation's Pokémon are the randomizer's to choose only once they're added, by a game that knows them
+  // The fourth, fifth and sixth generations' Pokémon are the randomizer's to choose only once they're added, by a game that knows them
   const settings = data.config.settings, gen4Pokemon = Boolean(settings.generation4Pokemon), gen4Game = data.randomizerGenerations !== false;
+  const gen6Pokemon = Boolean(settings.generation6Pokemon), gen6Game = data.randomizerGen6 !== false;
   $('randomizerGen4').disabled = !gen4Pokemon || !gen4Game;
   $('randomizer-gen4').classList.toggle('disabled', !gen4Pokemon || !gen4Game);
   $('randomizer-gen4-note').hidden = !settings.randomizerGen4 || (gen4Pokemon && gen4Game);
   $('randomizer-gen4-note').textContent = !gen4Pokemon ? 'Gen 4 counts once you turn on Generation 4 Pokémon, under Later generations.'
     : 'Update your game to have Gen 4 Pokémon in a randomized run.';
+  $('randomizerGen5').disabled = !gen6Pokemon || !gen6Game;
+  $('randomizerGen6').disabled = !gen6Pokemon || !gen6Game;
+  $('randomizer-gen5').classList.toggle('disabled', !gen6Pokemon || !gen6Game);
+  $('randomizer-gen6').classList.toggle('disabled', !gen6Pokemon || !gen6Game);
+  $('randomizer-gen56-note').hidden = !(settings.randomizerGen5 || settings.randomizerGen6) || (gen6Pokemon && gen6Game);
+  $('randomizer-gen56-note').textContent = !gen6Pokemon ? 'Gen 5 and 6 count once you turn on Generation 5 and 6 Pokémon, under Later generations.'
+    : 'Update your game to have Gen 5 and 6 Pokémon in a randomized run.';
   // Pokémon packs' own Pokémon, which a run can have once the game can choose them
   const packsGame = data.randomizerPacks !== false;
   $('randomizerPacks').disabled = !packsGame;
@@ -1801,6 +1809,7 @@ function renderRandomizer(data) {
     : 'The Pokémon you start with and the Shadow Pokémon are only ones that don\'t evolve from another, such as Charmander or Tauros, so you can raise and evolve them. Trainers\' Pokémon and gifts are chosen as usual.';
   $('randomizer-save-note').textContent = !ready ? 'Update your game to use the randomizer. This version of the game plays every save as normal.'
     : run && (run.options & 64) ? `A randomized run with your Pokémon packs' Pokémon, seed ${run.seed}. Keep the packs it started with to play it as it was made; a New Game uses the settings above.`
+    : run && (run.generations & 48) && !gen6Pokemon ? `A randomized run with Gen 5 or 6 Pokémon, seed ${run.seed}. Turn on Generation 5 and 6 Pokémon, under Later generations, to play it as it was made.`
     : run && (run.generations & 8) && !gen4Pokemon ? `A randomized run with Gen 4 Pokémon, seed ${run.seed}. Turn on Generation 4 Pokémon, under Later generations, to play it as it was made.`
     : run ? `A randomized run, seed ${run.seed}. It keeps this seed whatever is set here; a New Game uses the settings above.`
       : exists ? 'The normal game. It stays that way: settings here start with your next New Game.'

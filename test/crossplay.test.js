@@ -97,3 +97,27 @@ test('under Platinum\'s rules a room for both games takes the fourth generation\
   assert.match(one(212, { ability: 1 })[0], /second ability/);
   assert.deepEqual(crossplay.problems([471, 474], [wire(471, { moves: [447] }), wire(474, { moves: [399] })], {}, later), []);
 });
+
+test('under X and Y rules a room for both games takes Gen 5-6 Pokémon, moves, items, Fairy moves and hidden abilities', () => {
+  const xy = {
+    later: true,
+    gen6: true,
+    fairy: true,
+    gen6Items: true,
+    hiddenAbilities: true,
+    secondAbility: species => species === 684,
+    hiddenAbility: species => species === 684 || species === 38,
+  };
+  const play = (species, options) => crossplay.memberProblems(species, wire(species, options), {}, false, xy);
+  // Greninja (national 658 -> colosseum 684), Assault Vest (0x28A), Scald (506) & Moonblast (588), Protean (ability 2)
+  assert.deepEqual(play(684, { item: 0x28a, ability: 2, moves: [506, 588, 57, 58] }), []);
+  // Ninetales (38) with hidden ability Drought (2) and Fairy move Dazzling Gleam (608)
+  assert.deepEqual(play(38, { item: 0x295, ability: 2, moves: [53, 608] }), []);
+  // Past Gen 6 (748) stays out
+  assert.match(play(748, { moves: [34] })[0], /isn't a Pokémon both games have/);
+  // Fairy moves work under Gen 3/4 rules when fairy is turned on alone
+  assert.deepEqual(crossplay.memberProblems(36, wire(36, { moves: [588] }), {}, false, { fairy: true }), []);
+  assert.match(one(36, { moves: [588] })[0], /move #588/);
+  // Without hiddenAbilities, ability 2 is rejected
+  assert.match(crossplay.memberProblems(38, wire(38, { ability: 2 }), {}, false, { later: true, gen6: true })[0], /hidden ability/);
+});

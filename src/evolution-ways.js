@@ -21,8 +21,8 @@ const article = name => `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`;
 // (generations.js colosseumMove).
 function moveName(id) {
   try {
-    const moves = require('./generations').load(4).moves;
-    return moves[id >= 358 ? id - 3 : id]?.name || 'a move';
+    const generations = require('./generations'), number = id >= 358 ? id - 3 : id;
+    return generations.load(4).moves[number]?.name || generations.load(6).moves[number]?.name || 'a move';
   } catch { return 'a move'; }
 }
 

@@ -74,16 +74,18 @@ function shadowFor(fromGame, received, toGame, receiver = {}) {
   if (data.length !== convert.SIZE[fromGame]) throw new Error('The Pokémon received is damaged.');
   const state = shadowState(fromGame, data, record);
   const p = convert.read(fromGame, data);
-  const found = convert.problems(p, { game: toGame, laterPokemon: Boolean(receiver.laterPokemon), laterMoves: Boolean(receiver.laterMoves || receiver.laterPokemon) });
+  const found = convert.problems(p, { game: toGame, laterPokemon: Boolean(receiver.laterPokemon), laterMoves: Boolean(receiver.laterMoves || receiver.laterPokemon),
+    gen6Pokemon: Boolean(receiver.gen6Pokemon), gen6Moves: Boolean(receiver.gen6Moves || receiver.gen6Pokemon), gen6Items: Boolean(receiver.gen6Items) });
   const codes = new Set(found.map(each => each.code));
-  for (const code of ['egg', 'invalid', 'pack', 'later-species']) {
+  for (const code of ['egg', 'invalid', 'pack', 'later-species', 'gen6-species']) {
     if (codes.has(code)) throw new Error(found.find(each => each.code === code).text.replace('This Pokémon', 'The Pokémon received'));
   }
-  if (codes.has('later-move') || codes.has('move')) {
-    const kept = p.moves.filter(m => !m.shadow && m.id >= 1 && m.id <= 470 && (receiver.laterMoves || receiver.laterPokemon || m.id < 358));
+  if (codes.has('later-move') || codes.has('gen6-move') || codes.has('move')) {
+    const maxMove = (receiver.gen6Moves || receiver.gen6Pokemon) ? 624 : (receiver.laterMoves || receiver.laterPokemon) ? 470 : 354;
+    const kept = p.moves.filter(m => !m.shadow && m.id >= 1 && m.id <= maxMove && (m.id < 358 || m.id <= 470 ? (m.id < 358 || receiver.laterMoves || receiver.laterPokemon) : (receiver.gen6Moves || receiver.gen6Pokemon)));
     p.moves = kept.length ? kept : p.moves.slice(0, 1);
   }
-  if (codes.has('key-item') || codes.has('item') || codes.has('later-item')) p.item = 0;
+  if (codes.has('key-item') || codes.has('item') || codes.has('later-item') || codes.has('gen6-item')) p.item = 0;
   const id = storyIdFor(toGame, p.species, p.level);
   const out = convert.write(toGame, p);
   out.writeUInt16BE(id, SHADOW_AT[toGame]);

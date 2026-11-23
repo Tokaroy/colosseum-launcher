@@ -164,13 +164,16 @@
   async function copyStory() {
     await builder().load();
     const data = builder().data(), T = window.coloTeamSets;
-    const sets = state.story.members.slice(0, PARTY_SIZE).map(({ set }) => {
-      const ratio = data?.species[set.species]?.gender ?? T.GENDER.none, name = builder().speciesName(set.species);
+    const raw = state.story.members.slice(0, PARTY_SIZE);
+    const generation = Math.max(3, ...raw.map(({ set }) => Math.max(T.speciesGeneration(set.species), T.itemGeneration(set.item), ...set.moves.map(T.moveGeneration))));
+    const table = generation >= 4 ? data?.generations?.[generation]?.species : data?.species;
+    const sets = raw.map(({ set }) => {
+      const ratio = table?.[set.species]?.gender ?? data?.species?.[set.species]?.gender ?? T.GENDER.none, name = builder().speciesName(set.species);
       const nickname = set.nickname && set.nickname.toLowerCase() !== name.toLowerCase() ? set.nickname : '';
       const gender = T.genders(ratio).length === 2 ? (set.genderByte < ratio ? 'F' : 'M') : '';
-      return T.normalizeSet({ ...set, nickname, gender }, set.species, storyGeneration());
+      return T.normalizeSet({ ...set, nickname, gender }, set.species, generation);
     });
-    openEditor(null, sets, state.story.trainer ? `${state.story.trainer}'s team` : 'Story team', storyGeneration());
+    openEditor(null, sets, state.story.trainer ? `${state.story.trainer}'s team` : 'Story team', generation);
   }
 
   // --- Rooms

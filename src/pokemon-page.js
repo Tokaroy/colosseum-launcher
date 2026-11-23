@@ -142,8 +142,9 @@ function renderDetail() {
   const problem = pokemon.tradeProblem || (!data.canTrade ? data.notice || 'Trading isn\'t possible right now.' : null);
   $('pokemon-trade').hidden = !pokemon.shadow;
   $('pokemon-trade').disabled = Boolean(problem) || Boolean(data.trades?.busy);
-  const note = pokemon.tradeLater ? 'It leaves your save, and a Shadow Pokémon another player sent comes back. As a Generation 4 Pokémon, it goes only to a player whose game has Generation 4 Pokémon turned on.'
-    : 'It leaves your save, and a Shadow Pokémon another player sent comes back.';
+  const note = pokemon.tradeGen6 ? 'It leaves your save, and a Shadow Pokémon another player sent comes back. As a Generation 5 or 6 Pokémon, it goes only to a player whose game has Generation 5 and 6 Pokémon turned on.'
+    : pokemon.tradeLater ? 'It leaves your save, and a Shadow Pokémon another player sent comes back. As a Generation 4 Pokémon, it goes only to a player whose game has Generation 4 Pokémon turned on.'
+      : 'It leaves your save, and a Shadow Pokémon another player sent comes back.';
   $('pokemon-trade-note').textContent = pokemon.shadow ? (problem || note) : 'Only Shadow Pokémon can go to Shadowtrade.';
 }
 

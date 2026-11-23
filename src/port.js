@@ -435,7 +435,7 @@ const FEATURE_ENVIRONMENT = {
 // What the game reads when it starts, as run.sh and run.cmd set it up. `customTextures` is the custom
 // textures folder, for playing (texturePackFolders). `game` is which game (games.js): its renderer, display
 // and input settings are every game's, the rest only where the game has that feature.
-function buildEnvironment(settings, disc, root, { customTextures = null, pbrTextures = null, laterGenerations = false, packPokemon = false, noRepeats = false, baseForms = false,
+function buildEnvironment(settings, disc, root, { customTextures = null, pbrTextures = null, laterGenerations = false, gen6Randomizer = false, packPokemon = false, noRepeats = false, baseForms = false,
   spread = false, game = games.DEFAULT } = {}) {
   if (!root) throw new Error('The port folder is required to configure texture packs.');
   const env = {
@@ -478,7 +478,7 @@ function buildEnvironment(settings, disc, root, { customTextures = null, pbrText
   // Unset is hold at 4x, as in a game built before these settings.
   if (settings.fastForward === 'toggle') env.COLO_FAST_FORWARD = 'toggle';
   if (settings.fastForwardSpeed && settings.fastForwardSpeed !== 4) env.COLO_FAST_FORWARD_SPEED = String(settings.fastForwardSpeed);
-  const run = randomizer.environmentValue(settings, { laterGenerations, packPokemon, noRepeats, baseForms, spread });
+  const run = randomizer.environmentValue(settings, { laterGenerations, gen6Randomizer, packPokemon, noRepeats, baseForms, spread });
   if (run) env.COLO_RANDOMIZER = run;
   if (settings.hdModels === false) env.COLO_HD_MODELS = '0';
   // Unset is on in the game, as it is in a game built before these settings.

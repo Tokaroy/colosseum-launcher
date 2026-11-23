@@ -7,7 +7,7 @@
   const $ = id => document.getElementById(id);
   const T = window.coloTeamSets;
   const PARTY_SIZE = 6;
-  const LIST_LIMIT = 400;
+  const LIST_LIMIT = 700;
   const message = error => String(error?.message || error).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
   const number = national => `#${String(national).padStart(3, '0')}`;
   const el = (tag, props = {}, ...children) => {
