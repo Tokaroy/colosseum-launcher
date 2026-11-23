@@ -10,7 +10,13 @@ number, as the launcher keeps them) with:
   body.png, body-shiny.png, face.png, face-shiny.png   Menu pictures drawn from the models (portrait.py),
                      or the 3DS's own 2D portraits from /a/2/4/4 where they can't be
   cry.wav            Cry from /a/0/7/3 (cries.py)
+  forms/NAME/        Each of its other models, as the 3DS has them: its female one, Megas, Primal Reversion, Zen Mode,
+                     Blade Forme, every Vivillon pattern (model.pkx, model-shiny.pkx and the four pictures), and
+                     forms/forms.json listing them ([{folder, name, form, female}])
+  model-form1.pkx, model-form1-shiny.pkx   The form it changes into in battle (BATTLE_FORMS), which the game shows
   models-version.txt Converter version stamp (remade.json)
+
+A NUMBER below 494 (a Pokémon the game has a model of already) gets only its forms/.
 """
 import json
 import os
@@ -48,6 +54,21 @@ BASES = {
     'Fairy': ['Ralts', 'Kirlia', 'Gardevoir'],
 }
 
+FIRST_3DS = 494   # below, the disc's or Battle Revolution's model is the base one; only the forms come from the 3DS
+FORMS = 'forms'
+FORM_FILES = ('model.pkx', 'model-shiny.pkx', 'body.png', 'body-shiny.png', 'face.png', 'face-shiny.png')
+# The form each changes into in battle, which the game swaps its model to (a pack's model-form1.pkx): Darmanitan's Zen
+# Mode, Meloetta's Pirouette Forme and Aegislash's Blade Forme
+BATTLE_FORMS = {555: 1, 648: 1, 681: 1}
+# Forms the games' text names no better than 'One form' or the Pokémon's own name: Unown's letters, Arceus's types,
+# Genesect's drives (forms 1 on, in the games' order)
+FORM_NAMES = {
+    201: ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
+          'Y', 'Z', 'Exclamation Mark', 'Question Mark'],
+    493: ['Fighting', 'Flying', 'Poison', 'Ground', 'Rock', 'Bug', 'Ghost', 'Steel', 'Fire', 'Water', 'Grass', 'Electric',
+          'Psychic', 'Ice', 'Dragon', 'Dark', 'Fairy'],
+    649: ['Douse Drive', 'Shock Drive', 'Burn Drive', 'Chill Drive'],
+}
 REMADE = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'remade.json'), encoding='utf-8'))
 STAMP = 'models-version.txt'
 here = {}
@@ -59,6 +80,51 @@ def outdated(folder, n):
     except (OSError, ValueError):
         made_by = 1
     return any(int(version) > made_by and n in numbers for version, numbers in REMADE['remade'].items())
+
+
+def slug(text):
+    out = ''.join(c if c.isalnum() and c.isascii() else '-' for c in text.lower().replace('%', ''))
+    return '-'.join(part for part in out.split('-') if part)[:40]
+
+
+def write(path, blob):
+    with open(path + '.part', 'wb') as f:
+        f.write(blob)
+    os.replace(path + '.part', path)
+
+
+def make_forms(n, folder, lines):
+    """Every other model of the Pokémon (rom3ds.variations) into forms/, each in a folder named after it."""
+    rom, game, base = here['rom'], here['game'], here['folders'][n]
+    stale, listing, used = outdated(folder, n), [], {slug(game.species(n)['name']), FORMS}
+    for form, female, _asset in rom.variations(n):
+        own = FORM_NAMES.get(n, [])
+        name = 'Female' if female else own[form - 1] if form <= len(own) else game.form_name(n, form) or 'Form %d' % form
+        key = 'female' if female else slug(name) or 'form-%d' % form
+        if key in used:   # Genesect's drives are all named Genesect; Zygarde has two 10% Formes
+            key = '%s-%d' % (key, form)
+        used.add(key)
+        listing.append({'folder': key, 'name': name, 'form': form, 'female': female})
+        sub = os.path.join(folder, FORMS, key)
+        battle = not female and BATTLE_FORMS.get(n) == form
+        tops = [os.path.join(folder, 'model-form1.pkx'), os.path.join(folder, 'model-form1-shiny.pkx')] if battle else []
+        if here['keep'] and not stale and all(os.path.exists(p) for p in [os.path.join(sub, f) for f in FORM_FILES] + tops):
+            continue
+        os.makedirs(sub, exist_ok=True)
+        drawn = {}
+        first, second = convert.convert_pair(rom.read_pokemon_slot(n, form, female), '%s_%s' % (base, key)[:30],
+                                             '%s_%s_rare' % (base, key)[:30], log=lambda *a: None, portraits=drawn)
+        normal, shiny = drawn.get('normal') or {}, drawn.get('shiny') or {}
+        for fname, blob in zip(FORM_FILES, (first, second, normal.get('body'), shiny.get('body'), normal.get('face'), shiny.get('face'))):
+            if blob:
+                write(os.path.join(sub, fname), blob)
+        for path, blob in zip(tops, (first, second)):
+            write(path, blob)
+        lines.append('  %s/%s: %s, %d bytes%s' % (FORMS, key, name, len(first), ' (its battle form)' if battle else ''))
+    if listing:
+        os.makedirs(os.path.join(folder, FORMS), exist_ok=True)
+        with open(os.path.join(folder, FORMS, 'forms.json'), 'w', encoding='utf-8') as f:
+            json.dump(listing, f, indent=2, ensure_ascii=False)
 
 
 def pokemon_json(game, number, folders):
@@ -117,6 +183,12 @@ def make_one(n):
     rom, game, folders = here['rom'], here['game'], here['folders']
     folder = os.path.join(here['out'], folders[n])
     os.makedirs(folder, exist_ok=True)
+    if n < FIRST_3DS:
+        lines = ['#%d %s: its forms' % (n, game.species(n)['name'])]
+        make_forms(n, folder, lines)
+        with open(os.path.join(folder, STAMP), 'w', encoding='utf-8') as f:
+            f.write('%d\n' % REMADE['version'])
+        return lines
     spec = pokemon_json(game, n, folders)
     with open(os.path.join(folder, 'pokemon.json'), 'w', encoding='utf-8') as f:
         json.dump(spec, f, indent=2, ensure_ascii=False)
@@ -180,6 +252,7 @@ def make_one(n):
         os.replace(path + '.part', path)
         lines.append('  %s: %d bytes' % (os.path.basename(path), len(pkx)))
 
+    make_forms(n, folder, lines)
     with open(os.path.join(folder, STAMP), 'w', encoding='utf-8') as f:
         f.write('%d\n' % REMADE['version'])
     return lines

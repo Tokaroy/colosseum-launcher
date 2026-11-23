@@ -97,6 +97,24 @@ class USUMData:
         self.evolutions_garc = rom.garc('/a/0/1/4')
         self._pokepic_index = None
         self._evo_parents = None
+        self._form_names = None
+
+    def form_name(self, national, form):
+        """A form's name as the games show it ('Mega Charizard X', 'Zen Mode', 'Polar Pattern'), or ''. Text file 119
+        lists the National Dex's names (0-808), then each Pokémon's other forms in turn from 809, in National Dex
+        order, as many as its personal data's form count (0x20) says."""
+        if self._form_names is None:
+            names = decode_text_file(self.rom.garc('/a/0/3/2').get_entry(119))
+            table, at = {}, 809
+            for n in range(1, self.personal.entry_cnt):
+                d = self.personal.get_entry(n)
+                if len(d) <= 0x20:
+                    break
+                for k in range(1, d[0x20]):
+                    table[(n, k)] = names[at] if at < len(names) else ''
+                    at += 1
+            self._form_names = table
+        return self._form_names.get((national, form), '')
 
     def pokepic_index(self):
         """Return dict mapping (national, 'n'|'r') -> GARC entry index in /a/2/4/4."""

@@ -249,6 +249,28 @@ class Rom3DS:
             target_slot = start
         return slot, fb_flags, target_slot
 
+    def variations(self, national):
+        """The Pokémon's models besides its base one: [(form, female, asset_slot)], its female model (form 0) first
+        where it has one, then each other form (Megas, Primal Reversion, Zen Mode, Blade Forme, every Vivillon
+        pattern...). A form drawn with another's assets (a full fallback, flag 7) is left out where those are the base's
+        or a form's already listed."""
+        sp_tbl, part_b = self.model_index()
+        start, cnt, flags = sp_tbl[national - 1]
+        has_female = bool(flags & 0x02)
+        seen = set()
+        slot, fb, target = self.resolve_model_slot(national)
+        seen.add(target if fb == 7 else slot)
+        out = []
+        wanted = ([(0, True)] if has_female else []) + [(k, False) for k in range(1, cnt - (1 if has_female else 0))]
+        for form, female in wanted:
+            slot, fb, target = self.resolve_model_slot(national, form, female)
+            asset = target if fb == 7 else slot
+            if asset in seen:
+                continue
+            seen.add(asset)
+            out.append((form, female, asset))
+        return out
+
     def read_pokemon_slot(self, national, form=0, female=False):
         """Return dict with raw decompressed sub-archives for model, normal tex, shiny tex, battle motions, meta."""
         g = self.garc('/a/0/9/4')
