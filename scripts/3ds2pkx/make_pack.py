@@ -7,7 +7,8 @@ number, as the launcher keeps them) with:
   pokemon.json       Stats, types, abilities, level-up moves, TM moves and evolutions
   model.pkx          3DS battle model converted to GameCube PKX (convert.py)
   model-shiny.pkx    Shiny battle model (reusing geometry/skeleton/animations)
-  body.png, body-shiny.png, face.png, face-shiny.png   2D menu portraits from /a/2/4/4
+  body.png, body-shiny.png, face.png, face-shiny.png   Menu pictures drawn from the models (portrait.py),
+                     or the 3DS's own 2D portraits from /a/2/4/4 where they can't be
   cry.wav            Cry from /a/0/7/3 (cries.py)
   models-version.txt Converter version stamp (remade.json)
 """
@@ -121,18 +122,9 @@ def make_one(n):
         json.dump(spec, f, indent=2, ensure_ascii=False)
     lines = ['#%d %s: base %s' % (n, spec['name'], spec['base'])]
 
-    # 2D Portraits from /a/2/4/4
-    need_icons = not (here['keep'] and all(
-        os.path.exists(os.path.join(folder, f)) for f in ('body.png', 'body-shiny.png', 'face.png', 'face-shiny.png')
-    ))
-    if need_icons:
-        body_n, body_s, face_n, face_s = game.icon_pngs(n)
-        for fname, blob in (('body.png', body_n), ('body-shiny.png', body_s), ('face.png', face_n), ('face-shiny.png', face_s)):
-            if blob:
-                p = os.path.join(folder, fname)
-                with open(p + '.part', 'wb') as f:
-                    f.write(blob)
-                os.replace(p + '.part', p)
+    # Menu pictures: drawn from the models when they are made (below), else the 3DS's own 2D portraits (/a/2/4/4)
+    icons = ('body.png', 'body-shiny.png', 'face.png', 'face-shiny.png')
+    need_icons = not (here['keep'] and all(os.path.exists(os.path.join(folder, f)) for f in icons)) or outdated(folder, n)
 
     # Read 3DS model slot once (needed for both Gen 6 cry dev-ID lookup and 3D model conversion)
     slot_data = None
@@ -141,8 +133,8 @@ def make_one(n):
     stale = outdated(folder, n)
     model_path = os.path.join(folder, 'model.pkx')
     shiny_path = os.path.join(folder, 'model-shiny.pkx')
-    need_normal = not (here['keep'] and os.path.exists(model_path) and not stale)
-    need_shiny = not (here['keep'] and os.path.exists(shiny_path) and not stale)
+    need_normal = not (here['keep'] and os.path.exists(model_path) and not stale) or need_icons
+    need_shiny = not (here['keep'] and os.path.exists(shiny_path) and not stale) or need_icons
 
     if need_normal or need_shiny or (need_cry and n > 649):
         slot_data = rom.read_pokemon_slot(n)
@@ -159,13 +151,28 @@ def make_one(n):
 
     quiet = lambda *a: None
     made = []
+    drawn = {}
     if need_normal and need_shiny:
-        first, second = convert.convert_pair(slot_data, folders[n], folders[n] + '_rare', log=quiet)
+        first, second = convert.convert_pair(slot_data, folders[n], folders[n] + '_rare', log=quiet, portraits=drawn)
         made = [(model_path, first), (shiny_path, second)]
     elif need_normal:
         made = [(model_path, convert.convert(slot_data, folders[n], shiny=False, log=quiet))]
     elif need_shiny:
         made = [(shiny_path, convert.convert(slot_data, folders[n] + '_rare', shiny=True, log=quiet))]
+
+    if need_icons:
+        normal, shiny = drawn.get('normal') or {}, drawn.get('shiny') or {}
+        pictures = [normal.get('body'), shiny.get('body'), normal.get('face'), shiny.get('face')]
+        if not all(pictures):
+            own = game.icon_pngs(n)
+            lines.append('  pictures: the 3DS\'s own, as the model couldn\'t be drawn')
+            pictures = list(own)   # all four alike
+        for fname, blob in zip(icons, pictures):
+            if blob:
+                p = os.path.join(folder, fname)
+                with open(p + '.part', 'wb') as f:
+                    f.write(blob)
+                os.replace(p + '.part', p)
 
     for path, pkx in made:
         with open(path + '.part', 'wb') as f:

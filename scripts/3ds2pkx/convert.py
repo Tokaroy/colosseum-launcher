@@ -48,6 +48,7 @@ from exporter.phases.serialize.serialize import serialize                       
 from exporter.phases.package.package import package_output                                # noqa: E402
 
 import boundbox                                                                           # noqa: E402
+import portrait                                                                           # noqa: E402
 import textures                                                                           # noqa: E402
 import shared.texture_encoder                                                             # noqa: E402
 import gfmodel                                                                            # noqa: E402
@@ -455,6 +456,95 @@ def _undeform_normals(mesh, bones):
     mesh.normals = turned
 
 
+def _posed(gf_skel, order, bone_fields, motion, frame):
+    """Each bone's skinning matrix (posed world @ inverse bind) at a frame of a parsed GFMotion, as the IR's bones
+    hold them (metres), by position in `order`."""
+    mot_bones = motion.get('bones', {}) if motion else {}
+    world, skin = [], []
+    for pos, orig in enumerate(order):
+        b = gf_skel[orig]
+        mb = mot_bones.get(b['name'])
+        t, r, sc = b['translation'], b['rotation'], b['scale']
+        if mb:
+            tr = mb['tracks']
+            sc = tuple(gfmotion.evaluate_track(tr[k], frame, sc[k]) for k in range(3))
+            if any(tr[3 + k] for k in range(3)):
+                if mb['is_axis_angle']:
+                    r = gfmotion.axis_angle_to_euler_xyz(*(gfmotion.evaluate_track(tr[3 + k], frame, 0.0) for k in range(3)))
+                else:
+                    r = tuple(gfmotion.evaluate_track(tr[3 + k], frame, r[k]) for k in range(3))
+            t = tuple(gfmotion.evaluate_track(tr[6 + k], frame, t[k]) for k in range(3))
+        local = trs_matrix(t, r, sc, UNIT)
+        parent = bone_fields[pos]['parent_index']
+        w = mat4.mul(world[parent], local) if parent is not None else local
+        world.append(w)
+        skin.append(mat4.mul(w, bone_fields[pos]['inverse_bind_matrix']))
+    return skin
+
+
+def _portraits(gf, order, meshes, geometry, bone_fields, parsed_motions, slot_actions, hideable):
+    """The model's body and face pictures (portrait.render), posed as its idle animation's first frame shows it
+    (meshes it hides there, such as closed eyes, are left out). Its face is what its Head bone carries."""
+    names = [b['name'] for b in bone_fields]
+    index = {nm: i for i, nm in enumerate(names)}
+    heads = [i for i, nm in enumerate(names) if nm.lower() == 'head'] or \
+            [i for i, nm in enumerate(names) if 'head' in nm.lower() and 'skin' not in nm.lower()]
+    head = names[heads[0]] if heads else None
+    idle = slot_actions[0][1][0] if slot_actions and slot_actions[0][1] else None
+    motion = parsed_motions.get(idle) if idle is not None else None
+    skin = _posed(gf['skeleton'], order, bone_fields, motion, 0)
+    shown = motion.get('visibility', {}) if motion else {}
+    parts = []
+    for (mn, mat_name, _fields), m in zip(geometry, meshes):
+        if mn in hideable and shown.get(mn) and not shown[mn][0]:
+            continue
+        bw = m.bone_weights
+        if bw.type == SkinType.WEIGHTED:
+            weights = [[] for _ in m.vertices]
+            for vi, lw in bw.assignments:
+                weights[vi] = [(index[bn], w) for bn, w in lw if bn in index]
+        else:
+            weights = [[(index.get(bw.bone_name, m.parent_bone_index), 1.0)]] * len(m.vertices)
+        vertices = []
+        for v, lw in zip(m.vertices, weights):
+            if not lw:
+                vertices.append(tuple(v))
+                continue
+            p = [0.0, 0.0, 0.0]
+            for bi, w in lw:
+                q = mat4.apply(skin[bi], v)
+                p = [p[k] + w * q[k] for k in range(3)]
+            vertices.append(tuple(p))
+        normals, corner = [], 0
+        for f in m.faces:
+            for vi in f:
+                n, lw = m.normals[corner], weights[vi]
+                if lw:
+                    q = [0.0, 0.0, 0.0]
+                    for bi, w in lw:
+                        r = mat4.apply3(skin[bi], n)
+                        q = [q[k] + w * r[k] for k in range(3)]
+                    n = mat4.normalized(q)
+                normals.append(n)
+                corner += 1
+        mat = m.material
+        layer = mat.texture_layers[0] if mat.texture_layers else None
+        fb = mat.fragment_blending
+        if fb is not None and fb.effect == OutputBlendEffect.ADDITIVE_ALPHA:
+            kind = 'add'
+        elif layer is not None and layer.alpha_blend != LayerBlendMode.NONE:
+            kind = 'cut' if fb is not None else 'blend'
+        else:
+            kind = 'opaque'
+        on_head = [sum(w for bi, w in lw if names[bi] == head) if head else 0.0 for lw in weights]
+        parts.append(dict(vertices=vertices, faces=m.faces, normals=normals, uvs=m.uv_layers[0].uvs,
+                          image=layer.image if layer else None,
+                          wrap=(layer.wrap_s.value, layer.wrap_t.value) if layer else ('REPEAT', 'REPEAT'),
+                          kind=kind, lit=mat.lighting == LightingModel.LIT, cull=m.cull_back, head=on_head,
+                          eye='eye' in (mat_name or '').lower()))
+    return portrait.render(parts, has_head=bool(head))
+
+
 def _select_battle_motions(battle_blobs):
     """Parse available skeletal battle motions from slot +4 and map Colosseum's 17 slots."""
     parsed = {}
@@ -616,11 +706,12 @@ def _sample_animations(gf_skel, order, bone_fields, unique_names, parsed_motions
     return sampled, mat_tracks, lengths
 
 
-def build(model_data, tex_blobs, battle_blobs, name, max_texture=256, log=print, reuse=None):
+def build(model_data, tex_blobs, battle_blobs, name, max_texture=256, log=print, reuse=None, portraits=None):
     """Build a Colosseum .pkx from GFModel bytes, texture pack blobs, and battle motion blobs.
 
     Returns (pkx_bytes, made_cache) where `made_cache` can be passed as `reuse=` when converting
     the matching shiny variant (3DS shiny Pokémon share 100% of geometry, skeleton, and motions).
+    `portraits`, a dict, gets the model's menu pictures drawn from it (portrait.py): 'body' and 'face' PNGs.
     """
     gf = reuse['gf'] if reuse else gfmodel.read_gfmodel(model_data)
     gf_mats = {m['name']: m for m in gf['materials']}
@@ -747,6 +838,11 @@ def build(model_data, tex_blobs, battle_blobs, name, max_texture=256, log=print,
         ir_mat = _material_of(gf_mats.get(mat_name), tex_dict, images, max_texture, mn in hideable)
         meshes.append(IRMesh(material=ir_mat, **fields))
 
+    if portraits is not None:
+        try:
+            portraits['body'], portraits['face'] = _portraits(gf, order, meshes, geometry, bone_fields, parsed_motions, slot_actions, hideable)
+        except Exception as error:   # the 3DS's own pictures stay
+            log('  portraits: %s' % error)
     for mi, m in enumerate(meshes):
         bones[m.parent_bone_index].mesh_indices.append(mi)
     refine_bone_flags(bones, meshes, logger=StubLogger())
@@ -843,10 +939,15 @@ def convert(slot_data, name, shiny=False, max_texture=256, log=print):
     return build(slot_data['model_pc'][0], tex_blobs, slot_data['battle_motions'], name, max_texture, log)[0]
 
 
-def convert_pair(slot_data, name, shiny_name, max_texture=256, log=print):
-    """Convert a Pokémon's normal and shiny 3DS models into two .pkx files, reusing all geometry/anims."""
+def convert_pair(slot_data, name, shiny_name, max_texture=256, log=print, portraits=None):
+    """Convert a Pokémon's normal and shiny 3DS models into two .pkx files, reusing all geometry/anims.
+    `portraits`, a dict, gets 'normal' and 'shiny' dicts of their menu pictures (build's)."""
     model_data = slot_data['model_pc'][0]
     battle = slot_data['battle_motions']
-    first, made = build(model_data, slot_data['normal_tex_pc'], battle, name, max_texture, log)
-    second, _ = build(model_data, slot_data['shiny_tex_pc'], battle, shiny_name, max_texture, log, reuse=made)
+    normal = {} if portraits is not None else None
+    shiny = {} if portraits is not None else None
+    first, made = build(model_data, slot_data['normal_tex_pc'], battle, name, max_texture, log, portraits=normal)
+    second, _ = build(model_data, slot_data['shiny_tex_pc'], battle, shiny_name, max_texture, log, reuse=made, portraits=shiny)
+    if portraits is not None:
+        portraits['normal'], portraits['shiny'] = normal, shiny
     return first, second
