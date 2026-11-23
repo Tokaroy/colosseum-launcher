@@ -1178,7 +1178,7 @@ function refresh(data) {
 
 // The settings that are a list or a range, and the ones that are a switch: each saves under its element's id.
 const SELECTS = ['difficultyLevels', 'difficultyLevelsFrom', 'difficultyTeam', 'difficultyShadows', 'buttonPrompts', 'promptPad', 'battleRules', 'widescreen', 'resolution', 'frameRate', 'vsync', 'fullscreenMode', 'exclusiveResolution', 'display', 'msaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'fsrMode', 'textureLoading', 'renderer', 'hdText', 'expAllShare', 'shinyOdds', 'language', 'battleSpeed', 'fastForward', 'fastForwardSpeed', 'coopHero', 'coopSplit', 'coopPads', 'padMode', 'updateChannel', 'randomizerSeed'];
-const SWITCHES = ['difficultyEvolve', 'randomizer', 'randomizerStarters', 'randomizerShadow', 'randomizerTrainers', 'randomizerGifts', 'randomizerGen1', 'randomizerGen2', 'randomizerGen3', 'randomizerGen4', 'randomizerGen5', 'randomizerGen6', 'randomizerPacks', 'randomizerSimilar', 'randomizerNoLegendaries', 'randomizerNoRepeats', 'randomizerBaseForms', 'generation4Pokemon', 'generation6Pokemon', 'fairyType', 'pbrReplaceAll', 'pbrTextures', 'fullscreen', 'hudEdges', 'skipMovies', 'skipBattleAnimations', 'quickMoves', 'quickStatus', 'shinyShadow', 'shinyStarters', 'chooseHero', 'chooseStarters', 'tmNames', 'infiniteTms', 'expAll', 'cstickMove', 'partnerPass', 'moveRelearner', 'coop', 'pokeSpotPool', 'overlay', 'backgroundInput', 'gbaAutoPower', 'gbaTradeAnytime', 'fxaa', 'textures', 'hdModels', 'shaderWarmup', 'autoUpdate', 'autoBackups', 'shareUsage', 'discordPresence', 'darkMode'];
+const SWITCHES = ['difficultyEvolve', 'randomizer', 'randomizerStarters', 'randomizerShadow', 'randomizerTrainers', 'randomizerGifts', 'randomizerGen1', 'randomizerGen2', 'randomizerGen3', 'randomizerGen4', 'randomizerGen5', 'randomizerGen6', 'randomizerPacks', 'randomizerSimilar', 'randomizerNoLegendaries', 'randomizerNoRepeats', 'randomizerBaseForms', 'generation4Pokemon', 'generation6Pokemon', 'fairyType', 'pbrReplaceAll', 'pbrTextures', 'usumTextures', 'fullscreen', 'hudEdges', 'skipMovies', 'skipBattleAnimations', 'quickMoves', 'quickStatus', 'shinyShadow', 'shinyStarters', 'chooseHero', 'chooseStarters', 'tmNames', 'infiniteTms', 'expAll', 'cstickMove', 'partnerPass', 'moveRelearner', 'coop', 'pokeSpotPool', 'overlay', 'backgroundInput', 'gbaAutoPower', 'gbaTradeAnytime', 'fxaa', 'textures', 'hdModels', 'shaderWarmup', 'autoUpdate', 'autoBackups', 'shareUsage', 'discordPresence', 'darkMode'];
 
 // The languages: English, the launcher's packs and any found in the languages folder. One chosen and then
 // removed from the folder stays listed, as the game plays in English without it; so does one this game has no pack
@@ -1399,7 +1399,7 @@ function showError(error) { closeModal(); setMessage(errorText(error), true); }
 function needsBuild(method) {
   if (method === 'launchGame') return !current.binaryReady || !current.hdVisualsReady ||
     Boolean(current.config.settings.autoUpdate && current.game.needsUpdate);
-  return ['installPort', 'installTextures', 'installPbrTextures', 'makePbrModels', 'build', 'setupGame', 'prepareGame', 'updateAndPlay', 'updatePort'].includes(method);
+  return ['installPort', 'installTextures', 'installPbrTextures', 'installUsumTextures', 'makePbrModels', 'build', 'setupGame', 'prepareGame', 'updateAndPlay', 'updatePort'].includes(method);
 }
 
 async function action(method) {
@@ -1407,7 +1407,7 @@ async function action(method) {
   // In a folder too deep for Windows, explain instead of starting a build that would fail.
   if (current?.pathProblem && needsBuild(method)) { showPathProblem(); return; }
   try {
-    if (['installPort', 'installTextures', 'installPbrTextures', 'makePbrModels', 'build', 'setupGame', 'prepareGame', 'launchGame', 'updateAndPlay', 'updatePort', 'play', 'playPrevious'].includes(method))
+    if (['installPort', 'installTextures', 'installPbrTextures', 'installUsumTextures', 'makePbrModels', 'build', 'setupGame', 'prepareGame', 'launchGame', 'updateAndPlay', 'updatePort', 'play', 'playPrevious'].includes(method))
       setConsoleFollowing(true);
     const result = await window.colo[method]();
     if (result && result.config) refresh(result);
@@ -1748,6 +1748,20 @@ function renderUsum(data) {
   $('choose-usum-rom').disabled = Boolean(data.active);
   renderUsumCheck('usum-check', usum);
   renderUsumBanner(data);
+  renderUsumTextures(data);
+}
+// 3DS HD textures: a switch that downloads them once, for the Generation 5 and 6 Pokémon whose models are made
+function renderUsumTextures(data) {
+  const usum = data.usum || {}, textures = usum.textures || {}, on = Boolean(data.config.settings.usumTextures);
+  const mb = Math.max(1, Math.round((textures.size || 0) / 1e6));
+  badge('usum-textures-badge', textures.installed ? 'Installed' : 'Not installed', Boolean(textures.installed), on && !textures.installed && Boolean(usum.wanted));
+  $('usum-textures-note').textContent = !usum.wanted
+    ? 'The 3DS games\' own textures, upscaled for sharper models. Turn on Generation 5 and 6 Pokémon above first.'
+    : textures.installed
+      ? on ? 'The 3DS games\' own textures, upscaled: your 3DS models show them in the game and the Pokédex.'
+        : 'Already downloaded. Turn on to use them.'
+      : `The 3DS games' own textures, upscaled for sharper 3DS models. A one-time download of about ${mb} MB${on ? ', which starts when you play' : ''}.`;
+  $('usumTextures').disabled = Boolean(data.active) || !usum.wanted;
 }
 async function chooseUsumRom() {
   const before = current?.usum?.rom, last = current?.usum?.choice?.at;
@@ -2306,12 +2320,17 @@ $('usum-banner-make').addEventListener('click', () => {
   else { showPage('settings'); showSettingsTab('gameplay'); }
 });
 $('open-languages').addEventListener('click', () => window.colo.openLanguages().catch(showError));
-for (const key of [...SELECTS, ...SWITCHES]) if (key !== 'generation4Pokemon' && key !== 'generation6Pokemon' && key !== 'pbrReplaceAll' && key !== 'pbrTextures') $(key).addEventListener('change', saveSettings);
+for (const key of [...SELECTS, ...SWITCHES]) if (key !== 'generation4Pokemon' && key !== 'generation6Pokemon' && key !== 'pbrReplaceAll' && key !== 'pbrTextures' && key !== 'usumTextures') $(key).addEventListener('change', saveSettings);
 // Turned on: the download starts now, unless something else is running (then it starts when you play)
 $('pbrTextures').addEventListener('change', async () => {
   await saveSettings();
   const pbr = current?.pbr || {};
   if (current?.config.settings.pbrTextures && pbr.wanted && !pbr.textures?.installed && !current.active) action('installPbrTextures');
+});
+$('usumTextures').addEventListener('change', async () => {
+  await saveSettings();
+  const usum = current?.usum || {};
+  if (current?.config.settings.usumTextures && usum.wanted && !usum.textures?.installed && !current.active) action('installUsumTextures');
 });
 $('generation4Pokemon').addEventListener('change', async () => {
   await saveSettings();

@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('colo', {
   makePbrModels: () => ipcRenderer.invoke('make-pbr-models'),
   choosePbrDisc: () => ipcRenderer.invoke('choose-pbr-disc'),
   makeUsumModels: () => ipcRenderer.invoke('make-usum-models'),
+  installUsumTextures: () => ipcRenderer.invoke('install-usum-textures'),
   chooseUsumRom: () => ipcRenderer.invoke('choose-usum-rom'),
   build: () => ipcRenderer.invoke('build'),
   setupGame: () => ipcRenderer.invoke('setup-game'),

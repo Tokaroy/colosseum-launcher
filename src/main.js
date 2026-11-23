@@ -1126,7 +1126,7 @@ async function setupGame() {
   port.validateRom(config.rom, config.game);
   if (!game.isCurrent(config.repo, currentSource())) await build();
   else if (!hdVisualsReady(config.repo, config.settings)) await installTextures();
-  await ensurePbrTextures();
+  await ensureModelTextures();
   return state();
 }
 
@@ -1351,6 +1351,7 @@ function usumState() {
   return { rom: config.usumRom || null, romFound: Boolean(config.usumRom && fs.existsSync(config.usumRom)),
     romProblem: usumRomProblem(), choice: usumRomChoice,
     wanted: wanted.length, made: present.length - outdated.size - noCry, outdated: outdated.size, noCry, cries: true,
+    textures: { installed: port.pbrTexturesInstalled(usumWork(), port.USUM_TEXTURE_PACK), size: port.USUM_TEXTURE_PACK.size },
     supported: fs.existsSync(port.usumModelsScript()) };
 }
 async function makeUsumModels() {
@@ -1366,6 +1367,25 @@ async function makeUsumModels() {
   await launch(cmd.command, cmd.args, { cwd: cmd.cwd, env: cmd.env }, 'Make 3DS Pokémon assets');
   const { made } = usumState();
   log(`3DS Pokémon assets: ${made} of ${wanted.length} Pokémon made. They show in the Pokédex, and in your next game.`);
+  return state();
+}
+
+// 3DS HD textures (usum-texture-pack.json), as the Battle Revolution ones below: wanted when they're turned on and
+// Generation 5 and 6 Pokémon are imported, read once they're downloaded (usumTextureFolder: the folder, or null).
+function usumTexturesWanted(settings = config.settings) { return supports('pbrAssets') && Boolean(settings.usumTextures) && usumWanted(settings).length > 0; }
+function usumTexturesInstalled() { return port.pbrTexturesInstalled(usumWork(), port.USUM_TEXTURE_PACK); }
+function usumTextureFolder(settings = config.settings) {
+  return usumTexturesWanted(settings) && usumTexturesInstalled() ? port.pbrTextureFolder(usumWork(), port.USUM_TEXTURE_PACK) : null;
+}
+async function installUsumTextures() {
+  requireFeature('pbrAssets', '3DS Pokémon assets');
+  if (!config.settings.usumTextures) return state();
+  if (usumTexturesInstalled()) { log('3DS HD textures are already installed.'); return state(); }
+  await ensureBuildTools();
+  const cmd = port.pbrTextureCommand(usumWork(), process.platform, toolEnv(), port.USUM_TEXTURE_PACK);
+  await launch(cmd.command, cmd.args, { cwd: cmd.cwd, env: cmd.env }, 'Install 3DS HD textures');
+  if (!usumTexturesInstalled()) throw new Error('The texture installer finished without the 3DS HD textures.');
+  log('3DS HD textures are ready: your Generation 5 and 6 Pokémon show them in the Pokédex and your next game.');
   return state();
 }
 
@@ -1387,11 +1407,17 @@ async function installPbrTextures() {
   log('Battle Revolution HD textures are ready: your Generation 4 Pokémon show them in the Pokédex and your next game.');
   return state();
 }
-// Before playing: a download that fails doesn't stop the game, which shows the models' own textures until it's done.
-async function ensurePbrTextures() {
-  if (!pbrTexturesMissing()) return;
-  try { await installPbrTextures(); }
-  catch (error) { log(`Battle Revolution HD textures couldn't be installed (${error.message}); the game shows the models' own textures. Try again from Settings → Gameplay.`); }
+// Before playing, the Battle Revolution and 3DS HD textures: a download that fails doesn't stop the game, which shows the
+// models' own textures until it's done.
+async function ensureModelTextures() {
+  if (pbrTexturesMissing()) {
+    try { await installPbrTextures(); }
+    catch (error) { log(`Battle Revolution HD textures couldn't be installed (${error.message}); the game shows the models' own textures. Try again from Settings → Gameplay.`); }
+  }
+  if (usumTexturesWanted() && !usumTexturesInstalled()) {
+    try { await installUsumTextures(); }
+    catch (error) { log(`3DS HD textures couldn't be installed (${error.message}); the game shows the models' own textures. Try again from Settings → Gameplay.`); }
+  }
 }
 
 // The file of packs for the game to load, or null when there are none, and how many of its Pokémon are packs' own
@@ -1512,7 +1538,7 @@ let pokedexTextures = { key: null, index: new Map() };
 function pokedexTextureIndex(fresh = false) {
   const settings = { ...config.settings, textures: Boolean(config.repo && config.settings.textures && port.texturePackInstalled(config.repo, config.game)) };
   if (pbrTexturesWanted(settings)) port.dropLeftOutPbrTextures(pbrWork());
-  const folders = port.texturePackFolders(settings, config.repo, customTextureDirectory(), pbrTextureFolder()), key = folders.join('\n');
+  const folders = port.texturePackFolders(settings, config.repo, customTextureDirectory(), pbrTextureFolder(), usumTextureFolder()), key = folders.join('\n');
   if (fresh || key !== pokedexTextures.key) pokedexTextures = { key, index: texturePackLookup.indexFolders(folders) };
   return pokedexTextures.index;
 }
@@ -1963,7 +1989,7 @@ async function playGame(installation = null, battle = null) {
   if (before) throw new Error(`${shortGameName(before.game)} is still running from before (it was open when the launcher closed). Close it first, then play.`);
   if (!battle) closeAdoptLink();
   const storyLink = !battle ? await openStoryLink(chosen.id) : null;
-  const playEnv = { ...port.buildEnvironment(settings, rom, root, { customTextures: customTextureDirectory(), pbrTextures: pbrTextureFolder(settings), laterGenerations: onlineFeatures(root).randomizerGenerations,
+  const playEnv = { ...port.buildEnvironment(settings, rom, root, { customTextures: customTextureDirectory(), pbrTextures: pbrTextureFolder(settings), usumTextures: usumTextureFolder(settings), laterGenerations: onlineFeatures(root).randomizerGenerations,
     gen6Randomizer: onlineFeatures(root).randomizerGen6,
     // a new randomized run can have packs' own Pokémon: there are some, and the game can choose them
     packPokemon: packPokemon > 0 && onlineFeatures(root).randomizerPacks,
@@ -2814,7 +2840,7 @@ async function launchGame(update = config.settings.autoUpdate) {
   port.validateRom(config.rom, config.game);
   if (!binaryReady() || (update && !game.isCurrent(config.repo, currentSource()))) await build();
   if (!hdVisualsReady(config.repo, config.settings)) await installTextures();
-  await ensurePbrTextures();
+  await ensureModelTextures();
   return play();
 }
 
@@ -4399,6 +4425,7 @@ function registerHandlers() {
     'install-pbr-textures': ['Install Battle Revolution HD textures', installPbrTextures], 'build': ['Build game', () => build(true)],
     'make-pbr-models': ['Make Battle Revolution assets', makePbrModels],
     'make-usum-models': ['Make 3DS Pokémon assets', makeUsumModels],
+    'install-usum-textures': ['Install 3DS HD textures', installUsumTextures],
     'setup-game': ['Build game', setupGame], 'prepare-game': ['Prepare game', prepareGame], 'play': [playLabel, playInstalled],
     'launch-game': ['Prepare game', () => launchGame()], 'update-and-play': ['Prepare game', () => launchGame(true)],
     'play-previous': [playLabel, () => {

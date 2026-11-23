@@ -17,6 +17,7 @@ const PORT_URL = 'https://git.softwareauralabs.com/chase/pokemon-colosseum.git';
 // The HD texture pack: the port's own release, unpacked into mods/textures/colo-upscale-4x.
 const TEXTURE_PACK = require('./texture-pack.json');
 const PBR_TEXTURE_PACK = require('./pbr-texture-pack.json');
+const USUM_TEXTURE_PACK = require('./usum-texture-pack.json');
 const release = require('./game-release.json');
 
 // The processor the game is built for. A game marked "rosetta" in game-release.json predates the native
@@ -255,6 +256,7 @@ function normalizeSettings(input = {}, platform = process.platform, arch = gameA
     // Battle Revolution HD textures: PBR's own textures for the models Make assets makes, upscaled (4×, at most 1024
     // pixels), a download of their own (pbr-texture-pack.json). Off until the player turns it on.
     pbrTextures: Boolean(input.pbrTextures),
+    usumTextures: Boolean(input.usumTextures),
     // People in the field drawn with their detailed models, made from the disc.
     hdModels: input.hdModels !== false,
     // When HD textures load: while each area loads (stage), the whole pack and kept (all), or each when first drawn (play).
@@ -394,14 +396,19 @@ function dropLeftOutPbrTextures(work, pack = PBR_TEXTURE_PACK) {
   }
   return removed;
 }
+// The 3DS HD textures (usum-texture-pack.json) the same way: the 3DS games' own textures of the Generation 5 and 6
+// Pokémon Make assets makes models of, upscaled 4×, kept with those models (main.js usumWork). The functions above
+// take this pack as `pack`.
 
 // The texture folders the game reads, first match wins: the player's custom textures, then the HD pack, then
-// Battle Revolution's HD textures (`pbrTextures`, a folder, when they're on and installed).
-function texturePackFolders(settings, root, customTextures, pbrTextures = null) {
+// Battle Revolution's HD textures (`pbrTextures`) and the 3DS ones (`usumTextures`), each a folder when it's on and
+// installed.
+function texturePackFolders(settings, root, customTextures, pbrTextures = null, usumTextures = null) {
   const folders = [];
   if (customTextures && customTexturesPresent(customTextures)) folders.push(customTextures);
   if (settings.textures) folders.push(texturePackDirectory(root));
   if (pbrTextures) folders.push(pbrTextures);
+  if (usumTextures) folders.push(usumTextures);
   return folders;
 }
 
@@ -435,7 +442,7 @@ const FEATURE_ENVIRONMENT = {
 // What the game reads when it starts, as run.sh and run.cmd set it up. `customTextures` is the custom
 // textures folder, for playing (texturePackFolders). `game` is which game (games.js): its renderer, display
 // and input settings are every game's, the rest only where the game has that feature.
-function buildEnvironment(settings, disc, root, { customTextures = null, pbrTextures = null, laterGenerations = false, gen6Randomizer = false, packPokemon = false, noRepeats = false, baseForms = false,
+function buildEnvironment(settings, disc, root, { customTextures = null, pbrTextures = null, usumTextures = null, laterGenerations = false, gen6Randomizer = false, packPokemon = false, noRepeats = false, baseForms = false,
   spread = false, game = games.DEFAULT } = {}) {
   if (!root) throw new Error('The port folder is required to configure texture packs.');
   const env = {
@@ -468,7 +475,7 @@ function buildEnvironment(settings, disc, root, { customTextures = null, pbrText
     SMS_PRESENT_FILTER: settings.presentFilter || 'bilinear',
     SMS_FSR_MODE: settings.fsrMode || 'quality',
     // The game splits the list at ';' (and at ':' outside a drive letter) on every system.
-    SMS_TEXTURE_PACKS: texturePackFolders(settings, root, customTextures, pbrTextures).join(';') || '0',
+    SMS_TEXTURE_PACKS: texturePackFolders(settings, root, customTextures, pbrTextures, usumTextures).join(';') || '0',
     SMS_TEXTURE_PACK_PRELOAD: { all: 'all', play: '0' }[settings.textureLoading] || '1',
     // Video memory kept for HD textures, as run.sh has it.
     SMS_TEXTURE_PACK_MB: '3000',
@@ -812,7 +819,7 @@ function gameRuntimeFolders(environment = process.env) {
   return [path.join(environment.MSYS2_ROOT || 'C:\\msys64', 'mingw64', 'bin')];
 }
 
-module.exports = { PORT_URL, TEXTURE_PACK, PBR_TEXTURE_PACK, texturePack, gameArch, platformInfo, dependencyPaths, isPort, placeMainDol, validateRom, normalizeSettings, moveToMetal, turnOnQuickBattles,
+module.exports = { PORT_URL, TEXTURE_PACK, PBR_TEXTURE_PACK, USUM_TEXTURE_PACK, texturePack, gameArch, platformInfo, dependencyPaths, isPort, placeMainDol, validateRom, normalizeSettings, moveToMetal, turnOnQuickBattles,
   texturePackDirectory, texturePackInstalled, hdVisualsInstalled, dropLeftOutTextures, customTextureDirectory, customTexturesPresent, texturePackFolders,
   pbrTextureDirectory, pbrTexturesInstalled, pbrTextureFolder, dropLeftOutPbrTextures, pbrTextureCommand,
   buildEnvironment, binaryPath, longPathProblem, pathCharacterProblem, nonAsciiPathProblem, playableInstall, useLauncherScripts, launcherScript,
