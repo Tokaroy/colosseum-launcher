@@ -59,7 +59,7 @@ def _sampler(image, wrap):
     w, h, px = image.width, image.height, image.pixels
     ws, wt = wrap
 
-    def sample(u, v):
+    def sample(u, v, *_):
         x = int(_wrap(u, ws) * w)
         y = int(_wrap(v, wt) * h)   # bottom-up rows, as the IR keeps them
         o = (y * w + x) * 4
@@ -67,13 +67,23 @@ def _sampler(image, wrap):
     return sample
 
 
-def _masked(sample, mask):
+def _masked(sample, mask, adds=False):
     """`sample` with its alpha times `mask`'s, read at a second pair of coordinates: an iris seen only where
-    the eye is open, as the 3DS draws it."""
-    def both(u, v, mu, mv):
-        r, g, b, a = sample(u, v)
-        return r, g, b, a * mask(mu, mv)[3] // 255
+    the eye is open, as the 3DS draws it. `adds`: plus `mask`'s instead (a flame's core cut out by two textures)."""
+    def both(u, v, mu, mv, *rest):
+        r, g, b, a = sample(u, v, *rest)
+        m = mask(mu, mv)[3]
+        return r, g, b, min(255, a + m) if adds else a * m // 255
     return both
+
+
+def _tinted(sample):
+    """`sample` times a colour (0..1) given after its coordinates: a part coloured by its points."""
+    def tinted(*args):
+        r, g, b, a = sample(*args[:-3])
+        tr, tg, tb = args[-3:]
+        return int(r * tr), int(g * tg), int(b * tb), a
+    return tinted
 
 
 def _draw(parts, size, window):
@@ -88,8 +98,11 @@ def _draw(parts, size, window):
         sample = _sampler(part['image'], part['wrap'])
         uvs = part['uvs']
         if part.get('mask'):
-            sample = _masked(sample, _sampler(*part['mask']))
+            sample = _masked(sample, _sampler(*part['mask']), part.get('mask_adds'))
             uvs = [tuple(t) + tuple(m) for t, m in zip(uvs, part['mask_uvs'])]
+        if part.get('tint'):
+            sample = _tinted(sample)
+            uvs = [tuple(t) + tuple(c[:3]) for t, c in zip(uvs, part['tint'])]
         pts = [_view(v) for v in part['vertices']]
         scr = [((p[0] - x0) * scale, (y0 + side - p[1]) * scale, p[2]) for p in pts]
         nrm = [_view(n) for n in part['normals']]

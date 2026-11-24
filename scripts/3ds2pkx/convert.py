@@ -31,7 +31,7 @@ import sitecustomize  # noqa: E402,F401
 
 from shared.IR.scene import IRScene                                                       # noqa: E402
 from shared.IR.skeleton import IRModel, IRBone                                            # noqa: E402
-from shared.IR.geometry import IRMesh, IRUVLayer, IRBoneWeights                           # noqa: E402
+from shared.IR.geometry import IRMesh, IRUVLayer, IRColorLayer, IRBoneWeights             # noqa: E402
 from shared.IR.material import IRMaterial, IRTextureLayer, IRImage, FragmentBlending      # noqa: E402
 from shared.IR.animation import IRKeyframe, IRBoneTrack, IRBoneAnimationSet, IRMaterialTrack  # noqa: E402
 from shared.IR.enums import (SkinType, ScaleInheritance, Interpolation, CoordType, WrapMode, LayerBlendMode,  # noqa: E402
@@ -68,6 +68,19 @@ def _pixel_engine(fragment_blending, build=compose_materials._build_pixel_engine
 
 
 compose_materials._build_pixel_engine = _pixel_engine
+
+
+def _display_list(faces, vertices, vertex_descs, vertex_buffers, *rest, encode=compose_meshes._encode_display_list, **named):
+    """Write each point's attributes in the GameCube's order (position, normal, colours, then texture coordinates),
+    as it reads them. Compose writes them in the order it made them, colours after texture coordinates, so a mesh
+    with both (a flame's core: _stencil_fires) had its colours read from its texture coordinates' indices, and
+    showed every colour of the rainbow. The game sets each attribute up on its own, so the mesh's attribute list
+    can stay as it is (the envelope splitter reads it beside its own buffers for every part)."""
+    order = sorted(range(len(vertex_descs)), key=lambda i: vertex_descs[i].attribute)
+    return encode(faces, vertices, [vertex_descs[i] for i in order], [vertex_buffers[i] for i in order], *rest, **named)
+
+
+compose_meshes._encode_display_list = _display_list
 
 UNIT = 0.01  # 3DS centimetres -> IR metres (compose_scene scales x10 to GameCube decimetres)
 FPS = 30
@@ -307,7 +320,177 @@ def _apply_uv_transform(u, v, tc):
     return (float(u * sx + tx), float(v * sy + ty))
 
 
-def _material_of(gf_mat, tex_dict, images, max_size, hideable=False):
+# A fire's shell is lit from inside as if this much of its own colour were added (the 3DS shader adds the vertex
+# shader's alpha times its first colour's alpha; that alpha changes with the view, so half is the middle of it).
+FIRE_GLOW = 0.5
+
+
+def _sample(tex, tc, u, v):
+    """RGBA (0..1) of a decoded texture at raw coordinates (u, v), read through its texture coordinate's transform
+    and wrap, nearest texel, as the IR keeps rows (bottom up)."""
+    u, v = _apply_uv_transform(u, v, tc)
+    w, h, px = tex['width'], tex['height'], tex['rgba_flipped']
+
+    def wrap(t, mode):
+        if mode == 2:
+            return t - math.floor(t)
+        if mode == 3:
+            t = abs(t) % 2.0
+            return 2.0 - t if t > 1.0 else t
+        return min(max(t, 0.0), 1.0)
+    x = min(int(wrap(u, tc['wrap_u']) * w), w - 1)
+    y = min(int(wrap(v, tc['wrap_v']) * h), h - 1)
+    o = (y * w + x) * 4
+    return tuple(px[o + k] / 255.0 for k in range(4))
+
+
+def _nearest_on_triangle(p, a, b, c):
+    """Barycentric weights (wa, wb, wc) of the point of triangle abc nearest p (Ericson, Real-Time Collision
+    Detection, 5.1.5)."""
+    sub = lambda x, y: (x[0] - y[0], x[1] - y[1], x[2] - y[2])
+    dot = lambda x, y: x[0] * y[0] + x[1] * y[1] + x[2] * y[2]
+    ab, ac, ap = sub(b, a), sub(c, a), sub(p, a)
+    d1, d2 = dot(ab, ap), dot(ac, ap)
+    if d1 <= 0 and d2 <= 0:
+        return 1.0, 0.0, 0.0
+    bp = sub(p, b)
+    d3, d4 = dot(ab, bp), dot(ac, bp)
+    if d3 >= 0 and d4 <= d3:
+        return 0.0, 1.0, 0.0
+    vc = d1 * d4 - d3 * d2
+    if vc <= 0 and d1 >= 0 and d3 <= 0:
+        t = d1 / (d1 - d3)
+        return 1.0 - t, t, 0.0
+    cp = sub(p, c)
+    d5, d6 = dot(ab, cp), dot(ac, cp)
+    if d6 >= 0 and d5 <= d6:
+        return 0.0, 0.0, 1.0
+    vb = d5 * d2 - d1 * d6
+    if vb <= 0 and d2 >= 0 and d6 <= 0:
+        t = d2 / (d2 - d6)
+        return 1.0 - t, 0.0, t
+    va = d3 * d6 - d5 * d4
+    if va <= 0 and d4 - d3 >= 0 and d5 - d6 >= 0:
+        t = (d4 - d3) / ((d4 - d3) + (d5 - d6))
+        return 0.0, 1.0 - t, t
+    den = 1.0 / (va + vb + vc)
+    wb, wc = vb * den, vc * den
+    return 1.0 - wb - wc, wb, wc
+
+
+def _stencil_fires(gf, gf_mats, tex_dict):
+    """The 3DS games' fire (Mega Charizard X and Y, Mega Blaziken, Alolan Marowak, Braixen, Delphox...), which the
+    GameCube can't draw as they do: it has no stencil buffer. A flame's core (a FireCore shader) is drawn cut out
+    where its two textures' red adds up to more than nothing, and marks the stencil with a number; then a shell
+    around it (FireSten), drawn only where the stencil holds that number, colours it: its first colour where the
+    flame is faint, its second where it is strong, how strong being the shell's two scrolling noise textures under
+    its mask's alpha, plus the mask's red. Drawn as they are, the shell was a sheet of black and white streaks and
+    the core flat white.
+
+    Here the shell isn't drawn, and its colour goes on the core's points: each takes the shell's at the point of
+    the shell nearest it, with the noise at its average (it scrolls). Returns (the shells' material names, the
+    core submeshes' point colours by (mesh index, submesh index))."""
+    shells = {}
+    for name, m in gf_mats.items():
+        st, units = m.get('stencil'), m.get('tex_coords') or []
+        if st and st[0] == 2 and m['shader'].lower().startswith('firesten') and len(units) >= 3 \
+                and all(u['name'].lower() in tex_dict for u in units[:3]):
+            shells.setdefault(st[1], name)
+    cores = {name: shells[m['stencil'][1]] for name, m in gf_mats.items()
+             if m.get('stencil') and m['stencil'][0] == 1 and m['stencil'][2] == 2 and m['stencil'][1] in shells
+             and 'firecore' in m['shader'].lower()}
+    if not cores:
+        return set(), {}
+    triangles = {}
+    for mesh in gf['meshes']:
+        for sm in mesh['submeshes']:
+            if sm['name'] in shells.values() and sm['positions'] and sm['uv0']:
+                pos, uv = sm['positions'], sm['uv0']
+                triangles.setdefault(sm['name'], []).extend(
+                    (pos[a], pos[b], pos[c], uv[a], uv[b], uv[c]) for a, b, c in sm['triangles']
+                    if max(a, b, c) < min(len(pos), len(uv)))
+
+    def average_red(tex):
+        reds = tex['rgba_flipped'][0::4]
+        return sum(reds) / (255.0 * len(reds))
+
+    def shell_colour(shell, u, v):
+        m = gf_mats[shell]
+        units = m['tex_coords']
+        noise = sum(average_red(tex_dict[units[k]['name'].lower()]) for k in (0, 1))
+        mask = _sample(tex_dict[units[2]['name'].lower()], units[2], u, v)
+        strength = min(1.0, min(1.0, noise * (1.0 - mask[3])) + mask[0])
+        faint, strong = (m['constants'][m['constant_of'][k]] for k in (0, 1))
+        faint = [min(1.0, faint[k] + FIRE_GLOW * faint[3]) for k in range(3)]
+        strong = [min(1.0, strong[k] + FIRE_GLOW * strong[3]) for k in range(3)]
+        return tuple(strong[k] * strength + faint[k] * (1.0 - strength) for k in range(3)) + (1.0,)
+
+    colours = {}
+    for mi, mesh in enumerate(gf['meshes']):
+        for si, sm in enumerate(mesh['submeshes']):
+            shell = cores.get(sm['name'])
+            tris = triangles.get(shell)
+            if not tris:
+                continue
+            out = []
+            for p in sm['positions']:
+                best = None
+                for a, b, c, ua, ub, uc in tris:
+                    wa, wb, wc = _nearest_on_triangle(p, a, b, c)
+                    q = [wa * a[k] + wb * b[k] + wc * c[k] for k in range(3)]
+                    d = sum((q[k] - p[k]) ** 2 for k in range(3))
+                    if best is None or d < best[0]:
+                        best = (d, wa * ua[0] + wb * ub[0] + wc * uc[0], wa * ua[1] + wb * ub[1] + wc * uc[1])
+                out.append(shell_colour(shell, best[1], best[2]))
+            colours[(mi, si)] = out
+    return set(cores.values()), colours
+
+
+def _alpha_image(tex, images, max_size):
+    """The texture's red as the alpha of a white image (a flame's core is cut out by its textures' red)."""
+    key = tex['name'].lower() + '#red'
+    if key not in images:
+        px = bytearray(tex['rgba_flipped'])
+        px[3::4] = px[0::4]
+        px[0::4] = px[1::4] = px[2::4] = b'\xff' * (len(px) // 4)
+        images[key] = _make_ir_image(dict(tex, name=tex['name'][:-4] + 'Alpha.tga', rgba_flipped=px),
+                                     0x7000 + len(images), max_size)
+    return images[key]
+
+
+def _fire_core_material(gf_mat, tex_dict, images, max_size, hideable):
+    """A flame's core (_stencil_fires): unlit, coloured by its points, cut out where its first texture's red plus
+    its second's is more than nothing."""
+    units = gf_mat['tex_coords']
+    layers = []
+    for k, unit in enumerate(units[:2]):
+        tex = tex_dict.get(unit['name'].lower())
+        if not tex:
+            continue
+        layers.append(IRTextureLayer(
+            image=_alpha_image(tex, images, max_size), coord_type=CoordType.UV, uv_index=k,
+            rotation=(0.0, 0.0, 0.0), scale=(1.0, 1.0, 1.0), translation=(0.0, 0.0, 0.0),
+            wrap_s=PICA_WRAP.get(unit['wrap_u'], WrapMode.REPEAT), wrap_t=PICA_WRAP.get(unit['wrap_v'], WrapMode.REPEAT),
+            repeat_s=1, repeat_t=1, interpolation=None,
+            color_blend=LayerBlendMode.MULTIPLY if not layers else LayerBlendMode.PASS,
+            alpha_blend=LayerBlendMode.MULTIPLY if not layers else LayerBlendMode.ADD,
+            blend_factor=1.0, lightmap_channel=LightmapChannel.DIFFUSE, is_bump=False, combiner=None,
+        ))
+    cut = None if hideable else FragmentBlending(
+        effect=OutputBlendEffect.OPAQUE, source_factor=BlendFactor.ONE, dest_factor=BlendFactor.ZERO,
+        alpha_test_threshold_0=4, alpha_test_threshold_1=7, alpha_test_op=0, depth_compare=3,
+    )
+    return IRMaterial(
+        diffuse_color=(1.0, 1.0, 1.0, 1.0), ambient_color=(1.0, 1.0, 1.0, 1.0), specular_color=(1.0, 1.0, 1.0, 1.0),
+        alpha=1.0, shininess=50.0, color_source=ColorSource.VERTEX, alpha_source=ColorSource.MATERIAL,
+        lighting=LightingModel.UNLIT, enable_specular=False, is_translucent=bool(hideable), texture_layers=layers,
+        fragment_blending=cut,
+    )
+
+
+def _material_of(gf_mat, tex_dict, images, max_size, hideable=False, fire=False):
+    if fire:
+        return _fire_core_material(gf_mat, tex_dict, images, max_size, hideable)
     tc, tex = _pick_diffuse_texcoord(gf_mat, tex_dict)
     layers = []
     alpha = 'opaque'
@@ -552,7 +735,7 @@ def _portraits(gf, order, meshes, geometry, bone_fields, parsed_motions, slot_ac
         normals, corner = [], 0
         for f in m.faces:
             for vi in f:
-                n, lw = m.normals[corner], weights[vi]
+                n, lw = (m.normals[corner] if m.normals else (0.0, 0.0, 1.0)), weights[vi]
                 if lw:
                     q = [0.0, 0.0, 0.0]
                     for bi, w in lw:
@@ -578,7 +761,9 @@ def _portraits(gf, order, meshes, geometry, bone_fields, parsed_motions, slot_ac
                           kind=kind, lit=mat.lighting == LightingModel.LIT, cull=m.cull_back, head=on_head,
                           eye='eye' in (mat_name or '').lower(),
                           mask=(seen.image, (seen.wrap_s.value, seen.wrap_t.value)) if seen else None,
-                          mask_uvs=m.uv_layers[1].uvs if seen else None))
+                          mask_uvs=m.uv_layers[1].uvs if seen else None,
+                          mask_adds=bool(seen and seen.alpha_blend == LayerBlendMode.ADD),
+                          tint=m.color_layers[0].colors if m.color_layers else None))
     return portrait.render(parts, has_head=bool(head))
 
 
@@ -798,16 +983,22 @@ def build(model_data, tex_blobs, battle_blobs, name, max_texture=256, log=print,
                 hideable.add(mn)
 
         geometry = []
+        shells, fire = _stencil_fires(gf, gf_mats, tex_dict)
         for mi, mesh in enumerate(gf['meshes']):
             mn = mesh['name']
             if mn in always_hidden:
                 continue
             for si, sm in enumerate(mesh['submeshes']):
-                if not sm['triangles'] or not sm['positions']:
+                if not sm['triangles'] or not sm['positions'] or sm['name'] in shells:
                     continue
                 gf_mat = gf_mats.get(sm['name'])
                 tc, _ = _pick_diffuse_texcoord(gf_mat, tex_dict)
                 mask = _iris_mask(gf_mat, tex_dict)
+                glow = fire.get((mi, si))
+                if glow:   # a flame's core: its second texture's coordinates, and its colours (no normals: unlit)
+                    tc = gf_mat['tex_coords'][0]
+                    mask = (gf_mat['tex_coords'][1], None) if len(gf_mat['tex_coords']) > 1 else None
+                colours = []
                 mask_uvs = []
                 n_verts = len(sm['positions'])
                 vertices = [(float(x) * UNIT, float(y) * UNIT, float(z) * UNIT) for x, y, z in sm['positions']]
@@ -828,6 +1019,8 @@ def build(model_data, tex_blobs, battle_blobs, name, max_texture=256, log=print,
                         uvs.append(_apply_uv_transform(u, v, tc))
                         if mask:
                             mask_uvs.append(_apply_uv_transform(u, v, mask[0]))
+                        if glow:
+                            colours.append(glow[vi])
                 if not faces:
                     continue
 
@@ -861,7 +1054,8 @@ def build(model_data, tex_blobs, battle_blobs, name, max_texture=256, log=print,
                     vertices=vertices,
                     faces=faces,
                     uv_layers=[IRUVLayer(name='UVMap', uvs=uvs)] + ([IRUVLayer(name='UVMap.1', uvs=mask_uvs)] if mask else []),
-                    normals=normals,
+                    color_layers=[IRColorLayer(name='color_0', colors=colours)] if glow else [],
+                    normals=None if glow else normals,
                     bone_weights=weights,
                     parent_bone_index=parent_bi,
                     cull_back=cull_back,
@@ -876,7 +1070,8 @@ def build(model_data, tex_blobs, battle_blobs, name, max_texture=256, log=print,
     images = {}
     meshes = []
     for mn, mat_name, fields in geometry:
-        ir_mat = _material_of(gf_mats.get(mat_name), tex_dict, images, max_texture, mn in hideable)
+        ir_mat = _material_of(gf_mats.get(mat_name), tex_dict, images, max_texture, mn in hideable,
+                              fire=bool(fields.get('color_layers')))
         meshes.append(IRMesh(material=ir_mat, **fields))
 
     if portraits is not None:

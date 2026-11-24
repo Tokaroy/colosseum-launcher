@@ -6,6 +6,8 @@ PICA_GPUREG_FACECULLING_CONFIG = 0x0040
 PICA_GPUREG_COLOR_OPERATION    = 0x0100
 PICA_GPUREG_BLEND_FUNC         = 0x0101
 PICA_GPUREG_FRAGOP_ALPHA_TEST  = 0x0104
+PICA_GPUREG_STENCIL_TEST       = 0x0105
+PICA_GPUREG_STENCIL_OP         = 0x0106
 PICA_GPUREG_ATTRIBBUFFERS_FORMAT_LOW  = 0x0201
 PICA_GPUREG_ATTRIBBUFFERS_FORMAT_HIGH = 0x0202
 PICA_GPUREG_ATTRIBBUFFER0_CONFIG1     = 0x0204
@@ -154,6 +156,9 @@ def _parse_material(data, start, length):
     # 12 (3 lut hashes) + 4 (pad) + 8 (bump + 6 const + pad) + 44 (11 colors) + 4*25 (100 bytes!) = 168 bytes!
     # (SPICA: EdgeType, IDEdgeEnable, EdgeID, ProjType, RimPow, RimScale, PhongPow, PhongScale,
     #  IDEdgeOffsetEnable, EdgeMapAlphaMask, BakeTex[3], VertexShaderType, ShaderParam[4], then 7 more u32s = 28B!)
+    # which of the six constant colours each texture combiner stage reads, then the six colours (RGBA bytes)
+    constant_of = list(data[p_after + 17:p_after + 23])
+    constants = [tuple(b / 255.0 for b in data[p_after + 24 + 4 * i:p_after + 28 + 4 * i]) for i in range(6)]
     pos = p_after + 168
     unit_cnt = struct.unpack_from('<I', data, pos)[0]
     pos += 4
@@ -196,6 +201,8 @@ def _parse_material(data, start, length):
     blend_src, blend_dst, alpha_func, alpha_ref, depth_write = 1, 0, 0, 0, True
     render_priority = 0
     render_layer = 0
+    stencil = None   # (test, reference value, what passing does): test 1 always, 2 equal; does 2 replace
+    stencil_test = stencil_op = 0
     if pos + 16 <= end:
         cmd_len, render_priority, _unk, render_layer = struct.unpack_from('<4I', data, pos)
         pos += 32  # the header, then four LUT hashes (SPICA GFMaterial) before the commands
@@ -210,7 +217,13 @@ def _parse_material(data, start, length):
                     blend_src, blend_dst = val >> 16 & 15, val >> 20 & 15
                 elif reg == 0x0107:
                     depth_write = bool(val >> 12 & 1)
+                elif reg == PICA_GPUREG_STENCIL_TEST:
+                    stencil_test = val
+                elif reg == PICA_GPUREG_STENCIL_OP:
+                    stencil_op = val
         blend_enabled = (blend_src, blend_dst) != (1, 0)
+        if stencil_test & 1:
+            stencil = (stencil_test >> 4 & 7, stencil_test >> 16 & 0xFF, stencil_op >> 8 & 7)
 
     return {
         'name': mat_name,
@@ -227,6 +240,7 @@ def _parse_material(data, start, length):
         'blend_enabled': blend_enabled,
         'blend_src': blend_src, 'blend_dst': blend_dst, 'alpha_func': alpha_func, 'alpha_ref': alpha_ref, 'depth_write': depth_write,
         'render_layer': render_layer,
+        'stencil': stencil, 'constants': constants, 'constant_of': constant_of,
         'render_priority': render_priority,
     }
 
