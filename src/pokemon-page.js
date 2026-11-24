@@ -1043,7 +1043,7 @@ window.colo.onOnlineTrades(view => {
   if (visible) renderTradePanel();
 });
 
-// ---- Import from a GBA or DS save (main.js importView, src/save-import.js): the Import menu, then the file's party and
+// ---- Import from a GBA, DS or 3DS save (main.js importView, src/save-import.js): the Import menu, then the file's party and
 // boxes in a window of their own. Pokémon are picked (several at once) and copied into the save; one that can't come
 // says why, and what comes off it (an item the game hasn't got) is said too.
 let importView = null, importTab = 'party', importBox = 0, importPicked = new Map(), importFocus = null, importBusy = false;
@@ -1072,7 +1072,7 @@ function renderImport() {
   const file = importView?.file;
   if (!file) { if ($('save-import').open) $('save-import').close(); return; }
   const gameName = gameLabel(importView.game);
-  $('save-import-kind').textContent = file.kind === 'ds' ? 'IMPORT FROM A DS SAVE' : 'IMPORT FROM A GBA SAVE';
+  $('save-import-kind').textContent = file.kind === '3ds' ? 'IMPORT FROM A 3DS SAVE' : file.kind === 'ds' || file.kind === 'bw' ? 'IMPORT FROM A DS SAVE' : 'IMPORT FROM A GBA SAVE';
   $('save-import-title').textContent = `${file.trainer || 'Your'}'s ${file.gameName} save`;
   $('save-import-file').textContent = `${file.name} · ID ${String(file.trainerId).padStart(5, '0')}`;
   for (const name of ['party', 'boxes']) $(`save-import-tab-${name}`).setAttribute('aria-selected', String(importTab === name));
@@ -1199,6 +1199,8 @@ $('import-menu').addEventListener('toggle', event => {
 });
 $('import-gba').addEventListener('click', () => openImport('gba'));
 $('import-ds').addEventListener('click', () => openImport('ds'));
+$('import-bw').addEventListener('click', () => openImport('bw'));
+$('import-3ds').addEventListener('click', () => openImport('3ds'));
 $('save-import-tab-party').addEventListener('click', () => { importTab = 'party'; renderImport(); });
 $('save-import-tab-boxes').addEventListener('click', () => { importTab = 'boxes'; renderImport(); });
 $('save-import-box').addEventListener('change', event => { importBox = Number(event.target.value); renderImport(); });

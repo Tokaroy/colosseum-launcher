@@ -13,7 +13,8 @@
       "Generation 5 and 6 Pokémon can use the game's own TMs for any move they learn in X and Y by TM, tutor or level, such as Iron Tail and Water Pulse.",
       "Smeargle can Sketch generation 5 and 6 moves in the team builder and in online legality checks.",
       "Fletchinder's name in the game is FLETCHINDR, not a cut-off FLETCHINDE.",
-      "Online legality under X and Y rules allows 252 EVs in a stat, generation 6's most; a story Pokémon with up to 255 goes as 252, which makes the same stat."
+      "Online legality under X and Y rules allows 252 EVs in a stat, generation 6's most; a story Pokémon with up to 255 goes as 252, which makes the same stat.",
+      "Import from Black, White, Black 2 and White 2 saves, and from decrypted X, Y, Omega Ruby and Alpha Sapphire saves: their party and PC boxes come over under Pokémon → Import, keeping each Pokémon's nature, gender, shininess and hidden ability where the game can."
     ],
     "game": [
       "Gen 6 types: with the setting on, both games have the Fairy type, with generation 6's type chart, a Fairy type picture in each game's own style on every screen that shows types, and its new moves, Draining Kiss giving back three quarters of the damage. With it off again, a Pokémon that learned a Fairy move forgets it, leaving the slot empty, and the same for a Generation 4 move with Generation 4 off, so a save from either still loads.",

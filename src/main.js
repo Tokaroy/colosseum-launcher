@@ -2589,14 +2589,24 @@ function syncLocalTrades() {
   return localSyncing;
 }
 
-// --- Import from a GBA or DS save (src/save-import.js): the Pokémon page's Import button opens one, shows its party and
-// boxes, and copies the Pokémon picked into the chosen game's save, reached as Online Trades reach it (the card, or the
-// running game). The file is only read. A DS save needs the Generation 4 Pokémon setting (tradeReceiver).
+// --- Import from a GBA, DS or 3DS save (src/save-import.js): the Pokémon page's Import button opens one, shows its party
+// and boxes, and copies the Pokémon picked into the chosen game's save, reached as Online Trades reach it (the card, or
+// the running game). The file is only read. A Diamond, Pearl or Platinum save needs the Generation 4 Pokémon setting
+// (tradeReceiver); a Black or White save's and a 3DS save's Pokémon each say what they need.
 let importing = null;   // { file, read: save-import's reading of it, game: the game it was opened for }
 const IMPORT_KINDS = {
   gba: { name: 'GBA save', games: 'Ruby, Sapphire, Emerald, FireRed or LeafGreen', extensions: ['sav', 'srm'] },
-  ds: { name: 'DS save', games: 'Diamond, Pearl or Platinum', extensions: ['sav', 'srm', 'dsv'] }
+  ds: { name: 'DS save', games: 'Diamond, Pearl or Platinum', extensions: ['sav', 'srm', 'dsv'] },
+  bw: { name: 'DS save', games: 'Black, White, Black 2 or White 2', extensions: ['sav', 'srm', 'dsv'] },
+  // (the decrypted "main" file JKSM and Checkpoint copy has no extension)
+  '3ds': { name: '3DS save', games: 'X, Y, Omega Ruby or Alpha Sapphire: the decrypted "main" file', extensions: ['*'] }
 };
+// What the game takes (tradeReceiver), and whether its Hidden abilities mechanic is on (a hidden ability's mark)
+function importReceiver(game) {
+  let hiddenAbilities = false;
+  try { hiddenAbilities = generations.normalize(withFairyType(config.settings || {})).mechanics.includes('hiddenAbilities'); } catch (_) { /* as off */ }
+  return { ...tradeReceiver(game), hiddenAbilities };
+}
 // Why the chosen game can't import from that kind of save now, or null
 function importProblem(kind) {
   if (kind === 'ds' && !tradeReceiver(config.game).laterPokemon)
@@ -2611,7 +2621,7 @@ function importKeys() {
 function importView() {
   const game = config.game, problems = Object.fromEntries(Object.keys(IMPORT_KINDS).map(kind => [kind, importProblem(kind)]));
   if (!importing || importing.game !== game) return { game, problems, file: null };
-  const receiver = tradeReceiver(game), keys = importKeys(), read = importing.read;
+  const receiver = importReceiver(game), keys = importKeys(), read = importing.read;
   const each = (entry, place) => {
     if (!entry) return null;
     const judged = saveImport.judge(entry, receiver);
@@ -2646,7 +2656,7 @@ async function importOpen(kind) {
 // The Pokémon at each place of the open file, copied into the chosen game's save one at a time; stops at the first the
 // save can't take. Returns { view, results: [{ place, ok, nickname, area, box, slot, code, message }] }.
 async function importPokemon(places) {
-  if (!importing || importing.game !== config.game) throw new Error('Open a GBA or DS save first.');
+  if (!importing || importing.game !== config.game) throw new Error('Open a GBA, DS or 3DS save first.');
   const game = config.game, problem = importProblem(importing.read.kind);
   if (problem) throw new Error(problem);
   if (storyGame === game && !storyLive?.current()?.head.loaded) throw new Error(`${shortGameName(game)} is running: continue your save in it first, or close it.`);
@@ -2661,7 +2671,7 @@ async function importPokemon(places) {
   } });
   if (!access) throw new Error(`This version of ${shortGameName(game)} can't take a Pokémon while it runs: update it, or close it and import.`);
   if (access.mode === 'card' && !access.read()) throw new Error(`There's no ${shortGameName(game)} save yet: play and save once, then import.`);
-  const receiver = tradeReceiver(game), results = [];
+  const receiver = importReceiver(game), results = [];
   for (const place of places) {
     const list = place.area === 'party' ? importing.read.party : importing.read.boxes[place.box]?.pokemon;
     const entry = list?.[place.slot];
