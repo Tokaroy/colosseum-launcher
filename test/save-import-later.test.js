@@ -282,7 +282,9 @@ test('an Omega Ruby or Alpha Sapphire save, and what can\'t come from a 3DS save
   ];
   const file = si.parse(gen6File({ game: 'oras', version: 26, party }));
   assert.equal(file.gameName, 'Alpha Sapphire');
-  assert.match(si.judge(file.party[0], FULL).problems[0], /Only Landorus's usual form/);
+  // a form the game has as a Pokémon of its own: Landorus's Therian Forme
+  assert.deepEqual(si.judge(file.party[0], FULL).problems, []);
+  assert.equal(si.judge(file.party[0], FULL).pokemon.species, 737 + 26);
   assert.match(si.judge(file.party[1], FULL).problems[0], /Only Floette's usual form/);
   assert.deepEqual(si.judge(file.party[2], FULL).problems, []);
   const unown = si.judge(file.party[3], FULL).pokemon;

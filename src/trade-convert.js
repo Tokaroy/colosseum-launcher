@@ -12,7 +12,7 @@
 // Colosseum's fourth-generation ones (464, 472). Pack Pokémon have rows each launcher numbers itself: they can't travel.
 const SIZE = { colosseum: 0x138, xd: 0xc4 };
 const LATER_SPECIES = [413, 519];             // Colosseum's fourth generation (national + 26)
-const GEN6_SPECIES = [520, 747];              // Colosseum's fifth and sixth generations (national + 26)
+const GEN6_SPECIES = [520, 773];              // Colosseum's fifth and sixth generations (national + 26)
 const XD_BONSLY = 413, XD_MUNCHLAX = 414, COLO_BONSLY = 464, COLO_MUNCHLAX = 472;
 const SHADOW_MOVES = { colosseum: [355, 357], xd: [355, 374] };
 const LATER_MOVES = [358, 470];               // Colosseum's numbers (national + 3); XD's are 17 more

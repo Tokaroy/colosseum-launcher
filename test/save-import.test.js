@@ -234,8 +234,8 @@ test('a DS save\'s Pokémon: Generation 4 numbers made the games\', Pal Park\'s 
   assert.equal(swampert.pokemon.item, 0);
   assert.match(swampert.notes[0], /Diamond and Pearl battle rules/);
   assert.equal(si.judge(file.party[1], { ...RECEIVER, laterItems: true }).pokemon.item, 548);
-  // Rotom's other forms aren't in the game; Garchomp's Honey is (a Generation 4 item)
-  assert.match(si.judge(file.boxes[0].pokemon[0], RECEIVER).problems[0], /Rotom's usual form/);
+  // Rotom's other forms are Pokémon of their own, with Generation 5 and 6 Pokémon; Garchomp's Honey is a Generation 4 item
+  assert.match(si.judge(file.boxes[0].pokemon[0], RECEIVER).problems[0], /Rotom-.* needs Generation 5 and 6 Pokémon/);
   assert.ok(si.judge(file.boxes[0].pokemon[1], { ...RECEIVER, laterItems: true }).pokemon.item >= 0x224);
   // names: a DS space, and a GBA space Pal Park kept as 0, are spaces; a character neither game has is "?"
   const named = si.parse(platinumSave({ party: [pk4({ nicknameCodes: [...dsName('TIME'), 0, ...dsName('ONION')] }), pk4({ nicknameCodes: [...dsName('MR'), 0x1DE, ...dsName('X'), 0x400] })] }));

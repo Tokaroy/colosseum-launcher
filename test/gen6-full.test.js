@@ -21,7 +21,10 @@ const wire = (species, { item = 0, ability = 0, moves = [] } = {}) => {
 test('generation 6\'s file has all 721 Pokémon, each with everything a species row needs', () => {
   const data = generations.load(6);
   assert.deepEqual([data.newSpecies, data.newMoves, data.newAbilities], [[494, 721], [355, 621], [77, 191]]);
-  assert.equal(Object.keys(data.species).length, 721);
+  assert.equal(Object.keys(data.species).length, 747, 'and the 26 forms with stats of their own, 722 on');
+  assert.deepEqual(data.forms, [722, 747]);
+  assert.equal(data.species[737].name, 'Landorus-Therian');
+  assert.equal(data.species[737].formOf, 645);
   for (let n = 1; n <= 721; n++) {
     const entry = data.species[n];
     for (const field of FIELDS) assert.ok(entry?.[field] !== undefined, `#${n} has ${field}`);
@@ -110,7 +113,8 @@ test('a Generation 6 party has generations 5 and 6\'s Pokémon and moves; no oth
   const EXCADRILL = 556, DRILL_RUN = 532, HYPERSPACE_FURY = 624, MOONBLAST = 588;
   assert.equal(teamSets.validSpecies(EXCADRILL, 6), true);
   assert.equal(teamSets.validSpecies(EXCADRILL, 4), false);
-  assert.equal(teamSets.validSpecies(748, 6), false);
+  assert.equal(teamSets.validSpecies(773, 6), true, 'Hoopa Unbound, the last form with stats of its own');
+  assert.equal(teamSets.validSpecies(774, 6), false);
   assert.equal(teamSets.speciesGeneration(EXCADRILL), 6);
   assert.equal(teamSets.moveGeneration(DRILL_RUN), 6);
   assert.equal(teamSets.moveGeneration(MOONBLAST), 3, 'a Fairy move: any party in a room with the type');

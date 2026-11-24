@@ -315,7 +315,7 @@ function findPokemon(ctx, identity, place) {
 // national + 26, XD two higher), which goes only to a game with Generation 4 Pokémon turned on (colosseum-server-api
 // src/shadowtrade.js); null for a pack's, which each launcher numbers its own way.
 const SHADOWTRADE_LATER = { colosseum: [413, 519], xd: [415, 521] };
-const SHADOWTRADE_GEN6 = { colosseum: [520, 747], xd: [522, 749] };
+const SHADOWTRADE_GEN6 = { colosseum: [520, 773], xd: [522, 775] };
 function shadowtradeKind(game, species) {
   if ((species >= 1 && species <= 251) || (species >= 277 && species <= 411) || (game === 'xd' && (species === 413 || species === 414))) return 'base';
   const later = SHADOWTRADE_LATER[game];

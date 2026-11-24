@@ -1619,6 +1619,10 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 @media (max-width: 1060px) {
   .pe-row-identity { grid-template-columns: 1fr 1fr 1fr; }
 }
+.pokemon-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pokemon-form label { font-weight: 600; }
+.pokemon-form select { min-width: 0; max-width: 100%; }
+.pokemon-form .helper { flex-basis: 100%; margin: 0; }
 /* Online Trade (src/pokemon-page.js): the start card beside the grid, and the trade window that takes the page over
    while a room is open: the picker on the left, the two offers facing each other, Ready below. */
 .trade-start { display: grid; gap: 10px; align-content: start; padding-bottom: 14px; border-bottom: 1px solid var(--dex-line); }

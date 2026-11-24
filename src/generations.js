@@ -322,7 +322,10 @@ const levelUpMoves = (entry, usable) =>
 
 // The generation a Pokémon came in, by its National Pokédex number (generation 6's file has the fifth's too)
 const GENERATION_STARTS = [[650, 6], [494, 5], [387, 4], [252, 3], [152, 2], [1, 1]];
+const FIRST_FORM = 722;   // generation 6's file's forms with stats of their own, 722 on (a form's generation is 6)
 const generationOf = number => (GENERATION_STARTS.find(([first]) => number >= first) || [0, 0])[1];
+// a form's base's National number (722 on), else the number itself
+const baseNational = number => (number >= FIRST_FORM ? (available().some(each => each.generation === 6) && load(6).species[number]?.formOf) || number : number);
 
 // The generations whose Pokémon a generation's rules play (online, and the team builder's party of that generation):
 // it and each before it with Pokémon of their own (generation 6's: the fourth's, and the fifth's and sixth's)
@@ -415,8 +418,9 @@ function speciesSpec(tables, data, number, moves, ownAbilities, learnData = null
   const types = [...new Set(entry.types)];
   return {
     base: (STAND_INS[types[0]] || STAND_INS.Normal)[stageOf(data, number) - 1],
-    name: gameName(entry.name), national: number,
-    description: `Generation ${generationOf(number)}, National Pokédex #${number}.`,
+    // (a form, 722 on: its base's name in the game, and its base's National number in the description)
+    name: gameName(entry.gameName || entry.name), national: number,
+    description: entry.formOf ? `${entry.name}: a form of #${entry.formOf}, ${entry.gameName}.` : `Generation ${generationOf(number)}, National Pokédex #${number}.`,
     types, stats: entry.stats, ...(entry.evYield ? { evYield: entry.evYield } : {}),
     ...(entry.catchRate ? { catchRate: entry.catchRate } : {}), ...(entry.baseExp ? { baseExp: entry.baseExp } : {}),
     ...(entry.baseFriendship !== undefined ? { baseFriendship: entry.baseFriendship } : {}),
@@ -493,7 +497,11 @@ function build(tables, settings) {
   const learnData = learned > COLOSSEUM_RULES ? load(learned) : null;
   for (const generation of chosen.generationPokemon) {
     const data = load(generation);
-    for (let number = data.newSpecies[0]; number <= data.newSpecies[1]; number++) {
+    // (and the forms with stats of their own, past them: generation 6's file's, 722 on)
+    const numbers = [];
+    for (let number = data.newSpecies[0]; number <= data.newSpecies[1]; number++) numbers.push(number);
+    if (data.forms) for (let number = data.forms[0]; number <= data.forms[1]; number++) numbers.push(number);
+    for (const number of numbers) {
       if (!data.species[number]) continue;
       const spec = speciesSpec(tables, data, number, out.moves, chosen.battleRules >= generation, learnData);
       const later = chosen.mechanics.includes('gen6Stats') && learnData?.generation >= 6 && learnData.species[number] ? learnData.species[number]
@@ -556,5 +564,5 @@ function build(tables, settings) {
   return out;
 }
 
-module.exports = { gameName, abilityNumber, generationOf, pokemonGenerations, withoutFairy, learnsetGeneration, speciesChanges, mechanicList, SAME_ABILITIES, colosseumAbility, COLOSSEUM_RULES, FIRST_NEW_MOVE, MOVE_OFFSET, SPECIES_OFFSET, FEATURES, MV, FLAGS, FAIRY_TYPE, available, load, loadFairy, normalize, build, moveCategories,
+module.exports = { gameName, baseNational, FIRST_FORM, abilityNumber, generationOf, pokemonGenerations, withoutFairy, learnsetGeneration, speciesChanges, mechanicList, SAME_ABILITIES, colosseumAbility, COLOSSEUM_RULES, FIRST_NEW_MOVE, MOVE_OFFSET, SPECIES_OFFSET, FEATURES, MV, FLAGS, FAIRY_TYPE, available, load, loadFairy, normalize, build, moveCategories,
   newMoves, fairyMoves, fairyTypes, withFairyMoves, rowLevelUp, rules, speciesSpec, ownSpecies, evolutionOf, learnMoveTable, colosseumMove, speciesId, isGenerationSpecies, stageOf };

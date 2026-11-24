@@ -22,7 +22,7 @@
   const LATER = { 4: { species: [413, 519], lastMove: 470, items: [0x224, 0x289], enigmaBerry: 175 },
     // generations 5 and 6's Pokémon (Victini to Volcanion), their last move (Hyperspace Fury) and their held items
     // (Assault Vest to Sachet), which a Generation 6 party has
-    6: { species: [520, 747], lastMove: 624, items: [0x28A, 0x2A4] } };
+    6: { species: [520, 773], lastMove: 624, items: [0x28A, 0x2A4] } };
   // A set's ability: its species' first (0), second (1), or with generation 6 its hidden ability (2)
   const HIDDEN_ABILITY = 2;
   const ITEM_LAST = 0xffff;

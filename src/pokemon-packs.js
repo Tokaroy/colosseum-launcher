@@ -949,7 +949,22 @@ function generationPokemon(tables, built, { modelsDirectory = null, modelsDirect
       const made = buildRow(spec, withMoves, target);
       const is3ds = generation >= 5 || number >= 494;
       const dir = modelsDirectories?.[generation] ?? (!is3ds ? modelsDirectory : null);
-      const own = dir ? ownLooks(path.join(dir, String(number)), tables, { faceReader: is3ds ? decodePng : battleRevolutionFace }) : { assets: {}, images: {}, cry: null };
+      let own = dir ? ownLooks(path.join(dir, String(number)), tables, { faceReader: is3ds ? decodePng : battleRevolutionFace }) : { assets: {}, images: {}, cry: null };
+      // a form (722 on): its base's looks and cry, with its form's own model where it has one (the 3DS converter's
+      // forms/NAME folder, or Battle Revolution's for a fourth-generation Pokémon's)
+      const form = number >= generationsLib.FIRST_FORM ? generationsLib.load(6).species[number] : null;
+      if (form?.formOf) {
+        const base3ds = form.formOf >= 494, faceReader = base3ds ? decodePng : battleRevolutionFace;
+        const baseDir = base3ds ? (modelsDirectories?.[6] ?? modelsDirectories?.[5]) : (modelsDirectories?.[4] ?? modelsDirectory);
+        own = baseDir ? ownLooks(path.join(baseDir, String(form.formOf)), tables, { faceReader }) : { assets: {}, images: {}, cry: null };
+        for (const formDir of [modelsDirectories?.[6], baseDir].filter(Boolean)) {
+          const folder = form.folder && path.join(formDir, String(form.formOf), 'forms', form.folder);
+          if (!folder || !fs.existsSync(path.join(folder, FILES.model))) continue;
+          const looks = ownLooks(folder, tables, { faceReader: formDir === modelsDirectories?.[6] ? decodePng : faceReader });
+          own = { ...own, assets: { ...own.assets, ...looks.assets }, images: { ...own.images, ...looks.images } };
+          break;
+        }
+      }
       pokemon.push({ pack: `generation-${generation}`, folder: String(number), key: `generation:${number}`, id, ...made, national: number,
         ...own, packName: `Generation ${generation}`, author: '',
         credits: is3ds ? 'Pokémon Showdown\'s data (MIT); StarsMmd\'s Blender-Addon-Gamecube-Models (GPL-3.0) & SPICA' : 'Pokémon Showdown\'s data (MIT)',

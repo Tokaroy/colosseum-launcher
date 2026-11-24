@@ -69,6 +69,7 @@ function applyFilter() {
   const search = $('pokedex-search').value.trim().toLowerCase();
   let shown = 0;
   for (const entry of species) {
+    if (!entries.has(entry.key)) continue;   /* (a form row: not listed) */
     const show = matches(entry, search);
     entries.get(entry.key).hidden = !show;
     if (show) shown++;
@@ -127,16 +128,19 @@ function renderEntry(entry) {
   return button;
 }
 
+const isFormRow = entry => entry.status?.kind === 'generation' && entry.national >= 722;
 function renderList() {
   const disc = species.filter(entry => !entry.pack), available = disc.filter(entry => !entry.status.locked).length;
-  const packs = species.filter(entry => entry.status.kind === 'pack').length, later = species.filter(entry => entry.status.kind === 'generation').length;
+  // (a form with stats of its own, 722 on, is its base's: shown under its base's Look, not as an entry of its own)
+  const listed = species.filter(entry => !isFormRow(entry));
+  const packs = species.filter(entry => entry.status.kind === 'pack').length, later = listed.filter(entry => entry.status.kind === 'generation').length;
   $('pokedex-summary').textContent = `${disc.length} Pokémon on your disc. ${available} can be obtained in the game; the rest are locked away.` +
     (later ? ` ${later} more from later generations.` : '') +
     (packs ? ` ${packs} from your Pokémon packs.` : '');
   $('pokedex-pack-problems').hidden = !packProblems.length;
   $('pokedex-pack-problem-list').replaceChildren(...packProblems.map(text => Object.assign(document.createElement('li'), { textContent: text })));
   renderFilters();
-  $('pokedex-list').replaceChildren(...species.map(renderEntry));
+  $('pokedex-list').replaceChildren(...listed.map(renderEntry));
   applyFilter();
 }
 

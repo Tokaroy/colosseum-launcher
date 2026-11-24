@@ -85,6 +85,7 @@ contextBridge.exposeInMainWorld('colo', {
   onReplays: callback => ipcRenderer.on('replays', () => callback()),
   pokemonPage: () => ipcRenderer.invoke('pokemon-page'),
   shadowtradeOffer: place => ipcRenderer.invoke('shadowtrade-offer', place),
+  changeForm: (place, identity, to) => ipcRenderer.invoke('pokemon-change-form', place, identity, to),
   shadowtradeSync: () => ipcRenderer.invoke('shadowtrade-sync'),
   shadowtradeCancel: id => ipcRenderer.invoke('shadowtrade-cancel', id),
   onlineTrade: (action, value) => ipcRenderer.invoke('online-trade', action, value),

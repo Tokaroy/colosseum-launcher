@@ -27,7 +27,7 @@ const { Dex } = require('@pkmn/dex');
 
 const OUT = path.join(__dirname, '..', '..', 'src', 'generations');
 const POKEAPI = process.argv[2] || path.join(__dirname, '..', '..', '..', 'ref', 'pokeapi');
-const LAST_SPECIES = 721, LAST_MOVE = 621, LAST_ABILITY = 191, FIRST_NEW_SPECIES = 494, FIRST_NEW_MOVE = 468, FIRST_NEW_ABILITY = 124;
+const LAST_SPECIES = 721, FIRST_FORM = 722, LAST_MOVE = 621, LAST_ABILITY = 191, FIRST_NEW_SPECIES = 494, FIRST_NEW_MOVE = 468, FIRST_NEW_ABILITY = 124;
 const KINDS = { M: 'tm', T: 'tutor', E: 'egg', S: 'event' };
 // The flags gen4.json gives a move, from Showdown's (the rest: Platinum's, which generation 6 kept)
 const FLAG_MAP = { contact: 'contact', protect: 'protect', reflectable: 'reflectable', snatch: 'snatch', mirror: 'mirror', sound: 'sound' };
@@ -208,13 +208,50 @@ async function main() {
     learnsets[n] = { levelUp: learned.levelUp, ...learned.kinds };
   }
 
+  // The forms with stats, types or abilities of their own, each a Pokémon of its own after Volcanion (722 on, the game's
+  // 748 on): its form's data from Showdown, the rest (catch rate, experience, growth) its base's, its learnset its
+  // own and its base's, its in-game name its base's. A form changes as the player has the launcher change it (the
+  // Pokémon page's Change form, for the Reveal Glass, DNA Splicers, Gracidea, Prison Bottle and Rotom's appliances);
+  // Meowstic-F is a female Espurr's evolution. Battle forms (Aegislash, Darmanitan, Meloetta) stay the engine's.
+  const FORMS = [['Deoxys-Attack', 'attack-forme'], ['Deoxys-Defense', 'defense-forme'], ['Deoxys-Speed', 'speed-forme'],
+    ['Wormadam-Sandy', 'sandy-cloak'], ['Wormadam-Trash', 'trash-cloak'], ['Rotom-Heat', 'heat-rotom'], ['Rotom-Wash', 'wash-rotom'],
+    ['Rotom-Frost', 'frost-rotom'], ['Rotom-Fan', 'fan-rotom'], ['Rotom-Mow', 'mow-rotom'], ['Giratina-Origin', 'origin-forme'],
+    ['Shaymin-Sky', 'sky-forme'], ['Basculin-Blue-Striped', 'blue-striped-form'], ['Tornadus-Therian', 'therian-forme'],
+    ['Thundurus-Therian', 'therian-forme'], ['Landorus-Therian', 'therian-forme'], ['Kyurem-Black', 'black-kyurem'],
+    ['Kyurem-White', 'white-kyurem'], ['Meowstic-F', 'female'], ['Pumpkaboo-Small', ''], ['Pumpkaboo-Large', ''],
+    ['Pumpkaboo-Super', 'super-size'], ['Gourgeist-Small', ''], ['Gourgeist-Large', ''], ['Gourgeist-Super', 'super-size'],
+    ['Hoopa-Unbound', 'hoopa-unbound']];
+  const formNumber = name => FIRST_FORM + FORMS.findIndex(([each]) => each === name);
+  for (const [i, [formName, folder]] of FORMS.entries()) {
+    const s = dex.species.get(formName), number = FIRST_FORM + i, base = species[s.num];
+    if (!s.exists || !base) throw new Error(`no form ${formName}`);
+    const own = await learnsetOf(s), baseOwn = learnsets[s.num];
+    const merged = kind => [...new Set([...(baseOwn[kind] || []), ...(own.kinds[kind] || [])])].sort((a, b) => a - b);
+    const levelMap = new Map(baseOwn.levelUp.map(([level, move]) => [move, level]));
+    for (const [level, move] of own.levelUp) levelMap.set(move, Math.min(levelMap.get(move) ?? 100, level));
+    // (a form's level-up moves are its own where it has a list, else its base's)
+    const levelUp = own.levelUp.length ? own.levelUp : baseOwn.levelUp;
+    const kinds = Object.fromEntries(['tm', 'tutor', 'egg', 'event'].map(kind => [kind, merged(kind)]).filter(([, list]) => list.length));
+    // Pumpkaboo's sizes evolve into Gourgeist's of the same size, by trade
+    const evolutions = /^Pumpkaboo-/.test(formName) ? [{ into: formNumber(formName.replace('Pumpkaboo', 'Gourgeist')), trade: true }] : [];
+    species[number] = { ...base, name: s.name, gameName: base.name, formOf: s.num, forme: s.forme, folder,
+      types: s.types, stats: statsOf(s), abilities: [s.abilities[0], s.abilities[1]].filter(Boolean),
+      ...(s.abilities.H ? { hidden: s.abilities.H } : {}),
+      gender: genderOf(s), height: s.heightm, weight: s.weightkg, evolutions,
+      levelUp, tm: kinds.tm || [], tutor: kinds.tutor || [], egg: kinds.egg || [] };
+    if (!s.abilities.H) delete species[number].hidden;   /* (not its base's: Landorus-Therian has none) */
+    learnsets[number] = { levelUp, ...kinds };
+  }
+  // a female Espurr evolves into Meowstic-F
+  species[677].evolutions = [...species[677].evolutions, { into: formNumber('Meowstic-F'), level: 25, gender: 'female' }];
+
   // Smeargle learns any move by Sketch, but those Sketch can't copy (Struggle, Chatter)
   learnsets[dex.species.get('Smeargle').num].sketch = dex.moves.all()
     .filter(move => !move.isNonstandard && playable(move.num) && !move.flags.nosketch && !/^Hidden Power ./.test(move.name))
     .map(move => move.num).sort((a, b) => a - b);
 
   const data = {
-    generation: 6, name: 'X and Y', newSpecies: [FIRST_NEW_SPECIES, LAST_SPECIES], newMoves: [355, LAST_MOVE],
+    generation: 6, name: 'X and Y', newSpecies: [FIRST_NEW_SPECIES, LAST_SPECIES], forms: [FIRST_FORM, FIRST_FORM + FORMS.length - 1], newMoves: [355, LAST_MOVE],
     newAbilities: [gen4.newAbilities[0], LAST_ABILITY],
     mechanics: require('../../src/mechanics').preset(6),
     sources: [`Pokémon Showdown's data, generation 6 (@pkmn/dex ${require('@pkmn/dex/package.json').version}, MIT)`,

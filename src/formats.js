@@ -69,7 +69,8 @@
   // Generations 5 and 6's Pokémon (Victini to Volcanion, 26 past their National Pokédex numbers) and moves (Hone Claws
   // to Hyperspace Fury, 3 past theirs), which play only under X and Y's rules; the Fairy moves among them play wherever
   // the room has Gen 6 types. Victini to Genesect are the fifth's.
-  const GEN6_SPECIES = [520, 747], GEN6_MOVES = [471, 624], LAST_GEN5_SPECIES = 675;
+  // (and past Volcanion, 748 to 773, the forms with stats of their own: Deoxys's to Hoopa Unbound, generations.js)
+  const GEN6_SPECIES = [520, 773], GEN6_MOVES = [471, 624], LAST_GEN5_SPECIES = 675;
   const gen6Species = id => id >= GEN6_SPECIES[0] && id <= GEN6_SPECIES[1];
   const gen6Move = id => id >= GEN6_MOVES[0] && id <= GEN6_MOVES[1] && !fairyMove(id);
 
@@ -77,13 +78,13 @@
   // up to Celebi, and 26 past it from Turtwig on).
   // Mewtwo, Lugia, Ho-Oh, Kyogre, Groudon, Rayquaza; Dialga, Palkia, Giratina; Reshiram, Zekrom, Kyurem; Xerneas,
   // Yveltal, Zygarde
-  const RESTRICTED = [150, 249, 250, 404, 405, 406, 509, 510, 513, 669, 670, 672, 742, 743, 744];
+  const RESTRICTED = [150, 249, 250, 404, 405, 406, 509, 510, 513, 669, 670, 672, 742, 743, 744, 758, 764, 765];   /* (Giratina-Origin, Kyurem-Black, -White) */
   // Mew, Celebi, Jirachi, Deoxys; Phione, Manaphy, Darkrai, Shaymin, Arceus; Victini, Keldeo, Meloetta, Genesect;
   // Diancie, Hoopa, Volcanion
-  const MYTHICAL = [151, 251, 409, 410, 515, 516, 517, 518, 519, 520, 673, 674, 675, 745, 746, 747];
+  const MYTHICAL = [151, 251, 409, 410, 515, 516, 517, 518, 519, 520, 673, 674, 675, 745, 746, 747, 748, 749, 750, 759, 773];   /* (Deoxys's forms, Shaymin-Sky, Hoopa-Unbound) */
   // birds, beasts, Regis, Latias, Latios; the lake trio, Heatran, Regigigas, Cresselia; Cobalion, Terrakion, Virizion,
   // Tornadus, Thundurus, Landorus
-  const LEGENDARY = [144, 145, 146, 243, 244, 245, 401, 402, 403, 407, 408, 506, 507, 508, 511, 512, 514, 664, 665, 666, 667, 668, 671];
+  const LEGENDARY = [144, 145, 146, 243, 244, 245, 401, 402, 403, 407, 408, 506, 507, 508, 511, 512, 514, 664, 665, 666, 667, 668, 671, 761, 762, 763];   /* (the Therian Formes) */
   // The fourth generation's Pokémon, moves and held items, by the game's numbers (Colosseum's own moves 355 to 357 come
   // before; its items past the game's own, and the Enigma Berry, whose row Colosseum leaves blank).
   const LATER_SPECIES = [413, 519], LATER_MOVES = [358, 470], LATER_ITEMS = [0x224, 0x289], ENIGMA_BERRY = 175;
@@ -91,7 +92,7 @@
   const laterMove = id => id >= LATER_MOVES[0] && id <= LATER_MOVES[1];
   const laterItem = id => id === ENIGMA_BERRY || (id >= LATER_ITEMS[0] && id <= LATER_ITEMS[1]) || gen6Item(id);
   // Smogon's third-generation Ubers (Showdown's data/mods/gen3/formats-data.ts)
-  const UBERS = [150, 151, 249, 250, 404, 405, 406, 407, 408, 410, 202, 360];   // ... Latias, Latios, Deoxys, Wobbuffet, Wynaut
+  const UBERS = [150, 151, 249, 250, 404, 405, 406, 407, 408, 410, 202, 360, 748, 749, 750];   // ... Latias, Latios, Deoxys, Wobbuffet, Wynaut
   const POOL_BANS = { any: [], restricted: [...RESTRICTED, ...MYTHICAL], legends: [...RESTRICTED, ...MYTHICAL, ...LEGENDARY], ou: UBERS };
 
   const MOVE = { fissure: 90, guillotine: 12, hornDrill: 32, sheerCold: 329, doubleTeam: 104, minimize: 107, assist: 274,

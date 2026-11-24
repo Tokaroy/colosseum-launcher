@@ -113,8 +113,8 @@ test('under X and Y rules a room for both games takes Gen 5-6 Pokémon, moves, i
   assert.deepEqual(play(684, { item: 0x28a, ability: 2, moves: [506, 588, 57, 58] }), []);
   // Ninetales (38) with hidden ability Drought (2) and Fairy move Dazzling Gleam (608)
   assert.deepEqual(play(38, { item: 0x295, ability: 2, moves: [53, 608] }), []);
-  // Past Gen 6 (748) stays out
-  assert.match(play(748, { moves: [34] })[0], /isn't a Pokémon both games have/);
+  // Past Gen 6 and its forms (774) stays out
+  assert.match(play(774, { moves: [34] })[0], /isn't a Pokémon both games have/);
   // Fairy moves work under Gen 3/4 rules when fairy is turned on alone
   assert.deepEqual(crossplay.memberProblems(36, wire(36, { moves: [588] }), {}, false, { fairy: true }), []);
   assert.match(one(36, { moves: [588] })[0], /move #588/);

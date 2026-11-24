@@ -71,6 +71,7 @@ const pokemonPacks = require('./pokemon-packs');
 const generations = require('./generations');
 const mechanics = require('./mechanics');
 const evolutionWays = require('./evolution-ways');
+const forms = require('./forms');
 const hsdModel = require('./hsd-model');
 const randomizer = require('./randomizer');
 const languagePacks = require('./language-packs');
@@ -2481,7 +2482,7 @@ function pokemonPage() {
     notice = notice || (binaryReady(games.allFields(config)[game]?.repo, game) ? 'Update the game to use Shadowtrade: this version of it can\'t take a traded Shadow Pokémon.' : 'Set up the game to use Shadowtrade.');
   }
   if (model) {
-    const each = pokemon => pokemon && { ...pokemon, tradeProblem: savePokemon.offerProblem(model, pokemon),
+    const each = pokemon => pokemon && { ...pokemon, forms: formChoices(game, pokemon), tradeProblem: savePokemon.offerProblem(model, pokemon),
       tradeLater: pokemon.shadow && savePokemon.shadowtradeKind(game, pokemon.species) === 'later',
       tradeGen6: pokemon.shadow && savePokemon.shadowtradeKind(game, pokemon.species) === 'gen6' };
     model = { ...model, party: model.party.map(each), boxes: model.boxes.map(box => ({ ...box, pokemon: box.pokemon.map(each) })) };
@@ -2489,6 +2490,32 @@ function pokemonPage() {
   const gameRunning = storyGame === game || heldGame()?.game === game;
   return { game, source, model, notice, canTrade: canTrade && Boolean(model), canEdit: Boolean(model) && !gameRunning, gameRunning,
     pool: shadowtrade.poolFor(game, saveRandomized(game)), trades: trades().view(), live: live?.head || null };
+}
+
+// --- Change form (src/forms.js): the forms a save's Pokémon can change into, with the Generation 5 and 6 Pokémon
+// setting (a form with stats of its own is a Pokémon of its own then), and the change, made in the save with the game
+// closed. For now in place of the Reveal Glass, DNA Splicers and the rest, which the story has no way to get.
+function formChoices(game, pokemon) {
+  try {
+    if (pokemon.egg || !(config.settings?.generationPokemon || []).map(Number).includes(6)) return null;
+    const data = generations.load(6), species = tradeConvert.speciesToColosseum(game, pokemon.species);
+    const changer = forms.changerOf(forms.numberOf(species), data);
+    if (!changer) return null;
+    return { by: changer.by, current: forms.numberOf(species),
+      choices: changer.forms.map(number => ({ number, name: data.species[number]?.name || `#${number}` })) };
+  } catch (_) { return null; }
+}
+function changeForm(place, identity, to) {
+  const game = config.game;
+  if (storyGame === game) throw new Error(`Close ${shortGameName(game)} first: its form changes in your save while the game is closed.`);
+  const data = generations.load(6);
+  const done = savePokemon.editCard(saveDirectoryOf(game), game, ctx => {
+    const found = savePokemon.findPokemon(ctx, identity, place);
+    return found ? forms.changeForm(found.bytes, game, Number(to), data, tradeConvert) : null;
+  });
+  if (!done) throw new Error('That Pokémon isn\'t in your save any more: refresh the page.');
+  log(`Change form: ${done.name} (${done.by}), in ${shortGameName(game)}'s save`);
+  return done;
 }
 
 function syncTrades() {
@@ -4060,6 +4087,11 @@ function registerHandlers() {
     await shell.openPath(readable);
   });
   ipcMain.handle('pokemon-page', () => pokemonPage());
+  ipcMain.handle('pokemon-change-form', (_event, place, identity, to) => {
+    const where = { area: place?.area === 'box' ? 'box' : 'party', box: Number(place?.box) || 0, slot: Number(place?.slot) || 0 };
+    const who = { species: Number(identity?.species) || 0, rnd: Number(identity?.rnd) >>> 0, trainer: Number(identity?.trainer) >>> 0 };
+    return changeForm(where, who, Number(to));
+  });
   ipcMain.handle('shadowtrade-offer', async (_event, place) => {
     const where = { area: place?.area === 'box' ? 'box' : 'party', box: Number(place?.box) || 0, slot: Number(place?.slot) || 0 };
     const access = tradeAccess(config.game);

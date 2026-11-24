@@ -139,6 +139,7 @@ function renderDetail() {
   $('pokemon-edit').title = cantEdit || 'Edit this Pokémon in your save file';
   $('pokemon-edit-note').hidden = !cantEdit;
   $('pokemon-edit-note').textContent = cantEdit || '';
+  renderForm(pokemon);
   const problem = pokemon.tradeProblem || (!data.canTrade ? data.notice || 'Trading isn\'t possible right now.' : null);
   $('pokemon-trade').hidden = !pokemon.shadow;
   $('pokemon-trade').disabled = Boolean(problem) || Boolean(data.trades?.busy);
@@ -164,6 +165,32 @@ async function editPokemon() {
     });
   } catch (error) { setStatus(message(error)); }
 }
+// Change form (main.js changeForm, src/forms.js): the forms it can be, for now in place of the item that changes it in
+// the 3DS and DS games, made in the save while the game is closed
+function renderForm(pokemon) {
+  const forms = pokemon.forms, box = $('pokemon-form');
+  box.hidden = !forms;
+  if (!forms) return;
+  const select = $('pokemon-form-choice');
+  select.replaceChildren(...forms.choices.map(each => Object.assign(document.createElement('option'), { value: String(each.number), textContent: each.name, selected: each.number === forms.current })));
+  const running = data.source === 'live' || (data.notice && !data.canTrade && data.source !== 'card');
+  $('pokemon-form-change').disabled = Boolean(running);
+  $('pokemon-form-note').textContent = running ? 'Close the game to change its form: it changes in your save.'
+    : `In the 3DS and DS games, the ${forms.by} does this. Its stats, type and ability change with it, and its own move too.`;
+}
+async function changeForm() {
+  const pokemon = current();
+  if (!pokemon?.forms) return;
+  const to = Number($('pokemon-form-choice').value);
+  if (to === pokemon.forms.current) return;
+  $('pokemon-form-change').disabled = true;
+  try {
+    const done = await window.colo.changeForm({ area: pokemon.area, box: pokemon.box, slot: pokemon.slot }, { species: pokemon.species, rnd: pokemon.rnd, trainer: pokemon.trainer }, to);
+    setStatus(`${shown(pokemon)} is now ${done.name}.`);
+    await refresh();
+  } catch (error) { setStatus(message(error)); $('pokemon-form-change').disabled = false; }
+}
+$('pokemon-form-change').addEventListener('click', changeForm);
 
 function describeTrade(trade) {
   const row = document.createElement('div');

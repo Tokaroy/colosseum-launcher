@@ -16,7 +16,11 @@
       "Online legality under X and Y rules allows 252 EVs in a stat, generation 6's most; a story Pokémon with up to 255 goes as 252, which makes the same stat.",
       "Import from Black, White, Black 2 and White 2 saves, and from decrypted X, Y, Omega Ruby and Alpha Sapphire saves: their party and PC boxes come over under Pokémon → Import, keeping each Pokémon's nature, gender, shininess and hidden ability where the game can.",
       "Eevee can evolve into Leafeon with a Leaf Stone, into Glaceon by levelling up holding NeverMeltIce, and into Sylveon by levelling up with high friendship knowing a Fairy move; Pancham evolves at level 32 with a Dark type in the party.",
-      "The Pokédex says how a Pokémon evolves in this game and, where that's a stand-in, how it evolves in X and Y, Black and White or Platinum (Malamar upside down, Goodra in the rain, Tyrantrum by day, the Dusk and Shiny Stones)."
+      "The Pokédex says how a Pokémon evolves in this game and, where that's a stand-in, how it evolves in X and Y, Black and White or Platinum (Malamar upside down, Goodra in the rain, Tyrantrum by day, the Dusk and Shiny Stones).",
+      "Forms with their own stats are Pokémon of their own with Generation 5 and 6 Pokémon: Deoxys's Attack, Defense and Speed Formes, Rotom's five appliances, Giratina's Origin Forme, Shaymin's Sky Forme, the Therian Formes, Black and White Kyurem, Hoopa Unbound, Wormadam's cloaks, Basculin's blue stripes, Pumpkaboo's and Gourgeist's sizes and female Meowstic, each with its own stats, types, abilities, moves and 3DS model, in the team builder, online and in your saves.",
+      "Change form: on the Pokémon page, a Deoxys, Rotom, Giratina, Shaymin, Tornadus, Thundurus, Landorus, Kyurem or Hoopa in your save can change form with the game closed, standing in for the Meteorite, Rotom Catalog, Gracidea, Reveal Glass, DNA Splicers and Prison Bottle until the story has them. Kyurem, Rotom and Hoopa swap their own moves as they do in the 3DS games.",
+      "A female Espurr evolves into a female Meowstic, and Pumpkaboo of each size into Gourgeist of the same size.",
+      "Importing from a DS or 3DS save brings a Pokémon's form along (Wash Rotom, Therian Landorus, Black Kyurem, a female Meowstic) with Generation 5 and 6 Pokémon."
     ],
     "game": [
       "Gen 6 types: with the setting on, both games have the Fairy type, with generation 6's type chart, a Fairy type picture in each game's own style on every screen that shows types, and its new moves, Draining Kiss giving back three quarters of the damage. With it off again, a Pokémon that learned a Fairy move forgets it, leaving the slot empty, and the same for a Generation 4 move with Generation 4 off, so a save from either still loads.",
@@ -29,7 +33,8 @@
       "X and Y battles: U-turn and Volt Switch set off the target's Rocky Helmet, Air Balloon, Red Card, Eject Button and other items; an Air Balloon floats over Spikes, Sticky Web and the terrains; Thousand Arrows hits a floating Pokémon; Rocky Helmet hurts on every hit of a multi-hit move.",
       "X and Y battles: Unnerve stops every Berry, Harvest and Cheek Pouch work with every kind of Berry, Belch counts a Berry eaten before a switch, Sheer Force takes away Fake Out's flinch, Defiant and Competitive answer Intimidate, Sticky Web and King's Shield, and Trace, Role Play, Skill Swap and Gastro Acid leave Stance Change, Illusion and the other protected abilities alone.",
       "X and Y battles: Natural Gift, Flail, Reversal, Oblivion Wing, Chatter, Autotomize, Low Kick and Grass Knot, Psyshock, Plus and Minus, Mud Sport and Water Sport, Defog against Sticky Web, Arceus with a Pixie Plate, Misty Terrain, Magic Guard, Heal Pulse, Wide Guard, Fling, Incinerate, Clear Smog, Rage Powder, Round, Struggle and move accuracy now work as they do in X and Y.",
-      "Level-up moves past a Pokémon's twentieth are learned too (Deoxys's Psycho Boost, Steelix's Stone Edge), and the Move Deleter and XD's Move Teacher can remind them."
+      "Level-up moves past a Pokémon's twentieth are learned too (Deoxys's Psycho Boost, Steelix's Stone Edge), and the Move Deleter and XD's Move Teacher can remind them.",
+      "Giratina holding a Griseous Orb battles in its Origin Forme, with Levitate, under X and Y rules; Hoopa can use Hyperspace Fury only as Hoopa Unbound."
     ]
   },
   "releases": [

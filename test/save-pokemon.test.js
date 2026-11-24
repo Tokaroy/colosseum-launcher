@@ -97,8 +97,8 @@ test('only a Shadow Pokémon can go, never an egg, and never the last one that c
   assert.match(sp.offerProblem(save, p({ species: 260 })), /pack/);
   assert.match(sp.offerProblem(save, p({ species: 1100 })), /pack/);
   assert.deepEqual([sp.shadowtradeKind('colosseum', 485), sp.shadowtradeKind('xd', 487), sp.shadowtradeKind('xd', 413), sp.shadowtradeKind('colosseum', 413),
-    sp.shadowtradeKind('colosseum', 520), sp.shadowtradeKind('colosseum', 747), sp.shadowtradeKind('colosseum', 748),
-    sp.shadowtradeKind('xd', 522), sp.shadowtradeKind('xd', 749), sp.shadowtradeKind('xd', 750), sp.shadowtradeKind('colosseum', 296)],
+    sp.shadowtradeKind('colosseum', 520), sp.shadowtradeKind('colosseum', 773), sp.shadowtradeKind('colosseum', 774),
+    sp.shadowtradeKind('xd', 522), sp.shadowtradeKind('xd', 775), sp.shadowtradeKind('xd', 776), sp.shadowtradeKind('colosseum', 296)],
     ['later', 'later', 'base', 'later', 'gen6', 'gen6', null, 'gen6', 'gen6', null, 'base']);
 });
 

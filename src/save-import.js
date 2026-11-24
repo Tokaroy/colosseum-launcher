@@ -49,7 +49,14 @@ const HOENN_OF_NATIONAL = new Map(Object.entries(transfer.species).map(([nationa
 const FORM_SPECIES = new Map([[386, 'Deoxys'], [413, 'Wormadam'], [479, 'Rotom'], [487, 'Giratina'], [492, 'Shaymin'],
   [641, 'Tornadus'], [642, 'Thundurus'], [645, 'Landorus'], [646, 'Kyurem'], [670, 'Floette'], [710, 'Pumpkaboo'], [711, 'Gourgeist'], [720, 'Hoopa']]);
 const ONLY_FORMS = new Map([[670, [5]]]);
-const formMissing = (national, form) => Boolean(form) && FORM_SPECIES.has(national) && (!ONLY_FORMS.has(national) || ONLY_FORMS.get(national).includes(form));
+// The forms the game has as Pokémon of their own (generation 6's file, 722 on: src/generations.js), by the National
+// number and the save's form number (PKHeX's): the row's number past Volcanion
+const FORM_ROWS = new Map([[386, { 1: 722, 2: 723, 3: 724 }], [413, { 1: 725, 2: 726 }], [479, { 1: 727, 2: 728, 3: 729, 4: 730, 5: 731 }],
+  [487, { 1: 732 }], [492, { 1: 733 }], [550, { 1: 734 }], [641, { 1: 735 }], [642, { 1: 736 }], [645, { 1: 737 }],
+  [646, { 1: 739, 2: 738 }], [678, { 1: 740 }], [710, { 1: 741, 2: 742, 3: 743 }], [711, { 1: 744, 2: 745, 3: 746 }], [720, { 1: 747 }]]);
+const formRow = (national, form) => (form && FORM_ROWS.get(national)?.[form]) || 0;
+const formMissing = (national, form) => Boolean(form) && FORM_SPECIES.has(national) && !formRow(national, form) &&
+  (!ONLY_FORMS.has(national) || ONLY_FORMS.get(national).includes(form));
 const DS_GAME = 12;   // an attest game the games don't know: a DS game (they show it as from a trade)
 const LAST_NATIONAL = 721;
 const GEN6_SPECIES = [494 + LATER_OFFSET, LAST_NATIONAL + LATER_OFFSET], GEN6_MOVES = [471, 624], GEN6_ITEMS = [0x28A, 0x2A4];
@@ -76,6 +83,7 @@ function nationalOf(species) {
   if (species >= 1 && species <= 251) return species;
   if (species >= FIRST_HOENN && species <= LAST_HOENN) return NATIONAL_OF_HOENN.get(species) || 0;
   if (species >= 387 + LATER_OFFSET && species <= LAST_NATIONAL + LATER_OFFSET) return species - LATER_OFFSET;
+  if (species >= 722 + LATER_OFFSET && species <= 747 + LATER_OFFSET) return species - LATER_OFFSET;   /* (a form's own row) */
   return 0;
 }
 const moveFromNational = n => (n >= 355 ? n + 3 : n);
@@ -398,6 +406,12 @@ function judge(entry, receiver) {
   const problems = [], notes = [];
   const national = nationalOf(p.species), speciesName = speciesData(national)?.name || 'It';
   if (formMissing(national, entry.form)) problems.push(`Only ${FORM_SPECIES.get(national)}'s usual form is in the game.`);
+  // a form the game has as a Pokémon of its own (Rotom's Wash Rotom, Landorus's Therian Forme, a female Meowstic)
+  const row = formRow(national, entry.form);
+  if (row) {
+    if (!receiver.gen6Pokemon) problems.push(`Its ${speciesData(row)?.name || 'form'} needs Generation 5 and 6 Pokémon (Settings → Gameplay).`);
+    else { p.species = row + LATER_OFFSET; finish(p, row); }
+  }
   notes.push(...(entry.notes || []));
   if (entry.heldLost) notes.push('It comes without its held item: the game doesn\'t have it.');
   // a later game's ability: its hidden one marked as the port marks one (host/species.c), where the game has it

@@ -42,7 +42,7 @@ const isMove = id => Number.isInteger(id) && id >= 1 && id <= LAST_MOVE;
 const isShadowMove = id => Number.isInteger(id) && id >= SHADOW_MOVES[0] && id <= SHADOW_MOVES[1];
 const isItem = id => within(ITEMS, id);
 const LATER_SPECIES = [413, 519], LATER_MOVES = [358, 470], LATER_ITEMS = [0x224, 0x289], ENIGMA_BERRY = 175;
-const GEN6_SPECIES = [520, 747], GEN6_MOVES = [471, 624], GEN6_ITEMS = [0x28a, 0x2a4];
+const GEN6_SPECIES = [520, 773], GEN6_MOVES = [471, 624], GEN6_ITEMS = [0x28a, 0x2a4];
 const FAIRY_MOVES = [577, 580, 586, 587, 588, 608, 611];
 const isLaterSpecies = id => within([LATER_SPECIES], id);
 const isLaterMove = id => within([LATER_MOVES], id);
