@@ -33,7 +33,7 @@ const SAME_ABILITIES = 75;   // Stench to Shell Armor: the same numbers in Ruby 
 const FEATURES = { physicalSpecialSplit: 1, sandstormRockSpecialDefense: 2 };
 const CATEGORY = { Physical: 1, Special: 2, Status: 0 };
 const FAIRY_TYPE = 18;   // the type the Fairy type setting adds, after the game's 18 (host/types.c)
-const LEVEL_MOVES = 20;  // the level-up moves a species row holds
+const LEVEL_MOVES = 20, ALL_LEVEL_MOVES = 60;  // the level-up moves a species row holds, and with the MORE chunk past it
 const MOVE_ROW = 0x38;
 // A move's row (decomp include/game/bios_records.h WazaDataBiosFields). 0x06-0x12 are flags, 1 or 0: contact, Protect,
 // Magic Coat, Snatch, Mirror Move and King's Rock act on it; Metronome, Mimic, Assist and Sleep Talk can call it; it's
@@ -268,7 +268,7 @@ function withFairyMoves(levelUp, national) {
   const have = new Set(levelUp.map(([, move]) => move));
   const merged = [...levelUp.map(([level, move]) => [level, move, false]), ...added.filter(([, move]) => !have.has(move))]
     .map((entry, order) => ({ entry, order })).sort((a, b) => a.entry[0] - b.entry[0] || a.order - b.order).map(each => each.entry);
-  while (merged.length > LEVEL_MOVES) {
+  while (merged.length > ALL_LEVEL_MOVES) {   /* (twenty in the row, the rest past it: the MORE chunk) */
     const last = merged.map(each => each[2]).lastIndexOf(false);
     merged.splice(last < 0 ? merged.length - 1 : last, 1);
   }
@@ -315,10 +315,10 @@ function rules(tables, data, moves, chosen = mechanicList(data)) {
   return { generation: data.generation, features, categories, changed, species };
 }
 
-// A Pokémon's level-up moves, the ones Colosseum can play, by Colosseum's number: at most twenty, as a row holds (the
-// first ones it learns, as a Pokémon met at a level knows its latest four).
+// A Pokémon's level-up moves, the ones Colosseum can play, by Colosseum's number: twenty in its row, the rest (up to
+// sixty in all) in the MORE chunk past it (host/evolutions.c).
 const levelUpMoves = (entry, usable) =>
-  entry.levelUp.map(([level, move]) => [Math.max(1, level), usable(move)]).filter(([, move]) => move).slice(0, 20);
+  entry.levelUp.map(([level, move]) => [Math.max(1, level), usable(move)]).filter(([, move]) => move).slice(0, 60);
 
 // The generation a Pokémon came in, by its National Pokédex number (generation 6's file has the fifth's too)
 const GENERATION_STARTS = [[650, 6], [494, 5], [387, 4], [252, 3], [152, 2], [1, 1]];
@@ -338,7 +338,9 @@ const intoOf = number => number > 386 ? `generation:${number}` : number;
 function evolutionOf(data, evolution, usable) {
   const into = intoOf(evolution.into), gender = evolution.gender ? { gender: evolution.gender } : {};
   if (evolution.other) return null;   // the third generation's, which the game's own Pokémon have as it has them
-  if (evolution.level) return { into, level: evolution.level, ...gender };
+  if (evolution.level) return { into, level: evolution.level, ...gender, ...(evolution.partyType ? { partyType: evolution.partyType } : {}) };
+  // (Sylveon: high friendship knowing a Fairy move, as generation 8 has it for generation 6's affection)
+  if (evolution.friendship && evolution.knowsType) return { into, friendship: true, knowsType: evolution.knowsType };
   if (evolution.friendship) return { into, friendship: true };
   if (evolution.knowsMove) { const move = usable(evolution.knowsMove); return move ? { into, knowsMove: move } : null; }
   if (evolution.withPokemon) return { into, withPokemon: intoOf(evolution.withPokemon) };
@@ -349,7 +351,12 @@ function evolutionOf(data, evolution, usable) {
     if (level === undefined) return evolution.item ? { into, item } : evolution.heldItem ? null : { into, trade: item };
     return level ? { into, level, ...gender } : null;
   }
-  if (evolution.place) { const level = data.colosseum.evolutionPlaces?.[evolution.place]; return level ? { into, level } : null; }
+  if (evolution.place) {
+    // a level, or (Eevee's Moss Rock and Ice Rock) an item the game has to use or hold
+    const way = data.colosseum.evolutionPlaces?.[evolution.place];
+    if (way && typeof way === 'object') return way.item ? { into, item: way.item } : way.heldItem ? { into, heldItem: way.heldItem } : null;
+    return way ? { into, level: way } : null;
+  }
   return null;
 }
 

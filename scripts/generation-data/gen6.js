@@ -79,7 +79,10 @@ function evolutionOf(into, dex) {
   if (s.evoType === 'levelFriendship') return { ...out, friendship: true };
   if (s.evoType === 'trade') return s.evoItem ? { ...out, trade: s.evoItem } : { ...out, trade: true };
   if (s.evoType === 'levelMove') return { ...out, knowsMove: dex.moves.get(s.evoMove).num };
-  if (s.evoType === 'levelExtra' && s.name === 'Sylveon') return { ...out, knowsMove: dex.moves.get('Baby-Doll Eyes').num };
+  // Sylveon: high friendship knowing a Fairy move (generation 8's way, for generation 6's affection; the game keeps no
+  // affection); Pancham: a level with a Dark type in the party (host/evolutions.c's own kinds)
+  if (s.evoType === 'levelExtra' && s.name === 'Sylveon') return { ...out, friendship: true, knowsType: 'Fairy' };
+  if (s.name === 'Pangoro') return { ...out, level: s.evoLevel, partyType: 'Dark' };
   if (s.evoType === 'levelHold') return { ...out, heldItem: s.evoItem, time: 'any' };
   if (s.evoType === 'levelExtra') return { ...out, level: s.evoLevel || 1 };
   const level = s.evoLevel || 1;
@@ -107,7 +110,10 @@ async function main() {
     const gen4Target = Dex.forGen(4).moves.get(entry.name).target;
     // (Mirror Move and Nature Power keep Platinum's range for a move that calls another)
     const range = move.target !== gen4Target && RANGES[move.target] && entry.range !== 'RANGE_SINGLE_TARGET_SPECIAL' ? RANGES[move.target] : entry.range;
-    moves[n] = { ...entry, range, type: move.type, category: move.category, power: move.basePower === 0 && entry.power === 1 ? 1 : move.basePower,
+    // (a damaging move whose power is worked out as it's used keeps a power, so nothing takes it for a status move:
+    // Beat Up's 0 in Showdown's data, 10 in Platinum's)
+    moves[n] = { ...entry, range, type: move.type, category: move.category,
+      power: move.basePower === 0 && move.category !== 'Status' ? (entry.power || 1) : move.basePower,
       accuracy: move.accuracy === true ? 0 : move.accuracy, pp: move.pp, priority: move.priority,
       effectChance: move.secondary?.chance ?? entry.effectChance, ...flags,
       // From generation 5, King's Rock acts on every damaging move without a flinch chance of its own

@@ -92,12 +92,12 @@ test('with it: the Fairy moves, the types the game writes, and level-up moves at
 });
 
 test('a full list keeps its Fairy moves: the last other moves go', () => {
-  const full = Array.from({ length: 20 }, (_, i) => [i + 1, 200 + i]);
+  const full = Array.from({ length: 60 }, (_, i) => [i % 100 + 1, 200 + i]);
   const merged = generations.withFairyMoves(full, 35);
-  assert.equal(merged.length, 20);
+  assert.equal(merged.length, 60, 'twenty in the row, forty past it');
   assert.ok(merged.some(([, move]) => move === FAIRY_MOVE.moonblast));
   assert.ok(merged.some(([, move]) => move === FAIRY_MOVE.disarmingVoice));
-  assert.ok(!merged.some(([, move]) => move === 219) && !merged.some(([, move]) => move === 218), 'the last two of the list');
+  assert.ok(!merged.some(([, move]) => move === 259) && !merged.some(([, move]) => move === 258), 'the last two of the list');
 });
 
 test('the game\'s file gets a TYPE chunk: the species, then the moves', () => {

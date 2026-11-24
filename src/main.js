@@ -1729,11 +1729,13 @@ function pokedexList(rom) {
       for (const row of loaded.ownRows) {
         const from = species.find(entry => entry.national === loaded.tables.species.find(each => each.id === row.id)?.national);
         if (!from) continue;
-        for (let i = 0; i < 5; i++) {
-          const into = all.find(each => each.id === row.evolutions.readUInt16BE(i * 6 + 4));
+        // (the row's five, then those past them: the MORE chunk's, Eevee's Leafeon, Glaceon and Sylveon)
+        const evolutionBytes = Buffer.concat([row.evolutions, ...(row.more?.evolutions || [])]);
+        for (let i = 0; i < evolutionBytes.length / 6; i++) {
+          const into = all.find(each => each.id === evolutionBytes.readUInt16BE(i * 6 + 4));
           const target = into && packs.find(entry => entry.key === `pack:${into.key}`);
-          if (!row.evolutions[i * 6] || !target || from.evolutions.includes(target.key)) continue;
-          const way = evolutionWays.describeBytes(row.evolutions, i * 6), platinum = into.generation ? evolutionWays.platinumWay(from.national, into.national) : null;
+          if (!evolutionBytes[i * 6] || !target || from.evolutions.includes(target.key)) continue;
+          const way = evolutionWays.describeBytes(evolutionBytes, i * 6), platinum = into.generation ? evolutionWays.platinumWay(from.national, into.national) : null;
           from.evolutions = [...from.evolutions, target.key];
           from.evolutionWays = [...from.evolutionWays, platinum ? { ...way, note: [way.note, platinum].filter(Boolean).join(' ') } : way];
           if (['shadow', 'gift', 'evolve'].includes(from.status?.kind)) target.status = { ...target.status, note: `${target.status.note} Evolve ${from.name} to get it.` };

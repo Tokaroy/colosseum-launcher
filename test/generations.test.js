@@ -176,7 +176,8 @@ test('a later generation\'s evolutions as Colosseum can make them', () => {
   assert.deepEqual(of(458), [{ into: 226, withPokemon: 223 }], 'Mantyke with a Remoraid');
   assert.deepEqual(of(439), [{ into: 122, knowsMove: 102 }], 'Mime Jr. knowing Mimic');
   assert.deepEqual(of(82), [{ into: 'generation:462', level: 40 }], 'Magneton: no magnetic field');
-  assert.deepEqual(of(133).slice(0, 2), [null, null], 'no mossy or icy rock for Eevee');
+  assert.deepEqual(of(133).slice(0, 2), [{ into: 'generation:470', item: 'Leaf Stone' }, { into: 'generation:471', heldItem: 'NeverMeltIce' }],
+    'no mossy or icy rock for Eevee: a Leaf Stone and NeverMeltIce');
   assert.deepEqual(of(112), [{ into: 'generation:464', level: 45 }], 'Rhydon: traded holding a Protector');
 });
 
