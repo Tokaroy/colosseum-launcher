@@ -533,9 +533,11 @@ def _special_material(gf_mat):
     """A material the 3DS draws in a way the usual one can't stand for, or None:
 
     - Depth only (blended ZERO, ONE: Mega Gengar's mask, a sheet at its feet): writes depth and no colour, so what
-      is below the ground stays hidden. The stage's own floor hides that in the game, and the sheet's depth hid the
-      floor's later pass (a dark square), so nothing is drawn. Drawn as a texture it was a white sheet.
-    - Yveltal's markings and Mega Gallade's aura (PDC_pm0769_Y_EffA and EffB shaders, added): glows whose strength is a constant the animations set; at rest it is 0, so nothing is drawn.
+      is below the ground stays hidden. The stage's own floor hides that in the game, so nothing is drawn: build
+      leaves such parts out, as the game's shadow would still have the sheet's shape (a dark square). Drawn as a
+      texture it was a white sheet.
+    - Yveltal's markings, Mega Gallade's aura and Zygarde's glows (PDC_pm0769_Y_EffA and EffB shaders, added): glows
+      whose strength is a constant the animations set; at rest it is 0, so nothing is drawn (and they are left out).
       Drawn as their first texture they were black and white streaks.
     - Primal Kyogre's glowing lines (kyogresp Lay1 Core): meshes inside its body, drawn see-through over it without
       a depth test, but only where its own shell is in front (the stencil). Here: the same colour and see-through,
@@ -560,6 +562,12 @@ def _special_material(gf_mat):
         return _plain_material(tuple(colour) + (_stage_constant(gf_mat, 4)[3],), translucent=True,
                                blending=_drawn_as(OutputBlendEffect.ALPHA_BLEND, BlendFactor.SRC_ALPHA, BlendFactor.INV_SRC_ALPHA, 7))
     return None
+
+
+def _draws_nothing(gf_mat):
+    """The material is one _special_material draws as nothing."""
+    special = _special_material(gf_mat)
+    return special is not None and special.fragment_blending.effect == OutputBlendEffect.INVISIBLE
 
 
 def _material_of(gf_mat, tex_dict, images, max_size, hideable=False, fire=False):
@@ -1028,6 +1036,7 @@ def build(model_data, tex_blobs, battle_blobs, name, max_texture=256, log=print,
         bone_fields = copy.deepcopy(reuse['bone_fields'])
         parsed_motions = reuse['parsed_motions']
         slot_actions = reuse['slot_actions']
+        gf_mats = _idle_constants(gf_mats, parsed_motions, slot_actions)
         used_indices = reuse['used_indices']
         hideable = reuse['hideable']
         geometry = copy.deepcopy(reuse['geometry'])
@@ -1037,6 +1046,7 @@ def build(model_data, tex_blobs, battle_blobs, name, max_texture=256, log=print,
     else:
         order, orig_to_pos, unique_names, bone_fields = _prepare_skeleton(gf['skeleton'])
         parsed_motions, slot_actions, used_indices = _select_battle_motions(battle_blobs)
+        gf_mats = _idle_constants(gf_mats, parsed_motions, slot_actions)
         if not used_indices:
             # Create a minimal 2-frame static idle animation if a model has no motions
             parsed_motions = {0: {'frames': 1, 'loop': True, 'bones': {}, 'visibility': {}}}
@@ -1071,7 +1081,9 @@ def build(model_data, tex_blobs, battle_blobs, name, max_texture=256, log=print,
             if mn in always_hidden:
                 continue
             for si, sm in enumerate(mesh['submeshes']):
-                if not sm['triangles'] or not sm['positions'] or sm['name'] in shells:
+                # (a part that draws nothing is left out: the game's shadow would still have its shape, as Mega
+                # Gengar's mask's square)
+                if not sm['triangles'] or not sm['positions'] or sm['name'] in shells or _draws_nothing(gf_mats.get(sm['name'])):
                     continue
                 gf_mat = gf_mats.get(sm['name'])
                 tc, _ = _pick_diffuse_texcoord(gf_mat, tex_dict)
@@ -1151,7 +1163,6 @@ def build(model_data, tex_blobs, battle_blobs, name, max_texture=256, log=print,
     bones = [IRBone(**bf) for bf in bone_fields]
     images = {}
     meshes = []
-    gf_mats = _idle_constants(gf_mats, parsed_motions, slot_actions)
     for mn, mat_name, fields in geometry:
         ir_mat = _material_of(gf_mats.get(mat_name), tex_dict, images, max_texture, mn in hideable,
                               fire=bool(fields.get('color_layers')))
