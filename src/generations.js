@@ -38,7 +38,9 @@ const MOVE_ROW = 0x38;
 // A move's row (decomp include/game/bios_records.h WazaDataBiosFields). 0x06-0x12 are flags, 1 or 0: contact, Protect,
 // Magic Coat, Snatch, Mirror Move and King's Rock act on it; Metronome, Mimic, Assist and Sleep Talk can call it; it's
 // a sound move (Soundproof); Pressure (unread by the game, and left as Colosseum has it); an HM (can't be forgotten).
-// 0x13 marks a move with a drawback for the trainer AI, which no later game has, so it's left as Colosseum has it.
+// 0x13 marks a move with a drawback for the trainer AI, and 0x34-0x36 the kinds of move it takes a move for: a new move
+// takes its AI move's (moveAi).
+const RISK = 0x13, AI_KINDS = 0x34;
 const MV = { priority: 0, pp: 1, type: 2, target: 3, accuracy: 4, chance: 5, power: 0x16, effect: 0x1a };
 const FLAGS = { contact: 6, protect: 7, reflectable: 8, snatch: 9, mirror: 0x0a, kingsRock: 0x0b, metronome: 0x0c,
   mimic: 0x0d, assist: 0x0e, sleepTalk: 0x0f, sound: 0x10, hm: 0x12 };
@@ -174,6 +176,23 @@ function writeMove(row, move, learned, tables, { power = move.power, chance = mo
 const chanceFor = (move, row, sameEffect) =>
   sameEffect && (move.effectChance === 0 || move.effectChance === 100) ? row[MV.chance] : move.effectChance;
 
+// The game's own move a new move's trainer AI is the AI of (generations/move-ai.json, by its National number): its
+// number in the game (the third generation's are the same), or 0 for none. The row takes that move's drawback mark
+// (0x13) and the kinds of move the AI takes it for (0x34, three: damaging, healing...), which only the AI reads; the
+// game takes its AI's functions from the expansion file (host/pokemonpacks.c), keeping its animation's.
+let moveAiTable = null;
+function moveAi(tables, number, row) {
+  if (!moveAiTable) moveAiTable = JSON.parse(fs.readFileSync(path.join(__dirname, 'generations', 'move-ai.json'), 'utf8')).moves;
+  const name = moveAiTable[number];
+  // (by the disc's name, which runs some together: SOLARBEAM)
+  const loose = text => key(text).replace(/[\s-]/g, '');
+  const id = name ? tables.moves.get(key(name)) || [...tables.moves].find(([each]) => loose(each) === loose(name))?.[1] : 0;
+  if (!id || id >= FIRST_NEW_MOVE) return 0;
+  const own = tables.moveRows[id];
+  if (own) { row[RISK] = own[RISK]; own.copy(row, AI_KINDS, AI_KINDS, AI_KINDS + 3); }
+  return id;
+}
+
 // The new moves a generation brings that Colosseum can play, by Colosseum's number: { id, name, description, row,
 // number (its own), exact, note }. Problems in the hand-written file are thrown.
 function newMoves(tables, data) {
@@ -204,7 +223,7 @@ function newMoves(tables, data) {
     // Who it's aimed at, where no move of Colosseum's has its range (Acupressure: the user or its partner).
     if (how.target !== undefined) row[MV.target] = how.target;
     out.push({ id: colosseumMove(number), number, name: (how.name || move.name.toUpperCase()).slice(0, 12), description: move.description,
-      row, exact: Boolean(how.exact), note: how.note || '', as: how.as, category: move.category });
+      row, exact: Boolean(how.exact), note: how.note || '', as: how.as, category: move.category, ai: moveAi(tables, number, row) });
   }
   return out;
 }
@@ -228,7 +247,8 @@ function fairyMoves(tables) {
     row.writeUInt16BE(effectRow.readUInt16BE(MV.effect), MV.effect);
     if (how.effect !== undefined) row.writeUInt16BE(how.effect, MV.effect);
     out.push({ id: colosseumMove(Number(number)), number: Number(number), name: (how.name || move.name.toUpperCase()).slice(0, 12),
-      description: move.description, row, exact: Boolean(how.exact), note: how.note || '', as: how.as, category: move.category });
+      description: move.description, row, exact: Boolean(how.exact), note: how.note || '', as: how.as, category: move.category,
+      ai: moveAi(tables, Number(number), row) });
   }
   return out;
 }

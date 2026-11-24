@@ -57,6 +57,21 @@ test('new moves keep their numbers, three past their own, and play as the move n
   assert.equal(gift.row.readUInt16BE(0x1a), 258, "Natural Gift plays as the port's own effect");
 });
 
+test("each new move has the trainer AI of a move the game has, which fits what it does", () => {
+  const game = tables(), data = generations.load(4);
+  game.moveRows[105][0x13] = 1; game.moveRows[105][0x34] = 2;   // (a drawback mark and a kind the AI reads: Roost takes Recover's)
+  const known = ['Recover', 'Quick Attack', 'Overheat', 'Slash', 'Strength', 'Water Gun', 'Rock Throw', 'Swift'];
+  const colosseum = { ...data.colosseum, moves: Object.fromEntries(Object.entries(data.colosseum.moves).map(([name, how]) => [name, how && { ...how, as: known.includes(how.as) ? how.as : 'Strength' }])) };
+  const moves = generations.newMoves(game, { ...data, colosseum });
+  const roost = moves.find(move => move.number === 355), suckerPunch = moves.find(move => move.number === 389);
+  assert.equal(roost.ai, 105, 'Roost is judged as Recover');
+  assert.deepEqual([roost.row[0x13], roost.row[0x34]], [1, 2]);
+  assert.equal(suckerPunch.ai, 98, 'Sucker Punch as Quick Attack');
+  // every move past the third generation's has one, a move the third generation has
+  const table = require('../src/generations/move-ai.json').moves;
+  for (let n = 355; n <= 621; n++) assert.ok(table[n], `move ${n}`);
+});
+
 test("moves have Pokémon Platinum's numbers and flags, and its engine's move lists", () => {
   const data = generations.load(4);
   const fang = data.moves[422];
@@ -93,7 +108,8 @@ test('a new move gets all its own flags, and keeps a chance its stand-in plays a
   assert.equal(by('THUNDER FANG')[0x0b], 1, "King's Rock");
   assert.equal(by('MAGMA STORM')[5], 100, "Fire Spin's certain trap, where Platinum's data has 0");
   assert.equal(by('CHATTER')[5], 0, 'its own effect in Platinum, not the stand-in\'s');
-  assert.deepEqual([by('AQUA TAIL')[0x11], by('AQUA TAIL')[0x13]], [1, 1], 'Pressure and the AI\'s risk stay the stand-in\'s');
+  assert.equal(by('AQUA TAIL')[0x11], 1, "Pressure stays the stand-in's");
+  assert.equal(by('AQUA TAIL')[0x13], 0, "the AI's risk is its AI move's (Tackle's), not Strength's");
 });
 
 test("a generation's rules: categories by move, and the old moves it changed", () => {

@@ -533,6 +533,7 @@
       "exact": true
     },
     "Phantom Force": {
+      "name": "PHANTOMFORCE",
       "as": "Shadow Punch",
       "effect": 398,
       "exact": true
@@ -553,16 +554,19 @@
       "exact": true
     },
     "Parabolic Charge": {
+      "name": "PARABOLICCHG",
       "as": "Spark",
       "effect": 402,
       "exact": true
     },
     "Forest's Curse": {
+      "name": "FORESTSCURSE",
       "as": "Ingrain",
       "effect": 403,
       "exact": true
     },
     "Petal Blizzard": {
+      "name": "PETALBLIZZRD",
       "as": "Razor Leaf",
       "effect": 404,
       "exact": true
@@ -583,21 +587,25 @@
       "exact": true
     },
     "Crafty Shield": {
+      "name": "CRAFTYSHIELD",
       "as": "Protect",
       "effect": 410,
       "exact": true
     },
     "Flower Shield": {
+      "name": "FLOWERSHIELD",
       "as": "Aromatherapy",
       "effect": 411,
       "exact": true
     },
     "Grassy Terrain": {
+      "name": "GRASSTERRAIN",
       "as": "Ingrain",
       "effect": 412,
       "exact": true
     },
     "Misty Terrain": {
+      "name": "MISTYTERRAIN",
       "as": "Mist",
       "effect": 413,
       "exact": true
@@ -633,26 +641,31 @@
       "exact": true
     },
     "Diamond Storm": {
+      "name": "DIAMONDSTORM",
       "as": "AncientPower",
       "effect": 423,
       "exact": true
     },
     "Steam Eruption": {
+      "name": "STEAM ERUPTN",
       "as": "Hydro Pump",
       "effect": 424,
       "exact": true
     },
     "Hyperspace Hole": {
+      "name": "HYPRSPC HOLE",
       "as": "Psychic",
       "effect": 425,
       "exact": true
     },
     "Water Shuriken": {
+      "name": "WATERSHURIKN",
       "as": "Water Gun",
       "effect": 426,
       "exact": true
     },
     "Mystical Fire": {
+      "name": "MYSTICALFIRE",
       "as": "Will-O-Wisp",
       "effect": 427,
       "exact": true
@@ -663,11 +676,13 @@
       "exact": true
     },
     "Aromatic Mist": {
+      "name": "AROMATICMIST",
       "as": "Aromatherapy",
       "effect": 429,
       "exact": true
     },
     "Eerie Impulse": {
+      "name": "EERIEIMPULSE",
       "as": "Thunder Wave",
       "effect": 430,
       "exact": true
@@ -688,6 +703,7 @@
       "exact": true
     },
     "Magnetic Flux": {
+      "name": "MAGNETICFLUX",
       "as": "Charge",
       "effect": 434,
       "exact": true
@@ -698,6 +714,7 @@
       "exact": true
     },
     "Electric Terrain": {
+      "name": "ELEC.TERRAIN",
       "as": "Charge",
       "effect": 436,
       "exact": true
@@ -728,21 +745,25 @@
       "exact": true
     },
     "Power-Up Punch": {
+      "name": "POWERUPPUNCH",
       "as": "Mega Punch",
       "effect": 444,
       "exact": true
     },
     "Oblivion Wing": {
+      "name": "OBLIVIONWING",
       "as": "Gust",
       "effect": 445,
       "exact": true
     },
     "Thousand Arrows": {
+      "name": "THOUS.ARROWS",
       "as": "Rock Slide",
       "effect": 446,
       "exact": true
     },
     "Thousand Waves": {
+      "name": "THOUS.WAVES",
       "as": "Earthquake",
       "effect": 447,
       "exact": true
@@ -753,6 +774,7 @@
       "exact": true
     },
     "Light of Ruin": {
+      "name": "LIGHTOFRUIN",
       "as": "Moonlight",
       "effect": 449,
       "exact": true
@@ -763,16 +785,19 @@
       "exact": true
     },
     "Precipice Blades": {
+      "name": "PRECIP.BLADE",
       "as": "Earthquake",
       "effect": 451,
       "exact": true
     },
     "Dragon Ascent": {
+      "name": "DRAGONASCENT",
       "as": "Aerial Ace",
       "effect": 452,
       "exact": true
     },
     "Hyperspace Fury": {
+      "name": "HYPRSPC FURY",
       "as": "Faint Attack",
       "effect": 453,
       "exact": true

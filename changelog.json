@@ -20,7 +20,8 @@
       "Forms with their own stats are Pokémon of their own with Generation 5 and 6 Pokémon: Deoxys's Attack, Defense and Speed Formes, Rotom's five appliances, Giratina's Origin Forme, Shaymin's Sky Forme, the Therian Formes, Black and White Kyurem, Hoopa Unbound, Wormadam's cloaks, Basculin's blue stripes, Pumpkaboo's and Gourgeist's sizes and female Meowstic, each with its own stats, types, abilities, moves and 3DS model, in the team builder, online and in your saves.",
       "Change form: on the Pokémon page, a Deoxys, Rotom, Giratina, Shaymin, Tornadus, Thundurus, Landorus, Kyurem or Hoopa in your save can change form with the game closed, standing in for the Meteorite, Rotom Catalog, Gracidea, Reveal Glass, DNA Splicers and Prison Bottle until the story has them. Kyurem, Rotom and Hoopa swap their own moves as they do in the 3DS games.",
       "A female Espurr evolves into a female Meowstic, and Pumpkaboo of each size into Gourgeist of the same size.",
-      "Importing from a DS or 3DS save brings a Pokémon's form along (Wash Rotom, Therian Landorus, Black Kyurem, a female Meowstic) with Generation 5 and 6 Pokémon."
+      "Importing from a DS or 3DS save brings a Pokémon's form along (Wash Rotom, Therian Landorus, Black Kyurem, a female Meowstic) with Generation 5 and 6 Pokémon.",
+      "Generation 6 moves whose names were cut off mid-word in battle have names that fit, such as PHANTOMFORCE, LIGHTOFRUIN and THOUS.ARROWS."
     ],
     "game": [
       "Gen 6 types: with the setting on, both games have the Fairy type, with generation 6's type chart, a Fairy type picture in each game's own style on every screen that shows types, and its new moves, Draining Kiss giving back three quarters of the damage. With it off again, a Pokémon that learned a Fairy move forgets it, leaving the slot empty, and the same for a Generation 4 move with Generation 4 off, so a save from either still loads.",
@@ -36,7 +37,8 @@
       "Level-up moves past a Pokémon's twentieth are learned too (Deoxys's Psycho Boost, Steelix's Stone Edge), and the Move Deleter and XD's Move Teacher can remind them.",
       "Giratina holding a Griseous Orb battles in its Origin Forme, with Levitate, under X and Y rules; Hoopa can use Hyperspace Fury only as Hoopa Unbound.",
       "Aegislash, Darmanitan and Meloetta change their 3DS model when they change form in battle (Blade Forme, Zen Mode, Pirouette Forme).",
-      "X and Y battles: Poison Touch no longer gets past Shield Dust, Leaf Guard, Flower Veil or Misty Terrain, Cursed Body works as its holder faints, Gooey respects Clear Body and Mist, Mold Breaker gets past Contrary and Simple, Aroma Veil stops Cursed Body and Cute Charm, and Download counts a foe behind a substitute."
+      "X and Y battles: Poison Touch no longer gets past Shield Dust, Leaf Guard, Flower Veil or Misty Terrain, Cursed Body works as its holder faints, Gooey respects Clear Body and Mist, Mold Breaker gets past Contrary and Simple, Aroma Veil stops Cursed Body and Cute Charm, and Download counts a foe behind a substitute.",
+      "Trainers judge each Generation 4, 5 and 6 move by what it does, in both games: Light of Ruin as a strong attack instead of a healing move, Drill Run as an attack instead of a one-hit KO, Quiver Dance as a stat boost, Heal Pulse as a move they rarely use, while each move keeps its own animation."
     ]
   },
   "releases": [

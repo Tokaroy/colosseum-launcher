@@ -748,6 +748,8 @@ function compile(contents) {
     for (const move of moves) {
       const head = Buffer.alloc(8), description = move.description.slice(0, 120);
       head.writeUInt16BE(move.id, 0); head.writeUInt16BE(move.name.length, 2); head.writeUInt16BE(description.length, 4);
+      // (the game's own move whose trainer AI it has: host/pokemonpacks.c, 0 for its row's own)
+      head.writeUInt16BE(move.ai || 0, 6);
       parts.push(head, move.row, padded(Buffer.concat([utf16(move.name), utf16(description)])));
     }
     chunk('MOVE', parts);
