@@ -382,6 +382,11 @@ function stageOf(data, number) {
   return stage;
 }
 
+// A Pokémon's name as the game has it: capitals, ten letters at most (a saved Pokémon's nickname holds ten), with a
+// shortening of its own for one that has more (Fletchinder, the only one to #721)
+const SHORT_NAMES = { Fletchinder: 'FLETCHINDR' };
+const gameName = name => SHORT_NAMES[name] || name.toUpperCase().slice(0, 10);
+
 // A new species as a pokemon.json (src/pokemon-packs.js buildRow takes it): its own numbers, moves by Colosseum's number,
 // abilities Colosseum has, and evolutions it can make.
 function speciesSpec(tables, data, number, moves, ownAbilities, learnData = null) {
@@ -403,7 +408,7 @@ function speciesSpec(tables, data, number, moves, ownAbilities, learnData = null
   const types = [...new Set(entry.types)];
   return {
     base: (STAND_INS[types[0]] || STAND_INS.Normal)[stageOf(data, number) - 1],
-    name: entry.name.toUpperCase().slice(0, 10), national: number,
+    name: gameName(entry.name), national: number,
     description: `Generation ${generationOf(number)}, National Pokédex #${number}.`,
     types, stats: entry.stats, ...(entry.evYield ? { evYield: entry.evYield } : {}),
     ...(entry.catchRate ? { catchRate: entry.catchRate } : {}), ...(entry.baseExp ? { baseExp: entry.baseExp } : {}),
@@ -412,7 +417,10 @@ function speciesSpec(tables, data, number, moves, ownAbilities, learnData = null
     gender: entry.gender, ...(entry.height ? { height: entry.height } : {}), ...(entry.weight ? { weight: entry.weight } : {}),
     ...(abilities.length ? { abilities: abilities.slice(0, 2) } : {}),
     moves: moveList.length ? moveList : [[1, 33]],
-    tmMoves: (learns.tm || entry.tm).map(usable).filter(Boolean),
+    // the disc's TMs it can use: a move it learns by TM, a tutor or level in its generation (generation 6 teaches the
+    // third's Iron Tail and Shock Wave by a tutor, and Water Pulse by level to many)
+    tmMoves: [...new Set([...(learns.tm || entry.tm || []), ...(learns.tutor || entry.tutor || []), ...(learns.levelUp || entry.levelUp || []).map(([, move]) => move)])]
+      .map(usable).filter(Boolean),
     // always, even none: without, the row keeps its stand-in's (Arceus evolved into Linoone)
     evolutions
   };
@@ -427,9 +435,10 @@ const colosseumAbility = number => number === 77 ? 124 : number >= 124 ? number 
 // The other way: a later generation's ability number from the game's
 const abilityNumber = id => id === 124 ? 77 : id > 124 ? id - 1 : id;
 
-// The Pokémon's base stats and hidden abilities, where the mechanics change them (gen6Stats, hiddenAbilities), from
-// generation 6's file: [{ id, stats (6, or null), hidden (the game's ability number, or 0) }] for the game's own Pokémon
-// (the SPCH chunk, host/types.c), only where they differ from the disc's row.
+// The Pokémon's base stats, base experience and hidden abilities, where the mechanics change them (gen6Stats,
+// hiddenAbilities), from generation 6's file: [{ id, stats (6, or null), hidden (the game's ability number, or 0), exp
+// (when it changes) }] for the game's own Pokémon (the SPCH and SPEX chunks, host/species.c), only where they differ
+// from the disc's row.
 const STAT_KEYS = ['hp', 'attack', 'defense', 'spAttack', 'spDefense', 'speed'];   // a species row's order (0x84: src/pokemon-packs.js STATS)
 function speciesChanges(tables, chosen, abilityId) {
   const wantStats = chosen.mechanics.includes('gen6Stats'), wantHidden = chosen.mechanics.includes('hiddenAbilities');
@@ -441,7 +450,9 @@ function speciesChanges(tables, chosen, abilityId) {
     const stats = wantStats ? STAT_KEYS.map(k => entry.stats[k]) : null;
     const same = !stats || stats.every((value, i) => value === each.row.readUInt16BE(0x84 + i * 2));
     const hidden = wantHidden && entry.hidden ? abilityId(entry.hidden) || 0 : 0;
-    if (!same || hidden) out.push({ id: each.id, stats: same ? null : stats, hidden });
+    // generation 5 on's base experience, with the later base stats (the SPEX chunk)
+    const exp = wantStats && entry.baseExp && entry.baseExp !== each.row.readUInt16BE(0x06) ? entry.baseExp : 0;
+    if (!same || hidden || exp) out.push({ id: each.id, stats: same ? null : stats, hidden, ...(exp ? { exp } : {}) });
   }
   return out;
 }
@@ -478,8 +489,10 @@ function build(tables, settings) {
     for (let number = data.newSpecies[0]; number <= data.newSpecies[1]; number++) {
       if (!data.species[number]) continue;
       const spec = speciesSpec(tables, data, number, out.moves, chosen.battleRules >= generation, learnData);
-      if (chosen.mechanics.includes('gen6Stats') && learnData?.generation >= 6 && learnData.species[number]) spec.stats = learnData.species[number].stats;
-      else if (chosen.mechanics.includes('gen6Stats') && available().some(each => each.generation === 6) && load(6).species[number]) spec.stats = load(6).species[number].stats;
+      const later = chosen.mechanics.includes('gen6Stats') && learnData?.generation >= 6 && learnData.species[number] ? learnData.species[number]
+        : chosen.mechanics.includes('gen6Stats') && available().some(each => each.generation === 6) ? load(6).species[number] : null;
+      // (generation 6's base stats, and generation 5 on's base experience)
+      if (later) { spec.stats = later.stats; if (later.baseExp) spec.baseExp = later.baseExp; }
       out.species.push({ id: speciesId(number), number, generation, spec });
     }
   }
@@ -536,5 +549,5 @@ function build(tables, settings) {
   return out;
 }
 
-module.exports = { abilityNumber, generationOf, pokemonGenerations, withoutFairy, learnsetGeneration, speciesChanges, mechanicList, SAME_ABILITIES, colosseumAbility, COLOSSEUM_RULES, FIRST_NEW_MOVE, MOVE_OFFSET, SPECIES_OFFSET, FEATURES, MV, FLAGS, FAIRY_TYPE, available, load, loadFairy, normalize, build, moveCategories,
+module.exports = { gameName, abilityNumber, generationOf, pokemonGenerations, withoutFairy, learnsetGeneration, speciesChanges, mechanicList, SAME_ABILITIES, colosseumAbility, COLOSSEUM_RULES, FIRST_NEW_MOVE, MOVE_OFFSET, SPECIES_OFFSET, FEATURES, MV, FLAGS, FAIRY_TYPE, available, load, loadFairy, normalize, build, moveCategories,
   newMoves, fairyMoves, fairyTypes, withFairyMoves, rowLevelUp, rules, speciesSpec, ownSpecies, evolutionOf, learnMoveTable, colosseumMove, speciesId, isGenerationSpecies, stageOf };

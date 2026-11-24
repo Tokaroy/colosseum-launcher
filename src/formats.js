@@ -339,7 +339,8 @@
   // generation's (laterItem), which generationProblems refuses where the rules don't have them.
   const HOLDABLE = [[1, 51], [63, 71], [73, 81], [83, 86], [93, 98], [103, 104], [106, 111], [133, 174], [179, 225], [254, 258]];
   const holdable = item => HOLDABLE.some(([first, last]) => item >= first && item <= last) || laterItem(item);
-  const LAST_MOVE = 0x162, BALLS = 12, EV_MOST = 255, EV_TOTAL = 510, IV_MOST = 31, PP_UPS = 3;
+  // (generation 6 caps a stat's EVs at 252; the third and fourth at 255)
+  const LAST_MOVE = 0x162, BALLS = 12, EV_MOST = 255, EV_MOST_GEN6 = 252, EV_TOTAL = 510, IV_MOST = 31, PP_UPS = 3;
   const GENERATION_WORDS = { 3: 'third', 4: 'fourth', 6: 'sixth' };
 
   // What makes a Pokémon one it couldn't be, from the member the room sends (src/story-party.js wireMember): its moves
@@ -366,9 +367,9 @@
         seen.add(move);
       }
       if (each.item && !holdable(each.item)) out.push(`${name} holds ${itemName(each.item)}, which a Pokémon can't hold.`);
-      const evs = wire.slice(21, 27), ivs = wire.slice(15, 21);
-      if (evs.some(ev => !(ev >= 0 && ev <= EV_MOST)) || evs.reduce((sum, ev) => sum + ev, 0) > EV_TOTAL)
-        out.push(`${name} has more EVs than a Pokémon can have (${EV_MOST} in a stat, ${EV_TOTAL} in all).`);
+      const evs = wire.slice(21, 27), ivs = wire.slice(15, 21), evMost = generation >= 6 ? EV_MOST_GEN6 : EV_MOST;
+      if (evs.some(ev => !(ev >= 0 && ev <= evMost)) || evs.reduce((sum, ev) => sum + ev, 0) > EV_TOTAL)
+        out.push(`${name} has more EVs than a Pokémon can have (${evMost} in a stat, ${EV_TOTAL} in all).`);
       if (ivs.some(iv => !(iv >= 0 && iv <= IV_MOST))) out.push(`${name} has an IV above ${IV_MOST}.`);
       if ([wire[8], wire[10], wire[12], wire[14]].some(ups => !(ups >= 0 && ups <= PP_UPS))) out.push(`${name} has more than ${PP_UPS} PP Ups on a move.`);
       if (!(wire[6] >= 0 && wire[6] <= 255)) out.push(`${name}'s friendship is more than 255.`);

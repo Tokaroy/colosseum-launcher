@@ -150,10 +150,13 @@ function readStoryParty(saveDir, gameId = 'colosseum') {
 }
 
 // What goes to the room and on to the other player's game, as numbers in the game's order, and the nickname in hex.
+// Each EV at most 252, generation 6's most (the game lets one reach 255, which makes the same stat: a stat counts a
+// quarter of its EVs, rounded down), so a story Pokémon is legal under X and Y's rules too.
+const EV_MOST = 252;
 function wireMember(member) {
   const hex = member.nicknameUnits.map(unit => unit.toString(16).padStart(4, '0')).join('') || '-';
   return [member.species, member.rnd, member.trainer, member.ball, member.ability, member.item, member.friendship,
-    ...member.moves.flat(), ...member.ivs, ...member.evs, hex];
+    ...member.moves.flat(), ...member.ivs, ...member.evs.map(ev => Math.min(ev, EV_MOST)), hex];
 }
 
 const WIRE_NUMBERS = 27;

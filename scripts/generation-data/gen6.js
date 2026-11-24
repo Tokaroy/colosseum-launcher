@@ -3,12 +3,14 @@
 // Makes src/generations/gen6.json and gen6-learnsets.json: generation 6's battle rules, and generations 5 and 6's
 // Pokémon, moves and abilities, from Pokémon Showdown's generation 6 data (@pkmn/dex, MIT), on generation 4's file
 // (gen4.json):
-//   - each Pokémon's generation 6 types, base stats, abilities and hidden ability, and its level-up, TM, tutor and egg
+//   - each Pokémon's generation 6 types, base stats, base experience (generation 5's, PokeAPI's), abilities and hidden
+//     ability, and its level-up, TM, tutor and egg
 //     moves in generation 6 (X, Y, Omega Ruby, Alpha Sapphire: a level-up move at its earliest level);
 //   - the Pokémon generations 5 and 6 brought (#494-#721, each in its base form), with what Showdown hasn't (catch
 //     rate, base experience, EV yield, growth rate, friendship) from PokeAPI's tables (BSD-3-Clause, ref/pokeapi: see
 //     POKEAPI below), and their evolutions as gen4.json writes them;
-//   - each move's generation 6 power, accuracy, PP, type, priority, category, added-effect chance and flags. The first
+//   - each move's generation 6 power, accuracy, PP, type, priority, category, added-effect chance, flags and (where it
+//     changed) range. The first
 //     four generations' keep the effect gen4.json names (Pokémon Platinum's): the game's port plays generation 6's
 //     changes to them as mechanics (src/mechanics.js). Generations 5 and 6's moves have no Platinum effect: the port
 //     plays each by Showdown's data and code (host/gen6_moves.inc), and its effect is `SHOWDOWN`;
@@ -101,7 +103,11 @@ async function main() {
     for (const [ours, theirs] of Object.entries(FLAG_MAP)) flags[ours] = Boolean(move.flags[theirs]);
     const damaging = move.category !== 'Status';
     const flinches = (move.secondaries || []).some(s => s.volatileStatus === 'flinch');
-    moves[n] = { ...entry, type: move.type, category: move.category, power: move.basePower === 0 && entry.power === 1 ? 1 : move.basePower,
+    // a range generation 6 changed (Poison Gas and Cotton Spore: all adjacent foes), else Platinum's
+    const gen4Target = Dex.forGen(4).moves.get(entry.name).target;
+    // (Mirror Move and Nature Power keep Platinum's range for a move that calls another)
+    const range = move.target !== gen4Target && RANGES[move.target] && entry.range !== 'RANGE_SINGLE_TARGET_SPECIAL' ? RANGES[move.target] : entry.range;
+    moves[n] = { ...entry, range, type: move.type, category: move.category, power: move.basePower === 0 && entry.power === 1 ? 1 : move.basePower,
       accuracy: move.accuracy === true ? 0 : move.accuracy, pp: move.pp, priority: move.priority,
       effectChance: move.secondary?.chance ?? entry.effectChance, ...flags,
       // From generation 5, King's Rock acts on every damaging move without a flinch chance of its own
@@ -171,7 +177,9 @@ async function main() {
     if (!s.exists) throw new Error(`Showdown has no Pokémon ${entry.name}`);
     const learned = await learnsetOf(s);
     if (s.abilities.H) hidden++;
-    species[n] = { ...entry, types: s.types, stats: statsOf(s), abilities: [s.abilities[0], s.abilities[1]].filter(Boolean),
+    // (generation 5 on gives each Pokémon its own base experience: Blissey's 608, not Platinum's 255)
+    const later = pokemonRows.get(Number(n));
+    species[n] = { ...entry, ...(later ? { baseExp: Number(later.base_experience) } : {}), types: s.types, stats: statsOf(s), abilities: [s.abilities[0], s.abilities[1]].filter(Boolean),
       ...(s.abilities.H ? { hidden: s.abilities.H } : {}), levelUp: learned.levelUp, tm: learned.tm, tutor: learned.tutor, egg: learned.egg,
       evolutions: [...entry.evolutions, ...newEvolutions(Number(n))] };
     learnsets[n] = { levelUp: learned.levelUp, ...learned.kinds };
@@ -193,6 +201,11 @@ async function main() {
     };
     learnsets[n] = { levelUp: learned.levelUp, ...learned.kinds };
   }
+
+  // Smeargle learns any move by Sketch, but those Sketch can't copy (Struggle, Chatter)
+  learnsets[dex.species.get('Smeargle').num].sketch = dex.moves.all()
+    .filter(move => !move.isNonstandard && playable(move.num) && !move.flags.nosketch && !/^Hidden Power ./.test(move.name))
+    .map(move => move.num).sort((a, b) => a - b);
 
   const data = {
     generation: 6, name: 'X and Y', newSpecies: [FIRST_NEW_SPECIES, LAST_SPECIES], newMoves: [355, LAST_MOVE],

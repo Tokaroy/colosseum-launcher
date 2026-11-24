@@ -762,18 +762,25 @@ function compile(contents) {
     types.moves.forEach((each, i) => { list.writeUInt16BE(each.id, at + i * 4); list[at + i * 4 + 2] = each.type; });
     chunk('TYPE', [head, list]);
   }
-  if (speciesChanges.length) {
+  const statChanges = speciesChanges.filter(each => each.stats || each.hidden), expChanges = speciesChanges.filter(each => each.exp);
+  if (statChanges.length) {
     // the game's own Pokémon's base stats and hidden abilities as the mechanics have them (host/species.c): u32 count,
     // then each: u16 species, u8 flags (1: its stats), u8 its hidden ability (0: none), u16 x 6 its base stats (a row's
     // order). A game from before skips the chunk.
-    const parts = [u32(speciesChanges.length)];
-    for (const each of speciesChanges) {
+    const parts = [u32(statChanges.length)];
+    for (const each of statChanges) {
       const entry = Buffer.alloc(16);
       entry.writeUInt16BE(each.id, 0); entry[2] = each.stats ? 1 : 0; entry[3] = each.hidden || 0;
       (each.stats || []).forEach((value, i) => entry.writeUInt16BE(value, 4 + i * 2));
       parts.push(entry);
     }
     chunk('SPCH', parts);
+  }
+  if (expChanges.length) {
+    // their base experience (host/species.c): u32 count, then each: u16 species, u16 its base experience
+    const list = Buffer.alloc(expChanges.length * 4);
+    expChanges.forEach((each, i) => { list.writeUInt16BE(each.id, i * 4); list.writeUInt16BE(each.exp, i * 4 + 2); });
+    chunk('SPEX', [u32(expChanges.length), list]);
   }
   const crying = pokemon.filter(each => each.cry);
   if (crying.length) {
