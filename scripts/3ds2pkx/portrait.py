@@ -96,6 +96,8 @@ def _draw(parts, size, window):
 
     for part in parts:
         sample = _sampler(part['image'], part['wrap'])
+        if part.get('flat'):
+            sample = lambda *_, c=part['flat']: c
         uvs = part['uvs']
         if part.get('mask'):
             sample = _masked(sample, _sampler(*part['mask']), part.get('mask_adds'))
@@ -111,8 +113,8 @@ def _draw(parts, size, window):
             a, b, c = f[0], f[1], f[2]
             tri = (scr[a], scr[b], scr[c], nrm[corner:corner + 3], uvs[corner:corner + 3], part, sample)
             corner += len(f)
-            if part['kind'] in ('blend', 'add'):
-                late.append(((scr[a][2] + scr[b][2] + scr[c][2]) / 3.0, tri))
+            if part['kind'] in ('blend', 'add', 'through'):
+                late.append(((scr[a][2] + scr[b][2] + scr[c][2]) / 3.0 + (1e9 if part['kind'] == 'through' else 0.0), tri))
             else:
                 _raster(tri, size, depth, color, True)
     late.sort(key=lambda t: t[0])
@@ -151,7 +153,10 @@ def _raster(tri, size, depth, color, solid):
                 continue
             z = w0 * az + w1 * bz + w2 * cz
             i = y * size + x
-            if z <= depth[i]:
+            if kind == 'through':   # seen through what is in front, but only over what is drawn
+                if color[i] is None:
+                    continue
+            elif z <= depth[i]:
                 continue
             r, g, b, a = sample(*[w0 * t0[k] + w1 * t1[k] + w2 * t2[k] for k in range(len(t0))])
             if kind == 'cut' and a < 128:
@@ -211,10 +216,55 @@ def _box(points):
     return min(xs), min(ys), max(xs), max(ys)
 
 
+def _framed_points(parts, near=0.15, much=1.5):
+    """The points (view space) the picture is framed on: those of the biggest connected piece of the model, and of
+    every piece whose box touches theirs (or comes within `near` of its size), grown until no piece is left that
+    does. Pieces left out (Mega Steelix's rocks, floating metres away) are framed on too unless leaving them out
+    makes the Pokémon `much` bigger in the picture."""
+    pieces = []   # (box, points)
+    for part in parts:
+        pts = [_view(v) for v in part['vertices']]
+        if not pts:
+            continue
+        root = list(range(len(pts)))
+
+        def find(i):
+            while root[i] != i:
+                root[i] = root[root[i]]
+                i = root[i]
+            return i
+        for f in part['faces']:
+            for a in f[1:]:
+                ra, rb = find(f[0]), find(a)
+                if ra != rb:
+                    root[ra] = rb
+        groups = {}
+        for i in range(len(pts)):
+            groups.setdefault(find(i), []).append(pts[i])
+        pieces += [(_box(g), g) for g in groups.values()]
+    every = [p for _, g in pieces for p in g]
+    if len(pieces) < 2:
+        return every
+    pieces.sort(key=lambda piece: -len(piece[1]))
+    kept, box = [False] * len(pieces), list(pieces[0][0])
+    kept[0] = grown = True
+    while grown:
+        grown = False
+        pad = near * max(box[2] - box[0], box[3] - box[1])
+        for i, (b, _) in enumerate(pieces):
+            if not kept[i] and b[0] <= box[2] + pad and b[2] >= box[0] - pad and b[1] <= box[3] + pad and b[3] >= box[1] - pad:
+                kept[i] = grown = True
+                box = [min(box[0], b[0]), min(box[1], b[1]), max(box[2], b[2]), max(box[3], b[3])]
+    whole = _box(every)
+    if max(whole[2] - whole[0], whole[3] - whole[1]) < much * max(box[2] - box[0], box[3] - box[1]):
+        return every
+    return [p for i, (_, g) in enumerate(pieces) if kept[i] for p in g]
+
+
 def render(parts, has_head=True):
     """(body PNG, face PNG) of the model's parts (see the module's docstring)."""
     framed = [p for p in parts if p['kind'] != 'add'] or parts
-    seen = [_view(v) for p in framed for v in p['vertices']]
+    seen = _framed_points(framed)
     if not seen:
         return None, None
     x0, y0, x1, y1 = _box(seen)

@@ -60,10 +60,12 @@ textures.install(shared.texture_encoder)
 
 
 def _pixel_engine(fragment_blending, build=compose_materials._build_pixel_engine):
-    """Ensure PE flags enable colour update + depth test + depth update on alpha-tested cutouts."""
+    """Ensure PE flags enable colour update + depth test + depth update on alpha-tested cutouts. A material whose
+    depth test always passes (ALWAYS, 7: _through_material) neither tests nor writes depth: drawn over what is in
+    front of it, as the 3DS draws a part seen through another."""
     pe = build(fragment_blending)
     if pe is not None:
-        pe.flags = 0x01 | 0x10 | 0x20
+        pe.flags = 0x01 if fragment_blending.depth_compare == 7 else 0x01 | 0x10 | 0x20
     return pe
 
 
@@ -488,9 +490,84 @@ def _fire_core_material(gf_mat, tex_dict, images, max_size, hideable):
     )
 
 
+def _idle_constants(gf_mats, parsed_motions, slot_actions):
+    """The materials with their constant colours as the idle animation's first frame sets them: the 3DS animates
+    some (GFMotion section 5), and what a glow shows at rest is what those make it."""
+    idle = slot_actions[0][1][0] if slot_actions and slot_actions[0][1] else None
+    moving = (parsed_motions.get(idle) or {}).get('constants') or {}
+    out = dict(gf_mats)
+    for name, channels_of in moving.items():
+        if name not in out or not out[name].get('constants'):
+            continue
+        m = dict(out[name])
+        ks = list(m['constants'])
+        for index, channels in channels_of.items():
+            if 0 <= index < len(ks):
+                ks[index] = tuple(gfmotion.evaluate_track(channels[k], 0, ks[index][k]) for k in range(4))
+        m['constants'] = ks
+        out[name] = m
+    return out
+
+
+def _stage_constant(gf_mat, stage):
+    """The constant colour (RGBA, 0..1) a texture combiner stage of the material reads."""
+    return gf_mat['constants'][gf_mat['constant_of'][stage]]
+
+
+def _plain_material(colour=(1.0, 1.0, 1.0, 1.0), blending=None, translucent=False):
+    """An untextured, unlit material of one colour."""
+    return IRMaterial(
+        diffuse_color=tuple(colour[:3]) + (1.0,), ambient_color=(1.0, 1.0, 1.0, 1.0), specular_color=(1.0, 1.0, 1.0, 1.0),
+        alpha=colour[3], shininess=50.0, color_source=ColorSource.MATERIAL, alpha_source=ColorSource.MATERIAL,
+        lighting=LightingModel.UNLIT, enable_specular=False, is_translucent=translucent, texture_layers=[],
+        fragment_blending=blending,
+    )
+
+
+def _drawn_as(effect, source, dest, depth_compare):
+    return FragmentBlending(effect=effect, source_factor=source, dest_factor=dest, alpha_test_threshold_0=7,
+                            alpha_test_threshold_1=7, alpha_test_op=0, depth_compare=depth_compare)
+
+
+def _special_material(gf_mat):
+    """A material the 3DS draws in a way the usual one can't stand for, or None:
+
+    - Depth only (blended ZERO, ONE: Mega Gengar's mask, a sheet at its feet): writes depth and no colour, so what
+      is below the ground stays hidden. The stage's own floor hides that in the game, and the sheet's depth hid the
+      floor's later pass (a dark square), so nothing is drawn. Drawn as a texture it was a white sheet.
+    - Yveltal's markings and Mega Gallade's aura (PDC_pm0769_Y_EffA and EffB shaders, added): glows whose strength is a constant the animations set; at rest it is 0, so nothing is drawn.
+      Drawn as their first texture they were black and white streaks.
+    - Primal Kyogre's glowing lines (kyogresp Lay1 Core): meshes inside its body, drawn see-through over it without
+      a depth test, but only where its own shell is in front (the stencil). Here: the same colour and see-through,
+      with no depth test; the shell's outline isn't kept, so they would show over anything in front of Kyogre too.
+    """
+    if not gf_mat or not gf_mat.get('constants'):
+        return None
+    shader = gf_mat['shader'].lower()
+    nothing = _plain_material(blending=_drawn_as(OutputBlendEffect.INVISIBLE, BlendFactor.ZERO, BlendFactor.ONE, 7))
+    if (gf_mat.get('blend_src'), gf_mat.get('blend_dst')) == (0, 1):
+        return nothing
+    if 'pm0769_y_effa' in shader:   # alpha: stage 4's constant
+        return nothing if _stage_constant(gf_mat, 4)[3] <= 0 else None
+    if 'pm0769_y_effb' in shader:   # colour and alpha: times stage 0's constant's alpha
+        return nothing if _stage_constant(gf_mat, 0)[3] <= 0 else None
+    if 'kyogresp_lay1_core' in shader:
+        # stage 1: its colour; 2: toward its pale colour by the vertex shader's alpha (FIRE_GLOW, as for fire);
+        # 3: plus a dark one times its alpha; 5: times (stage 2's alpha + white), so twice; alpha: stage 4's
+        k1, k2, k3 = (_stage_constant(gf_mat, i) for i in (1, 2, 3))
+        twice = 1.0 + _stage_constant(gf_mat, 2)[3]
+        colour = [min(1.0, min(1.0, k2[c] * FIRE_GLOW + k1[c] * (1.0 - FIRE_GLOW) + k3[c] * k3[3]) * twice) for c in range(3)]
+        return _plain_material(tuple(colour) + (_stage_constant(gf_mat, 4)[3],), translucent=True,
+                               blending=_drawn_as(OutputBlendEffect.ALPHA_BLEND, BlendFactor.SRC_ALPHA, BlendFactor.INV_SRC_ALPHA, 7))
+    return None
+
+
 def _material_of(gf_mat, tex_dict, images, max_size, hideable=False, fire=False):
     if fire:
         return _fire_core_material(gf_mat, tex_dict, images, max_size, hideable)
+    special = _special_material(gf_mat)
+    if special is not None:
+        return special
     tc, tex = _pick_diffuse_texcoord(gf_mat, tex_dict)
     layers = []
     alpha = 'opaque'
@@ -747,7 +824,12 @@ def _portraits(gf, order, meshes, geometry, bone_fields, parsed_motions, slot_ac
         mat = m.material
         layer = mat.texture_layers[0] if mat.texture_layers else None
         fb = mat.fragment_blending
-        if fb is not None and fb.effect == OutputBlendEffect.ADDITIVE_ALPHA:
+        flat = None
+        if fb is not None and fb.effect == OutputBlendEffect.INVISIBLE:   # draws nothing (_special_material)
+            continue
+        elif fb is not None and fb.depth_compare == 7:   # seen through what is in front (_special_material)
+            kind, flat = 'through', tuple(int(c * 255) for c in mat.diffuse_color[:3]) + (int(mat.alpha * 255),)
+        elif fb is not None and fb.effect == OutputBlendEffect.ADDITIVE_ALPHA:
             kind = 'add'
         elif layer is not None and layer.alpha_blend != LayerBlendMode.NONE:
             kind = 'cut' if fb is not None else 'blend'
@@ -763,7 +845,7 @@ def _portraits(gf, order, meshes, geometry, bone_fields, parsed_motions, slot_ac
                           mask=(seen.image, (seen.wrap_s.value, seen.wrap_t.value)) if seen else None,
                           mask_uvs=m.uv_layers[1].uvs if seen else None,
                           mask_adds=bool(seen and seen.alpha_blend == LayerBlendMode.ADD),
-                          tint=m.color_layers[0].colors if m.color_layers else None))
+                          tint=m.color_layers[0].colors if m.color_layers else None, flat=flat))
     return portrait.render(parts, has_head=bool(head))
 
 
@@ -1069,6 +1151,7 @@ def build(model_data, tex_blobs, battle_blobs, name, max_texture=256, log=print,
     bones = [IRBone(**bf) for bf in bone_fields]
     images = {}
     meshes = []
+    gf_mats = _idle_constants(gf_mats, parsed_motions, slot_actions)
     for mn, mat_name, fields in geometry:
         ir_mat = _material_of(gf_mats.get(mat_name), tex_dict, images, max_texture, mn in hideable,
                               fire=bool(fields.get('color_layers')))
