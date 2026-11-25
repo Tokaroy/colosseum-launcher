@@ -383,7 +383,7 @@ test('a wrong disc file keeps the offer open with the reason in a banner, and ma
   assert.equal(ui.elements.get('pbr-check').hidden, true);
 });
 
-// One chosen before the launcher checked: the Play page and Settings say it can't be used, and Make assets is off
+// One chosen before the launcher checked: the Play page and Settings say it can't be used, and Make now isn't offered
 test('a kept disc that is not Battle Revolution is flagged on Play and in Settings', async () => {
   const ui = await renderer(gen4State({ disc: '/games/other.iso', discFound: true, discProblem: 'That\'s "Wii Sports" (RSPE01), not Pokémon Battle Revolution.' }));
   assert.equal(ui.elements.get('pbr-banner').hidden, false);
@@ -391,21 +391,26 @@ test('a kept disc that is not Battle Revolution is flagged on Play and in Settin
   assert.equal(ui.elements.get('pbr-banner-make').textContent, 'Open Settings');
   assert.equal(ui.elements.get('pbr-check').hidden, false);
   assert.match(ui.elements.get('pbr-check-detail').textContent, /^other\.iso: That's "Wii Sports"/);
-  assert.equal(ui.elements.get('make-pbr-models').disabled, true);
+  assert.equal(ui.elements.get('make-pbr-models').hidden, true);
+  assert.match(ui.elements.get('pbr-note').textContent, /^other\.iso can't be used\./);
 });
 
-test('a disc chosen before is offered straight away, and nothing is asked once every model is made', async () => {
+test('with a disc chosen before, the models are made straight away, and nothing happens once every model is made', async () => {
   const ui = await renderer(gen4State({ disc: '/games/pbr.rvz', discFound: true }));
   ui.window.colo.makePbrModels = async () => { ui.calls.push('makePbrModels'); return ui.run('current'); };
+  // some left to make: Settings has Make now for them, beside the disc
+  assert.equal(ui.elements.get('make-pbr-models').hidden, false);
+  assert.equal(ui.elements.get('choose-pbr-disc').textContent, 'Change');
   await turnOnGen4(ui);
-  assert.equal(ui.elements.get('pbr-offer-confirm').textContent, 'Make assets');
-  assert.match(ui.elements.get('pbr-offer-lead').textContent, /\/games\/pbr\.rvz/);
-  await ui.click('pbr-offer-confirm');
+  assert.equal(ui.elements.get('pbr-offer').open, false, 'nothing to ask');
   assert.ok(ui.calls.includes('makePbrModels'));
 
   const done = await renderer(gen4State({ disc: '/games/pbr.rvz', discFound: true, made: 107 }));
   await turnOnGen4(done);
   assert.equal(done.elements.get('pbr-offer').open, false);
+  assert.equal(done.calls.includes('makePbrModels'), false);
+  assert.equal(done.elements.get('make-pbr-models').hidden, true, 'and nothing to make');
+  assert.match(done.elements.get('pbr-note').textContent, /^pbr\.rvz: all 107 Pokémon have their models and icons\.$/);
 });
 
 test('models made before the game made cries are offered their cries above Play, and in Settings', async () => {
@@ -413,15 +418,16 @@ test('models made before the game made cries are offered their cries above Play,
   assert.equal(ui.elements.get('pbr-banner').hidden, false);
   assert.equal(ui.elements.get('pbr-banner-title').textContent, 'Your Generation 4 Pokémon can have their own cries');
   assert.equal(ui.elements.get('pbr-banner-detail').textContent, '107 Generation 4 Pokémon cry with a Colosseum Pokémon\'s voice. Battle Revolution\'s own is on your disc.');
-  assert.equal(ui.elements.get('pbr-banner-make').textContent, 'Make assets');
-  assert.match(ui.elements.get('pbr-note').textContent, /107 Pokémon have a model but no cry of its own yet: press Make assets to add them\./);
+  assert.equal(ui.elements.get('pbr-banner-make').textContent, 'Make now');
+  assert.match(ui.elements.get('pbr-note').textContent, /107 Pokémon have a model but no cry of their own yet, added with your next update\./);
+  assert.equal(ui.elements.get('make-pbr-models').hidden, false);
 
   const done = await renderer(gen4State({ disc: '/games/pbr.rvz', discFound: true, cries: true, made: 107, noCry: 0 }));
   assert.equal(done.elements.get('pbr-banner').hidden, true);
   const older = await renderer(gen4State({ disc: null, cries: false }));
-  assert.match(older.elements.get('pbr-note').textContent, /their models and icons are made from it/, 'a game that makes no cries');
+  assert.match(older.elements.get('pbr-note').textContent, /for their models and icons\./, 'a game that makes no cries');
   const newer = await renderer(gen4State({ disc: null, cries: true }));
-  assert.match(newer.elements.get('pbr-note').textContent, /their models, icons and cries are made from it/);
+  assert.match(newer.elements.get('pbr-note').textContent, /for their models, icons and cries\./);
 });
 
 test('cancelling the disc picker makes nothing, and the models stay stand-ins', async () => {
@@ -439,6 +445,42 @@ function gen6State(usum) {
   data.usum = { supported: true, wanted: 228, made: 0, outdated: 0, rom: null, romFound: false, ...usum };
   return data;
 }
+
+// One HD textures switch (Graphics) covers the Pokémon models' packs: no switch of their own, and no Make assets button
+test('HD textures covers the models\' own packs: it says what they are, and turned on it downloads the ones missing', async () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '../src/index.html'), 'utf8');
+  for (const id of ['pbrTextures', 'usumTextures']) assert.equal(html.includes(`id="${id}"`), false, `${id} has no switch`);
+  assert.equal(html.includes('Make assets'), false);
+  const data = gen4State({ disc: '/games/pbr.rvz', discFound: true, made: 107, textures: { wanted: true, installed: false, size: 274e6 } });
+  data.usum = { supported: true, wanted: 228, made: 228, rom: '/games/UltraMoon.3ds', romFound: true, textures: { wanted: true, installed: true, size: 845e6 } };
+  data.texturesInstalled = true;
+  const ui = await renderer(data);
+  ui.window.colo.installModelTextures = async () => { ui.calls.push('installModelTextures'); return ui.run('current'); };
+  assert.match(ui.elements.get('texture-info').textContent, /Your Battle Revolution models' are a download of about 274 MB, which starts when you play\. Your 3DS models have theirs\.$/);
+  ui.elements.get('textures').checked = true;
+  ui.elements.get('textures').dispatch('change');
+  await new Promise(setImmediate);
+  await new Promise(setImmediate);
+  assert.ok(ui.calls.includes('installModelTextures'));
+
+  // nothing of theirs is said, or downloaded, before a model is made
+  const none = await renderer(gen4State({ disc: null, textures: { wanted: false, installed: false, size: 274e6 } }));
+  assert.doesNotMatch(none.elements.get('texture-info').textContent, /Battle Revolution/);
+});
+
+test('with a 3DS ROM chosen before, turning on Generation 5 and 6 Pokémon makes their models straight away', async () => {
+  const ui = await renderer(gen6State({ rom: '/games/UltraMoon.3ds', romFound: true }));
+  ui.window.colo.makeUsumModels = async () => { ui.calls.push('makeUsumModels'); return ui.run('current'); };
+  ui.elements.get('generation6Pokemon').checked = true;
+  ui.elements.get('generation6Pokemon').dispatch('change');
+  await new Promise(setImmediate);
+  assert.equal(ui.elements.get('usum-offer').open, false);
+  assert.ok(ui.calls.includes('makeUsumModels'));
+  assert.equal(ui.elements.get('usum-row').hidden, false);
+  const off = await renderer(gen6State({ wanted: 0 }));
+  assert.equal(off.elements.get('usum-row').hidden, true, 'the ROM row shows only with the generation on');
+});
+
 async function turnOnGen6(ui) {
   ui.elements.get('generation6Pokemon').checked = true;
   ui.elements.get('generation6Pokemon').dispatch('change');
@@ -468,14 +510,14 @@ test('turning on Generation 5 and 6 Pokémon asks for a 3DS Pokémon ROM, and ch
   assert.equal(ui.elements.get('usum-check-title').textContent, '3DS Pokémon ROM found');
 });
 
-test('a kept 3DS ROM that cannot be used is flagged on Play and in Settings, and Make assets is off', async () => {
+test('a kept 3DS ROM that cannot be used is flagged on Play and in Settings, and Make now isn\'t offered', async () => {
   const ui = await renderer(gen6State({ rom: '/games/encrypted.3ds', romFound: true, romProblem: 'This ROM is still encrypted.' }));
   assert.equal(ui.elements.get('usum-banner').hidden, false);
   assert.equal(ui.elements.get('usum-banner-title').textContent, 'Your 3DS Pokémon ROM can\'t be used');
   assert.equal(ui.elements.get('usum-banner-make').textContent, 'Open Settings');
   assert.equal(ui.elements.get('usum-check').hidden, false);
   assert.match(ui.elements.get('usum-check-detail').textContent, /^encrypted\.3ds: This ROM is still encrypted\./);
-  assert.equal(ui.elements.get('make-usum-models').disabled, true);
+  assert.equal(ui.elements.get('make-usum-models').hidden, true);
 });
 
 test('Back up automatically shows the setting and is saved with the others', async () => {

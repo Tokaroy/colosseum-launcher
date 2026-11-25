@@ -1066,9 +1066,10 @@ function refresh(data) {
   const finish = data.binaryReady ? 'Close Settings and choose Finish HD setup.' : '';
   badge('textures-badge', data.texturesInstalled ? 'Installed' : 'Not installed', data.texturesInstalled,
     config.settings.textures && !data.texturesInstalled);
-  $('texture-info').textContent = data.texturesInstalled
+  $('texture-info').textContent = (data.texturesInstalled
     ? config.settings.textures ? 'HD textures are ready.' : 'Already downloaded. Turn on to use them.'
-    : `${config.settings.textures ? `${finish || 'HD textures will download during setup.'} ` : ''}About ${gb(data.texturePack.size)} GB to download; allow ${gb(data.texturePack.size + data.texturePack.unpacked)} GB of free space for setup.`;
+    : `${config.settings.textures ? `${finish || 'HD textures will download during setup.'} ` : ''}About ${gb(data.texturePack.size)} GB to download; allow ${gb(data.texturePack.size + data.texturePack.unpacked)} GB of free space for setup.`)
+    + modelTexturesNote(data);
   $('clean').disabled = !data.repoReady || Boolean(data.active);
   $('clean-preview').disabled = !data.repoReady || Boolean(data.active);
   // Windows only: elsewhere the game runs with libraries from the build tools. Your own MSYS2 is never removed.
@@ -1178,7 +1179,7 @@ function refresh(data) {
 
 // The settings that are a list or a range, and the ones that are a switch: each saves under its element's id.
 const SELECTS = ['difficultyLevels', 'difficultyLevelsFrom', 'difficultyTeam', 'difficultyShadows', 'buttonPrompts', 'promptPad', 'battleRules', 'widescreen', 'resolution', 'frameRate', 'vsync', 'fullscreenMode', 'exclusiveResolution', 'display', 'msaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'fsrMode', 'textureLoading', 'renderer', 'hdText', 'expAllShare', 'shinyOdds', 'language', 'battleSpeed', 'fastForward', 'fastForwardSpeed', 'coopHero', 'coopSplit', 'coopPads', 'padMode', 'updateChannel', 'randomizerSeed'];
-const SWITCHES = ['difficultyEvolve', 'randomizer', 'randomizerStarters', 'randomizerShadow', 'randomizerTrainers', 'randomizerGifts', 'randomizerGen1', 'randomizerGen2', 'randomizerGen3', 'randomizerGen4', 'randomizerGen5', 'randomizerGen6', 'randomizerPacks', 'randomizerSimilar', 'randomizerNoLegendaries', 'randomizerNoRepeats', 'randomizerBaseForms', 'generation4Pokemon', 'generation6Pokemon', 'fairyType', 'pbrReplaceAll', 'pbrTextures', 'usumTextures', 'fullscreen', 'hudEdges', 'skipMovies', 'skipBattleAnimations', 'quickMoves', 'quickStatus', 'shinyShadow', 'shinyStarters', 'chooseHero', 'chooseStarters', 'tmNames', 'infiniteTms', 'expAll', 'cstickMove', 'partnerPass', 'battleLighting', 'moveRelearner', 'coop', 'pokeSpotPool', 'overlay', 'backgroundInput', 'gbaAutoPower', 'gbaTradeAnytime', 'fxaa', 'textures', 'hdModels', 'shaderWarmup', 'autoUpdate', 'autoBackups', 'shareUsage', 'discordPresence', 'darkMode'];
+const SWITCHES = ['difficultyEvolve', 'randomizer', 'randomizerStarters', 'randomizerShadow', 'randomizerTrainers', 'randomizerGifts', 'randomizerGen1', 'randomizerGen2', 'randomizerGen3', 'randomizerGen4', 'randomizerGen5', 'randomizerGen6', 'randomizerPacks', 'randomizerSimilar', 'randomizerNoLegendaries', 'randomizerNoRepeats', 'randomizerBaseForms', 'generation4Pokemon', 'generation6Pokemon', 'fairyType', 'pbrReplaceAll', 'fullscreen', 'hudEdges', 'skipMovies', 'skipBattleAnimations', 'quickMoves', 'quickStatus', 'shinyShadow', 'shinyStarters', 'chooseHero', 'chooseStarters', 'tmNames', 'infiniteTms', 'expAll', 'cstickMove', 'partnerPass', 'battleLighting', 'moveRelearner', 'coop', 'pokeSpotPool', 'overlay', 'backgroundInput', 'gbaAutoPower', 'gbaTradeAnytime', 'fxaa', 'textures', 'hdModels', 'shaderWarmup', 'autoUpdate', 'autoBackups', 'shareUsage', 'discordPresence', 'darkMode'];
 
 // The languages: English, the launcher's packs and any found in the languages folder. One chosen and then
 // removed from the folder stays listed, as the game plays in English without it; so does one this game has no pack
@@ -1399,7 +1400,7 @@ function showError(error) { closeModal(); setMessage(errorText(error), true); }
 function needsBuild(method) {
   if (method === 'launchGame') return !current.binaryReady || !current.hdVisualsReady ||
     Boolean(current.config.settings.autoUpdate && current.game.needsUpdate);
-  return ['installPort', 'installTextures', 'installPbrTextures', 'installUsumTextures', 'makePbrModels', 'build', 'setupGame', 'prepareGame', 'updateAndPlay', 'updatePort'].includes(method);
+  return ['installPort', 'installTextures', 'installModelTextures', 'makePbrModels', 'makeUsumModels', 'build', 'setupGame', 'prepareGame', 'updateAndPlay', 'updatePort'].includes(method);
 }
 
 async function action(method) {
@@ -1407,7 +1408,7 @@ async function action(method) {
   // In a folder too deep for Windows, explain instead of starting a build that would fail.
   if (current?.pathProblem && needsBuild(method)) { showPathProblem(); return; }
   try {
-    if (['installPort', 'installTextures', 'installPbrTextures', 'installUsumTextures', 'makePbrModels', 'build', 'setupGame', 'prepareGame', 'launchGame', 'updateAndPlay', 'updatePort', 'play', 'playPrevious'].includes(method))
+    if (['installPort', 'installTextures', 'installModelTextures', 'makePbrModels', 'makeUsumModels', 'build', 'setupGame', 'prepareGame', 'launchGame', 'updateAndPlay', 'updatePort', 'play', 'playPrevious'].includes(method))
       setConsoleFollowing(true);
     const result = await window.colo[method]();
     if (result && result.config) refresh(result);
@@ -1546,16 +1547,23 @@ function pbrProgress(active) {
 // What the game makes from the disc: models and icons, and cries where it has them (pbr.cries)
 function pbrAssets(pbr, icons = false) { return pbr.cries ? (icons ? 'models, icons and cries' : 'models and cries') : (icons ? 'models and icons' : 'models'); }
 
+// One line under its generation's switch: the disc, and how many of the Pokémon have theirs. They're made when the disc
+// is chosen, when the switch is turned on and with each update, so Make now only shows when some are left to make.
 function renderPbr(data) {
-  const pbr = data.pbr || {};
+  const pbr = data.pbr || {}, usable = pbrDiscUsable(pbr), left = (pbr.wanted || 0) - (pbr.made || 0);
+  $('pbr-row').hidden = !pbr.wanted;
   $('pbr-note').textContent = pbrProgress(data.active)
     || (!pbr.supported ? 'Update your game to make models from your own Pokémon Battle Revolution disc.'
-      : !pbr.wanted ? `Turn on Generation 4 Pokémon above or Replace all models below, then make their ${pbrAssets(pbr)} from your own Pokémon Battle Revolution disc. No Blender needed.`
-        : !pbr.disc ? `Choose your own Pokémon Battle Revolution disc (RVZ, ISO or WBFS) and their ${pbrAssets(pbr, true)} are made from it. Until then, each has a Colosseum Pokémon standing in. ${pbr.made} of ${pbr.wanted} made.`
-          : pbr.outdated ? `${pbr.disc}: ${pbr.made} of ${pbr.wanted} made. A fix changed ${pbr.outdated === 1 ? '1 Pokémon\'s model' : `${pbr.outdated} Pokémon's models`}: press Make assets to make ${pbr.outdated === 1 ? 'it' : 'them'} again.`
-            : pbr.noCry ? `${pbr.disc}: ${pbr.made} of ${pbr.wanted} made. ${pbr.noCry === 1 ? '1 Pokémon has' : `${pbr.noCry} Pokémon have`} a model but no cry of its own yet: press Make assets to add ${pbr.noCry === 1 ? 'it' : 'them'}.`
-              : `${pbr.disc}: ${pbr.made} of ${pbr.wanted} made. Making them takes a few minutes, and only makes what's missing.`);
-  $('make-pbr-models').disabled = Boolean(data.active) || !pbr.supported || !pbr.wanted || !pbrDiscUsable(pbr);
+      : !pbr.disc ? `Choose your own Pokémon Battle Revolution disc (RVZ, ISO or WBFS) for their ${pbrAssets(pbr, true)}. Until then, each has a Colosseum Pokémon standing in.`
+        : !usable ? `${fileName(pbr.disc)} can't be used. Choose your disc again.`
+          : !left ? `${fileName(pbr.disc)}: all ${pbr.wanted} Pokémon have their ${pbrAssets(pbr, true)}.`
+            : !pbr.outdated && pbr.noCry === left ? `${fileName(pbr.disc)}: ${pbr.noCry === 1 ? '1 Pokémon has' : `${pbr.noCry} Pokémon have`} a model but no cry of ${pbr.noCry === 1 ? 'its' : 'their'} own yet, added with your next update.`
+            : pbr.outdated ? `${fileName(pbr.disc)}: ${pbr.made} of ${pbr.wanted} made. A fix changed ${pbr.outdated === 1 ? '1 Pokémon\'s model' : `${pbr.outdated} Pokémon's models`}, made again with your next update.`
+              : `${fileName(pbr.disc)}: ${pbr.made} of ${pbr.wanted} made. The rest are made with your next update.`);
+  $('pbr-note').title = pbr.disc || '';
+  $('make-pbr-models').hidden = !pbr.supported || !usable || left <= 0 || Boolean(pbrProgress(data.active));
+  $('make-pbr-models').disabled = Boolean(data.active);
+  $('choose-pbr-disc').textContent = pbr.disc ? 'Change' : 'Choose disc';
   $('choose-pbr-disc').disabled = Boolean(data.active);
   // Replace all models: the game's own Pokémon too, once the game can show them
   $('pbrReplaceAll').disabled = Boolean(data.active) || !pbr.ownModels;
@@ -1563,11 +1571,23 @@ function renderPbr(data) {
     ? 'Update your game to give its own Pokémon their Battle Revolution models.'
     : `Gives the game's own Pokémon, Bulbasaur to Deoxys, their Battle Revolution models too, so every Pokémon looks as it does there, in the game and the Pokédex. Off unless you choose it: ${pbrReplaceAllCost(pbr)}`;
   renderPbrCheck('pbr-check', pbr);
-  renderPbrTextures(data);
   renderPbrBanner(data);
 }
 
-// How much longer Make assets takes with Replace all models, as a multiple of making it without: each Pokémon takes about
+// What HD textures (Settings → Graphics) says of the Pokémon models' own packs: each downloads once, when its models are
+// made and HD textures are on.
+function modelTexturesNote(data) {
+  const notes = [];
+  for (const [name, source] of [['Battle Revolution', data.pbr], ['3DS', data.usum]]) {
+    const textures = source?.textures || {};
+    if (!textures.wanted) continue;
+    notes.push(textures.installed ? `Your ${name} models have theirs.`
+      : `Your ${name} models' are a download of about ${Math.max(1, Math.round((textures.size || 0) / 1e6))} MB, which starts when you play.`);
+  }
+  return notes.length ? ` ${notes.join(' ')}` : '';
+}
+
+// How much longer making the assets takes with Replace all models, as a multiple of making it without: each Pokémon takes about
 // as long, so Generation 4's 107 and the game's own 386 take about 4½ times as long as Generation 4's alone. Without a
 // later generation, it's compared with making Generation 4's.
 function pbrReplaceAllTimes(pbr) {
@@ -1578,25 +1598,11 @@ function pbrReplaceAllTimes(pbr) {
 function pbrReplaceAllCost(pbr) {
   const own = pbr.ownCount || 386, without = pbr.generationCount || 0;
   return without
-    ? `it's ${own} more Pokémon to make from your disc, so Make assets takes about ${pbrReplaceAllTimes(pbr)} times as long as without it (${without + own} Pokémon instead of ${without}), and uses about 500 MB more space.`
-    : `it's ${own} Pokémon to make from your disc, so Make assets takes about ${pbrReplaceAllTimes(pbr)} times as long as making Generation 4's ${pbr.generation4Count || 107}, and uses about 500 MB of space.`;
+    ? `it's ${own} more Pokémon to make from your disc, so making them takes about ${pbrReplaceAllTimes(pbr)} times as long as without it (${without + own} Pokémon instead of ${without}), and uses about 500 MB more space.`
+    : `it's ${own} Pokémon to make from your disc, so making them takes about ${pbrReplaceAllTimes(pbr)} times as long as making Generation 4's ${pbr.generation4Count || 107}, and uses about 500 MB of space.`;
 }
 
 // The disc chosen is there and is Battle Revolution
-// Battle Revolution HD textures: a switch that downloads them once, for the Pokémon whose models are made
-function renderPbrTextures(data) {
-  const pbr = data.pbr || {}, textures = pbr.textures || {}, on = Boolean(data.config.settings.pbrTextures);
-  const mb = Math.max(1, Math.round((textures.size || 0) / 1e6));
-  badge('pbr-textures-badge', textures.installed ? 'Installed' : 'Not installed', Boolean(textures.installed), on && !textures.installed && Boolean(pbr.wanted));
-  $('pbr-textures-note').textContent = !pbr.wanted
-    ? 'Battle Revolution\'s own textures, upscaled for sharper models. Turn on Generation 4 Pokémon above first.'
-    : textures.installed
-      ? on ? 'Battle Revolution\'s own textures, upscaled: your Battle Revolution models show them in the game and the Pokédex.'
-        : 'Already downloaded. Turn on to use them.'
-      : `Battle Revolution's own textures, upscaled for sharper Battle Revolution models. A one-time download of about ${mb} MB${on ? ', which starts when you play' : ''}.`;
-  $('pbrTextures').disabled = Boolean(data.active) || !pbr.wanted;
-}
-
 function pbrDiscUsable(pbr) { return Boolean(pbr?.discFound && !pbr.discProblem); }
 function fileName(file) { return String(file || '').split(/[\\/]/).pop(); }
 
@@ -1650,7 +1656,7 @@ function renderPbrBanner(data) {
     : pbr.outdated ? `A fix changed ${count(pbr.outdated, `${who}'s model`, `${who}'s models`)}. Until they're made again, they look as they did before the fix.`
       : !missing && pbr.noCry ? `${count(pbr.noCry, 'Generation 4 Pokémon cries', 'Generation 4 Pokémon cry')} with a Colosseum Pokémon's voice. Battle Revolution's own is on your disc.`
         : `${count(missing, `${who} has`, `${who} have`)} no ${who === 'Pokémon' ? 'Battle Revolution model' : 'model of its own'} yet.`);
-  $('pbr-banner-make').textContent = pbrDiscUsable(pbr) ? 'Make assets' : 'Open Settings';
+  $('pbr-banner-make').textContent = pbrDiscUsable(pbr) ? 'Make now' : 'Open Settings';
   $('pbr-banner-make').disabled = Boolean(data.active);
 }
 
@@ -1672,13 +1678,12 @@ async function choosePbrDisc() {
 function offerPbrModels() {
   const pbr = current?.pbr || {};
   if (!gameHas(current, 'pbrAssets') || current?.active || !pbr.supported || !pbr.wanted || pbr.made >= pbr.wanted) return;
-  const remake = pbr.made > 0 || pbr.outdated > 0 || pbr.noCry > 0;
+  // the disc is chosen already: they're made from it at once, with nothing to ask
+  if (pbrDiscUsable(pbr)) { action('makePbrModels'); return; }
   $('pbr-offer-check').hidden = true;
-  if (pbr.disc && !pbrDiscUsable(pbr)) renderPbrCheck('pbr-offer-check', pbr, { dismissible: false });
-  $('pbr-offer-lead').textContent = pbrDiscUsable(pbr)
-    ? `Your Battle Revolution disc is chosen: ${pbr.disc}. Make ${remake ? 'what\'s still missing' : `their ${pbrAssets(pbr, true)}`} from it now? It takes a few minutes.`
-    : `Each one can have its own ${pbr.cries ? 'model, icons and cry' : 'model and icons'}, as in Pokémon Battle Revolution, made from a file of your own Wii disc (RVZ, ISO or WBFS). Choose it and they're made in a few minutes. No Blender needed.`;
-  $('pbr-offer-confirm').textContent = pbrDiscUsable(pbr) ? 'Make assets' : pbr.disc ? 'Choose another file' : 'Choose disc';
+  if (pbr.disc) renderPbrCheck('pbr-offer-check', pbr, { dismissible: false });
+  $('pbr-offer-lead').textContent = `Each one can have its own ${pbr.cries ? 'model, icons and cry' : 'model and icons'}, as in Pokémon Battle Revolution, made from a file of your own Wii disc (RVZ, ISO or WBFS). Choose it and they're made in a few minutes. No Blender needed.`;
+  $('pbr-offer-confirm').textContent = pbr.disc ? 'Choose another file' : 'Choose disc';
   closeModal();
   $('pbr-offer').showModal();
 }
@@ -1730,38 +1735,29 @@ function renderUsumBanner(data) {
   $('usum-banner-detail').textContent = usum.romProblem && usum.romFound
     ? `${usum.romProblem} Choose it under Settings → Gameplay.`
     : !usum.romFound ? 'Your 3DS Pokémon ROM isn\'t where it was. Choose it again under Settings → Gameplay, then make them.'
-    : usum.outdated ? `A fix changed ${count(usum.outdated, 'Pokémon\'s model', 'Pokémon\'s models')}. Press Make assets to remake them.`
+    : usum.outdated ? `A fix changed ${count(usum.outdated, 'Pokémon\'s model', 'Pokémon\'s models')}. Until they're made again, they look as they did before the fix.`
     : !missing && usum.noCry ? `${count(usum.noCry, 'Pokémon cries', 'Pokémon cry')} with a stand-in voice.`
     : `${count(missing, 'Pokémon has', 'Pokémon have')} no 3DS model made yet.`;
-  $('usum-banner-make').textContent = usumRomUsable(usum) ? 'Make assets' : 'Open Settings';
+  $('usum-banner-make').textContent = usumRomUsable(usum) ? 'Make now' : 'Open Settings';
   $('usum-banner-make').disabled = Boolean(data.active);
 }
 function renderUsum(data) {
-  const usum = data.usum || {};
+  const usum = data.usum || {}, usable = usumRomUsable(usum), left = (usum.wanted || 0) - (usum.made || 0);
+  $('usum-row').hidden = !usum.wanted;
   $('usum-note').textContent = usumProgress(data.active)
     || (!usum.supported ? '3DS model converter scripts are missing from this launcher build.'
-      : !usum.wanted ? 'Turn on Generation 5 and 6 Pokémon above, then make their models, icons and cries from your own decrypted Pokémon Ultra Sun, Ultra Moon, Sun or Moon (.3ds) ROM. No Blender needed.'
-        : !usum.rom ? `Choose your own decrypted Pokémon Ultra Sun, Ultra Moon, Sun or Moon (.3ds) ROM and their models, icons and cries are made from it. Until then, each has a Colosseum Pokémon standing in. ${usum.made} of ${usum.wanted} made.`
-          : usum.outdated ? `${usum.rom}: ${usum.made} of ${usum.wanted} made. A fix changed ${usum.outdated} Pokémon's models: press Make assets to make them again.`
-            : `${usum.rom}: ${usum.made} of ${usum.wanted} made. Making them takes a few minutes, and only makes what's missing.`);
-  $('make-usum-models').disabled = Boolean(data.active) || !usum.supported || !usum.wanted || !usumRomUsable(usum);
+      : !usum.rom ? 'Choose your own decrypted Pokémon Ultra Sun, Ultra Moon, Sun or Moon (.3ds) ROM for their models, icons and cries. Until then, each has a Colosseum Pokémon standing in.'
+        : !usable ? `${fileName(usum.rom)} can't be used. Choose your ROM again.`
+          : !left ? `${fileName(usum.rom)}: all ${usum.wanted} Pokémon have their models, icons and cries.`
+            : usum.outdated ? `${fileName(usum.rom)}: ${usum.made} of ${usum.wanted} made. A fix changed ${usum.outdated === 1 ? '1 Pokémon\'s model' : `${usum.outdated} Pokémon's models`}, made again with your next update.`
+              : `${fileName(usum.rom)}: ${usum.made} of ${usum.wanted} made. The rest are made with your next update.`);
+  $('usum-note').title = usum.rom || '';
+  $('make-usum-models').hidden = !usum.supported || !usable || left <= 0 || Boolean(usumProgress(data.active));
+  $('make-usum-models').disabled = Boolean(data.active);
+  $('choose-usum-rom').textContent = usum.rom ? 'Change' : 'Choose ROM';
   $('choose-usum-rom').disabled = Boolean(data.active);
   renderUsumCheck('usum-check', usum);
   renderUsumBanner(data);
-  renderUsumTextures(data);
-}
-// 3DS HD textures: a switch that downloads them once, for the Generation 5 and 6 Pokémon whose models are made
-function renderUsumTextures(data) {
-  const usum = data.usum || {}, textures = usum.textures || {}, on = Boolean(data.config.settings.usumTextures);
-  const mb = Math.max(1, Math.round((textures.size || 0) / 1e6));
-  badge('usum-textures-badge', textures.installed ? 'Installed' : 'Not installed', Boolean(textures.installed), on && !textures.installed && Boolean(usum.wanted));
-  $('usum-textures-note').textContent = !usum.wanted
-    ? 'The 3DS games\' own textures, upscaled for sharper models. Turn on Generation 5 and 6 Pokémon above first.'
-    : textures.installed
-      ? on ? 'The 3DS games\' own textures, upscaled: your 3DS models show them in the game and the Pokédex.'
-        : 'Already downloaded. Turn on to use them.'
-      : `The 3DS games' own textures, upscaled for sharper 3DS models. A one-time download of about ${mb} MB${on ? ', which starts when you play' : ''}.`;
-  $('usumTextures').disabled = Boolean(data.active) || !usum.wanted;
 }
 async function chooseUsumRom() {
   const before = current?.usum?.rom, last = current?.usum?.choice?.at;
@@ -1775,13 +1771,11 @@ async function chooseUsumRom() {
 function offerUsumModels() {
   const usum = current?.usum || {};
   if (!gameHas(current, 'pbrAssets') || current?.active || !usum.supported || !usum.wanted || usum.made >= usum.wanted) return;
-  const remake = usum.made > 0 || usum.outdated > 0 || usum.noCry > 0;
+  if (usumRomUsable(usum)) { action('makeUsumModels'); return; }
   $('usum-offer-check').hidden = true;
-  if (usum.rom && !usumRomUsable(usum)) renderUsumCheck('usum-offer-check', usum, { dismissible: false });
-  $('usum-offer-lead').textContent = usumRomUsable(usum)
-    ? `Your 3DS Pokémon ROM is chosen: ${usum.rom}. Make ${remake ? 'what\'s still missing' : 'their models, icons and cries'} from it now? It takes a few minutes.`
-    : 'Each one can have its own 3D model, icons and cry, converted directly from your own decrypted Pokémon Ultra Sun, Ultra Moon, Sun or Moon (.3ds) ROM. Choose it and they\'re made in a few minutes. No Blender needed.';
-  $('usum-offer-confirm').textContent = usumRomUsable(usum) ? 'Make assets' : usum.rom ? 'Choose another file' : 'Choose ROM';
+  if (usum.rom) renderUsumCheck('usum-offer-check', usum, { dismissible: false });
+  $('usum-offer-lead').textContent = 'Each one can have its own 3D model, icons and cry, converted directly from your own decrypted Pokémon Ultra Sun, Ultra Moon, Sun or Moon (.3ds) ROM. Choose it and they\'re made in a few minutes. No Blender needed.';
+  $('usum-offer-confirm').textContent = usum.rom ? 'Choose another file' : 'Choose ROM';
   closeModal();
   $('usum-offer').showModal();
 }
@@ -2320,17 +2314,13 @@ $('usum-banner-make').addEventListener('click', () => {
   else { showPage('settings'); showSettingsTab('gameplay'); }
 });
 $('open-languages').addEventListener('click', () => window.colo.openLanguages().catch(showError));
-for (const key of [...SELECTS, ...SWITCHES]) if (key !== 'generation4Pokemon' && key !== 'generation6Pokemon' && key !== 'pbrReplaceAll' && key !== 'pbrTextures' && key !== 'usumTextures') $(key).addEventListener('change', saveSettings);
-// Turned on: the download starts now, unless something else is running (then it starts when you play)
-$('pbrTextures').addEventListener('change', async () => {
+for (const key of [...SELECTS, ...SWITCHES]) if (key !== 'generation4Pokemon' && key !== 'generation6Pokemon' && key !== 'pbrReplaceAll' && key !== 'textures') $(key).addEventListener('change', saveSettings);
+// HD textures turned on with the game's pack already there: the Pokémon models' packs download now, unless something
+// else is running (then they download when you play)
+$('textures').addEventListener('change', async () => {
   await saveSettings();
-  const pbr = current?.pbr || {};
-  if (current?.config.settings.pbrTextures && pbr.wanted && !pbr.textures?.installed && !current.active) action('installPbrTextures');
-});
-$('usumTextures').addEventListener('change', async () => {
-  await saveSettings();
-  const usum = current?.usum || {};
-  if (current?.config.settings.usumTextures && usum.wanted && !usum.textures?.installed && !current.active) action('installUsumTextures');
+  const missing = [current?.pbr, current?.usum].some(source => source?.textures?.wanted && !source.textures.installed);
+  if (current?.config.settings.textures && current.texturesInstalled && missing && !current.active) action('installModelTextures');
 });
 $('generation4Pokemon').addEventListener('change', async () => {
   await saveSettings();

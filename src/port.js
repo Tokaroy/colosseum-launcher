@@ -256,10 +256,8 @@ function normalizeSettings(input = {}, platform = process.platform, arch = gameA
     presentFilter: choiceSetting(input.presentFilter, ['bilinear', 'sharp', 'nearest', 'fsr', 'nis'], 'bilinear'),
     fsrMode: choiceSetting(input.fsrMode, ['native', 'quality', 'balanced', 'performance', 'ultraperformance'], 'quality'),
     textures: input.textures !== false,
-    // Battle Revolution HD textures: PBR's own textures for the models Make assets makes, upscaled (4×, at most 1024
-    // pixels), a download of their own (pbr-texture-pack.json). Off until the player turns it on.
-    pbrTextures: Boolean(input.pbrTextures),
-    usumTextures: Boolean(input.usumTextures),
+    // (HD textures covers the Pokémon models' packs too, pbr-texture-pack.json and usum-texture-pack.json: each is
+    // downloaded once its models are made. They had switches of their own before, pbrTextures and usumTextures.)
     // People in the field drawn with their detailed models, made from the disc.
     hdModels: input.hdModels !== false,
     // When HD textures load: while each area loads (stage), the whole pack and kept (all), or each when first drawn (play).
@@ -404,7 +402,7 @@ function dropLeftOutPbrTextures(work, pack = PBR_TEXTURE_PACK) {
 // take this pack as `pack`.
 
 // The texture folders the game reads, first match wins: the player's custom textures, then the HD pack, then
-// Battle Revolution's HD textures (`pbrTextures`) and the 3DS ones (`usumTextures`), each a folder when it's on and
+// Battle Revolution's HD textures (`pbrTextures`) and the 3DS ones (`usumTextures`), each a folder when HD textures are on and
 // installed.
 function texturePackFolders(settings, root, customTextures, pbrTextures = null, usumTextures = null) {
   const folders = [];

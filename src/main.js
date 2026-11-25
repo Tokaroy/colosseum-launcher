@@ -1127,6 +1127,7 @@ async function setupGame() {
   port.validateRom(config.rom, config.game);
   if (!game.isCurrent(config.repo, currentSource())) await build();
   else if (!hdVisualsReady(config.repo, config.settings)) await installTextures();
+  await ensureModelAssets();
   await ensureModelTextures();
   return state();
 }
@@ -1281,8 +1282,8 @@ function pbrWanted(settings = config.settings) {
 // The game's own Pokémon's Battle Revolution models made so far, for the game's file (its LOOK chunk), where Replace all
 // models is on; [] otherwise
 function pbrOwnModels(tables) { return pbrReplacing() ? pokemonPacks.ownModels(tables, pbrModels()) : []; }
-// Made: a model of it is there, no fix to the converter since has changed it (those count once Make assets remakes
-// them), and its cry is there, where the game makes cries (noCry: those with a model and no cry yet)
+// Made: a model of it is there, no fix to the converter since has changed it (those count once they're made
+// again), and its cry is there, where the game makes cries (noCry: those with a model and no cry yet)
 function pbrState() {
   const wanted = pbrWanted(), present = wanted.filter(n => fs.existsSync(path.join(pbrModels(), String(n), pokemonPacks.FILES.model)));
   const outdated = config.repo ? port.pbrOutdated(config.repo, pbrModels(), present) : new Set();
@@ -1291,7 +1292,7 @@ function pbrState() {
   return { disc: config.pbrDisc || null, discFound: Boolean(config.pbrDisc && fs.existsSync(config.pbrDisc)),
     discProblem: pbrDiscProblem(), choice: pbrDiscChoice,
     wanted: wanted.length, made: present.length - outdated.size - noCry, outdated: outdated.size, noCry, cries,
-    textures: { installed: port.pbrTexturesInstalled(pbrWork()), size: port.PBR_TEXTURE_PACK.size },
+    textures: { installed: port.pbrTexturesInstalled(pbrWork()), size: port.PBR_TEXTURE_PACK.size, wanted: pbrTexturesWanted() },
     supported: Boolean(config.repo && fs.existsSync(port.pbrModelsScript(config.repo))),
     // Replace all models: chosen, and whether the game can show them (else the switch asks for an update)
     replaceAll: Boolean(config.settings.pbrReplaceAll), ownModels: Boolean(config.repo && port.playsOwnModels(config.repo)),
@@ -1314,6 +1315,7 @@ async function makePbrModels() {
   await launch(cmd.command, cmd.args, { cwd: cmd.cwd, env: cmd.env }, 'Make Battle Revolution assets');
   const { made } = pbrState();
   log(`Battle Revolution assets: ${made} of ${wanted.length} Pokémon made. They show in the Pokédex, and in your next game.`);
+  await ensureModelTextures();
   return state();
 }
 
@@ -1352,7 +1354,7 @@ function usumState() {
   return { rom: config.usumRom || null, romFound: Boolean(config.usumRom && fs.existsSync(config.usumRom)),
     romProblem: usumRomProblem(), choice: usumRomChoice,
     wanted: wanted.length, made: present.length - outdated.size - noCry, outdated: outdated.size, noCry, cries: true,
-    textures: { installed: port.pbrTexturesInstalled(usumWork(), port.USUM_TEXTURE_PACK), size: port.USUM_TEXTURE_PACK.size },
+    textures: { installed: usumTexturesInstalled(), size: port.USUM_TEXTURE_PACK.size, wanted: usumTexturesWanted() },
     supported: fs.existsSync(port.usumModelsScript()) };
 }
 async function makeUsumModels() {
@@ -1368,19 +1370,20 @@ async function makeUsumModels() {
   await launch(cmd.command, cmd.args, { cwd: cmd.cwd, env: cmd.env }, 'Make 3DS Pokémon assets');
   const { made } = usumState();
   log(`3DS Pokémon assets: ${made} of ${wanted.length} Pokémon made. They show in the Pokédex, and in your next game.`);
+  await ensureModelTextures();
   return state();
 }
 
-// 3DS HD textures (usum-texture-pack.json), as the Battle Revolution ones below: wanted when they're turned on and
-// Generation 5 and 6 Pokémon are imported, read once they're downloaded (usumTextureFolder: the folder, or null).
-function usumTexturesWanted(settings = config.settings) { return supports('pbrAssets') && Boolean(settings.usumTextures) && usumWanted(settings).length > 0; }
+// 3DS HD textures (usum-texture-pack.json), as the Battle Revolution ones below: wanted when HD textures are on and a
+// Generation 5 or 6 Pokémon has its 3DS model, read once they're downloaded (usumTextureFolder: the folder, or null).
+function usumTexturesWanted(settings = config.settings) { return supports('pbrAssets') && Boolean(settings.textures) && anyModelMade(usumModels(), usumWanted(settings)); }
 function usumTexturesInstalled() { return port.pbrTexturesInstalled(usumWork(), port.USUM_TEXTURE_PACK); }
 function usumTextureFolder(settings = config.settings) {
   return usumTexturesWanted(settings) && usumTexturesInstalled() ? port.pbrTextureFolder(usumWork(), port.USUM_TEXTURE_PACK) : null;
 }
 async function installUsumTextures() {
   requireFeature('pbrAssets', '3DS Pokémon assets');
-  if (!config.settings.usumTextures) return state();
+  if (!usumTexturesWanted()) return state();
   if (usumTexturesInstalled()) { log('3DS HD textures are already installed.'); return state(); }
   await ensureBuildTools();
   const cmd = port.pbrTextureCommand(usumWork(), process.platform, toolEnv(), port.USUM_TEXTURE_PACK);
@@ -1390,16 +1393,19 @@ async function installUsumTextures() {
   return state();
 }
 
-// Battle Revolution HD textures (port.js pbrTexturesInstalled): wanted when they're turned on and a later generation's
-// Pokémon are imported; the game and the Pokédex read them once they're downloaded (pbrTextureFolder: the folder, or null).
-function pbrTexturesWanted(settings = config.settings) { return supports('pbrAssets') && Boolean(settings.pbrTextures) && pbrWanted(settings).length > 0; }
+// The Pokémon models' HD textures follow the one HD textures switch (Settings → Graphics): a pack is wanted when that's
+// on and at least one of its models is made, since it changes nothing on a stand-in.
+function anyModelMade(models, wanted) { return wanted.some(n => fs.existsSync(path.join(models, String(n), pokemonPacks.FILES.model))); }
+// Battle Revolution HD textures (port.js pbrTexturesInstalled): wanted when HD textures are on and a Pokémon has its
+// Battle Revolution model; the game and the Pokédex read them once they're downloaded (pbrTextureFolder: the folder, or null).
+function pbrTexturesWanted(settings = config.settings) { return supports('pbrAssets') && Boolean(settings.textures) && anyModelMade(pbrModels(), pbrWanted(settings)); }
 function pbrTextureFolder(settings = config.settings) {
   return pbrTexturesWanted(settings) && port.pbrTexturesInstalled(pbrWork()) ? port.pbrTextureFolder(pbrWork()) : null;
 }
 function pbrTexturesMissing() { return pbrTexturesWanted() && !port.pbrTexturesInstalled(pbrWork()); }
 async function installPbrTextures() {
   requireFeature('pbrAssets', 'Battle Revolution assets');
-  if (!config.settings.pbrTextures) return state();
+  if (!pbrTexturesWanted()) return state();
   if (port.pbrTexturesInstalled(pbrWork())) { log('Battle Revolution HD textures are already installed.'); return state(); }
   await ensureBuildTools();
   const cmd = port.pbrTextureCommand(pbrWork(), process.platform, toolEnv());
@@ -1408,16 +1414,40 @@ async function installPbrTextures() {
   log('Battle Revolution HD textures are ready: your Generation 4 Pokémon show them in the Pokédex and your next game.');
   return state();
 }
-// Before playing, the Battle Revolution and 3DS HD textures: a download that fails doesn't stop the game, which shows the
-// models' own textures until it's done.
+// Before playing, and once models are made, the Battle Revolution and 3DS HD textures: a download that fails doesn't
+// stop the game, which shows the models' own textures until it's done.
 async function ensureModelTextures() {
+  if (!supports('pbrAssets')) return;
   if (pbrTexturesMissing()) {
     try { await installPbrTextures(); }
-    catch (error) { log(`Battle Revolution HD textures couldn't be installed (${error.message}); the game shows the models' own textures. Try again from Settings → Gameplay.`); }
+    catch (error) { log(`Battle Revolution HD textures couldn't be installed (${error.message}); the game shows the models' own textures. The launcher tries again the next time you play.`); }
   }
   if (usumTexturesWanted() && !usumTexturesInstalled()) {
     try { await installUsumTextures(); }
-    catch (error) { log(`3DS HD textures couldn't be installed (${error.message}); the game shows the models' own textures. Try again from Settings → Gameplay.`); }
+    catch (error) { log(`3DS HD textures couldn't be installed (${error.message}); the game shows the models' own textures. The launcher tries again the next time you play.`); }
+  }
+}
+// Settings: HD textures turned on with the game's own pack already there, so the models' packs download now
+async function installModelTextures() { await ensureModelTextures(); return state(); }
+
+// With an update, the models a fix to the converter changed, the cries still missing and the Pokémon not made yet are
+// made from the disc and ROM already chosen, as the game itself is built again: nobody has to press anything. Each
+// state is tried once (a Pokémon that can't be made isn't tried again every time the game starts), and a failure
+// doesn't stop the game: those Pokémon keep what they had.
+const modelAssetsTried = { pbr: '', usum: '' };
+async function ensureModelAssets() {
+  if (!supports('pbrAssets')) return;
+  const pbr = pbrState(), pbrKey = `${pbr.disc}\0${pbr.wanted}\0${pbr.made}\0${pbr.outdated}\0${pbr.noCry}`;
+  if (pbr.supported && pbr.wanted > pbr.made && pbr.discFound && !pbr.discProblem && modelAssetsTried.pbr !== pbrKey) {
+    modelAssetsTried.pbr = pbrKey;
+    try { await makePbrModels(); }
+    catch (error) { log(`Battle Revolution assets couldn't be made (${error.message}); those Pokémon stay as they were. Try again under Settings → Gameplay.`); }
+  }
+  const usum = usumState(), usumKey = `${usum.rom}\0${usum.wanted}\0${usum.made}\0${usum.outdated}\0${usum.noCry}`;
+  if (usum.supported && usum.wanted > usum.made && usum.romFound && !usum.romProblem && modelAssetsTried.usum !== usumKey) {
+    modelAssetsTried.usum = usumKey;
+    try { await makeUsumModels(); }
+    catch (error) { log(`3DS Pokémon assets couldn't be made (${error.message}); those Pokémon stay as they were. Try again under Settings → Gameplay.`); }
   }
 }
 
@@ -1677,7 +1707,7 @@ function fairyBattleData(rom) {
 }
 
 // A Pokémon's 3DS forms (pokemonPacks.formLooks): its female model, Megas, Primal Reversion, regional, battle and other
-// forms, each then its shiny one. None without Generation 5 and 6 Pokémon turned on, or before Make assets made them.
+// forms, each then its shiny one. None without Generation 5 and 6 Pokémon turned on, or before their models are made.
 function usumForms(national) {
   if (!Number.isInteger(national) || national < 1 || !usumWanted().length) return [];
   return pokemonPacks.formLooks(path.join(usumModels(), String(national)));
@@ -1691,7 +1721,7 @@ function withUsumForms(entry, national = entry.national) {
 }
 function usumFormLook(national, form) {
   const file = pokemonPacks.formModelFile(path.join(usumModels(), String(national)), form);
-  if (!fs.existsSync(file)) throw new Error('That form\'s model isn\'t made yet: press Make assets under Generation 5 and 6 Pokémon.');
+  if (!fs.existsSync(file)) throw new Error('That form\'s model isn\'t made yet: choose your 3DS ROM under Settings → Gameplay, below Generation 5 and 6 Pokémon.');
   return { pkx: fs.readFileSync(file) };
 }
 
@@ -2906,6 +2936,7 @@ async function launchGame(update = config.settings.autoUpdate) {
   port.validateRom(config.rom, config.game);
   if (!binaryReady() || (update && !game.isCurrent(config.repo, currentSource()))) await build();
   if (!hdVisualsReady(config.repo, config.settings)) await installTextures();
+  if (update) await ensureModelAssets();
   await ensureModelTextures();
   return play();
 }
@@ -4493,10 +4524,9 @@ function registerHandlers() {
   });
   const actions = { 'install-port': ['Download port source', installPort],
     'update-port': ['Update game', updatePort], 'install-textures': ['Install HD textures', () => installTextures()],
-    'install-pbr-textures': ['Install Battle Revolution HD textures', installPbrTextures], 'build': ['Build game', () => build(true)],
+    'install-model-textures': ['Install HD textures', installModelTextures], 'build': ['Build game', () => build(true)],
     'make-pbr-models': ['Make Battle Revolution assets', makePbrModels],
     'make-usum-models': ['Make 3DS Pokémon assets', makeUsumModels],
-    'install-usum-textures': ['Install 3DS HD textures', installUsumTextures],
     'setup-game': ['Build game', setupGame], 'prepare-game': ['Prepare game', prepareGame], 'play': [playLabel, playInstalled],
     'launch-game': ['Prepare game', () => launchGame()], 'update-and-play': ['Prepare game', () => launchGame(true)],
     'play-previous': [playLabel, () => {

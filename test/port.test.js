@@ -556,9 +556,8 @@ test('the texture installer gets the pinned pack', () => {
   assert.match(port.TEXTURE_PACK.url, /^https:\/\//);
 });
 
-test('Battle Revolution HD textures: off at first, their own installer and folder, read after the HD pack', t => {
-  assert.equal(port.normalizeSettings({}).pbrTextures, false);
-  assert.equal(port.normalizeSettings({ pbrTextures: true }).pbrTextures, true);
+test('Battle Revolution HD textures: no switch of their own (HD textures covers them), their own installer and folder, read after the HD pack', t => {
+  assert.equal('pbrTextures' in port.normalizeSettings({ pbrTextures: true }), false);
   const work = path.join(temporary(t), 'battle-revolution');
   const pack = port.PBR_TEXTURE_PACK;
   const { args, cwd } = port.pbrTextureCommand(work, 'linux', {});
@@ -582,9 +581,8 @@ test('Battle Revolution HD textures: off at first, their own installer and folde
   assert.equal(env.SMS_TEXTURE_PACKS, folder);
 });
 
-test('3DS HD textures: off at first, their own pack and folder, read after Battle Revolution\'s', t => {
-  assert.equal(port.normalizeSettings({}).usumTextures, false);
-  assert.equal(port.normalizeSettings({ usumTextures: true }).usumTextures, true);
+test('3DS HD textures: no switch of their own, their own pack and folder, read after Battle Revolution\'s', t => {
+  assert.equal('usumTextures' in port.normalizeSettings({ usumTextures: true }), false);
   const work = path.join(temporary(t), 'usum-models');
   const pack = port.USUM_TEXTURE_PACK;
   assert.notEqual(pack.folder, port.PBR_TEXTURE_PACK.folder);

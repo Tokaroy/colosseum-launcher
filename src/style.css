@@ -493,6 +493,8 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .path-row strong, .backup-picker span { color: #4f3448; font-size: 13px; font-weight: 650; }
 .path-row .small-path { min-height: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .path-row > button, .path-row > .actions { flex: none; }
+.path-row.sub .small-path { white-space: normal; line-height: 1.45; }
+.path-row .actions { display: flex; gap: 8px; }
 /* Settings → Game Boy Advance: what a chosen file is, and what's wrong with it */
 .path-row .gba-note { color: #9a5a12; white-space: normal; }
 .path-row .gba-note.rom-error { color: #b3261e; }
