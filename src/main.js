@@ -1453,6 +1453,23 @@ async function ensureModelAssets() {
   }
 }
 
+// Writes the game's file of Pokémon (pokemonPacks.compile's contents) no bigger than the game reads
+// (port.packsFileLimit): a game handed a bigger one stops rather than play without it, which would have every saved
+// Pokémon that knows a later generation's move forget it. Replace all models' models go first, as they change only how
+// the game's own Pokémon look; when the rest is still too big, the game isn't started. Returns the looks written.
+function writePacksFile(file, contents) {
+  const limit = port.packsFileLimit(config.repo), mb = bytes => `${Math.ceil(bytes / 1e6)} MB`;
+  const { bytes, looks, withLooks } = pokemonPacks.compileWithin(contents, limit);
+  if (withLooks) log(`Replace all models is left out of this game: with it, the game's Pokémon would come to ${mb(withLooks)}, more than the ${mb(limit)} the game can read. The game's own Pokémon look as on the disc.`);
+  if (bytes.length > limit) {
+    const error = new Error(`The Pokémon for this game come to ${mb(bytes.length)}, more than the ${mb(limit)} the game can read, so it wasn't started: without them, your saved Pokémon would forget their later generations' moves. Turn off a generation's Pokémon or some Pokémon packs, then play again.`);
+    error.stopsPlay = true;
+    throw error;
+  }
+  fs.writeFileSync(file, bytes);
+  return looks;
+}
+
 // The file of packs for the game to load, or null when there are none, and how many of its Pokémon are packs' own
 // (not a later generation's). Each Pokémon keeps its row of the species table from then on (pokemon-packs.json, beside
 // the saves).
@@ -1466,14 +1483,13 @@ function preparePokemonPacks(rom, folder) {
   // later generation's when that's on, and the Fairy moves it's past the level for
   // with the Fairy type (Gardevoir's Moonblast).
   const relearner = supports('moveRelearner') && config.settings.moveRelearner !== false;
-  const looks = pbrOwnModels(loaded.tables);
-  if (!pokemon.length && !moves.length && !rules && !ownRows.length && !looks.length && !relearner && !types && !speciesChanges.length) return { file: null, own: 0 };
+  const ownLooks = pbrOwnModels(loaded.tables);
+  if (!pokemon.length && !moves.length && !rules && !ownRows.length && !ownLooks.length && !relearner && !types && !speciesChanges.length) return { file: null, own: 0 };
   if (loaded.registryChanged) pokemonPacks.writeRegistry(currentSaveDirectory(), loaded.registry);
   const file = path.join(folder, 'pokemon-packs.bin');
-  fs.writeFileSync(file, pokemonPacks.compile({ pokemon, moves, rules, ownRows, relearner, looks, types, speciesChanges }));
-  logOwnModels(looks);
+  logOwnModels(writePacksFile(file, { pokemon, moves, rules, ownRows, relearner, looks: ownLooks, types, speciesChanges }));
   if (loaded.pokemon.length) log(`Pokémon packs: ${loaded.pokemon.map(each => `${pokedexNames.displayName(each.name)}${each.form ? ` (${each.form})` : ''} from ${each.key}`).join(', ')}.`);
-  for (const generation of config.settings.generationPokemon) log(`Generation ${generation} Pokémon: ${loaded.generationPokemon.filter(each => each.generation === generation).length} Pokémon and ${moves.length} new moves.`);
+  if (config.settings.generationPokemon.length) log(`Later generations: ${generationCounts(config.settings.generationPokemon, loaded.generationPokemon)}, and ${moves.length} new moves.`);
   if (rules) log(`Battle rules: generation ${rules.generation}${mechanicsLogText(generations.normalize(withFairyType(config.settings)).battleRules, loaded.built.mechanics)}.`);
   if (types) log(`Gen 6 types: ${types.species.length} of the game's Pokémon and ${types.moves.length} of its moves are Fairy types, with ${moves.filter(move => move.row[generations.MV.type] === generations.FAIRY_TYPE).length} Fairy-type moves.`);
   else if (config.settings.fairyType) log('Gen 6 types: this version of the game doesn\'t have them yet. Update the game to play with them.');
@@ -1490,9 +1506,8 @@ function prepareBattleRules(rom, folder, battleRules, fairyType = false, mechani
   const built = generations.build(packTables.tables, { battleRules, generationPokemon, fairyType, mechanicChanges });
   const { pokemon, problems } = pokemonPacks.generationPokemon(packTables.tables, built, { modelsDirectory: pbrModels(), modelsDirectories: { 4: pbrModels(), 5: usumModels(), 6: usumModels() } });
   for (const problem of problems) log(`Generation ${battleRules} Pokémon ${packLabel(problem)}: ${problem.message}`);
-  const looks = pbrOwnModels(packTables.tables);
   const file = path.join(folder, 'online-rules.bin');
-  fs.writeFileSync(file, pokemonPacks.compile({ pokemon, moves: built.moves, rules: built.rules, looks, types: built.types, speciesChanges: built.speciesChanges }));
+  const looks = writePacksFile(file, { pokemon, moves: built.moves, rules: built.rules, looks: pbrOwnModels(packTables.tables), types: built.types, speciesChanges: built.speciesChanges });
   log(`Battle rules: generation ${battleRules}, the room's, with its ${pokemon.length} Pokémon${built.types ? ', with Gen 6 types' : ''}${mechanicsLogText(battleRules, built.mechanics)}.`);
   logOwnModels(looks);
   return file;
@@ -1513,9 +1528,14 @@ function prepareOwnModels(rom, folder) {
   const looks = pbrOwnModels(packTables.tables);
   if (!looks.length) return null;
   const file = path.join(folder, 'online-rules.bin');
-  fs.writeFileSync(file, pokemonPacks.compile({ looks }));
-  logOwnModels(looks);
-  return file;
+  const written = writePacksFile(file, { looks });
+  logOwnModels(written);
+  return written.length ? file : null;
+}
+
+// "107 Generation 4 Pokémon and 254 Generation 6 Pokémon", for the log: each generation chosen, with its Pokémon
+function generationCounts(chosen, pokemon) {
+  return chosen.map(generation => `${pokemon.filter(each => each.generation === generation).length} Generation ${generation} Pokémon`).join(' and ');
 }
 
 function logOwnModels(looks) {
@@ -1534,8 +1554,8 @@ function prepareGenerations(rom, folder, settings = config.settings) {
   const { pokemon, problems } = pokemonPacks.generationPokemon(packTables.tables, built);
   for (const problem of problems) log(`Later generation's Pokémon ${packLabel(problem)}: ${problem.message}`);
   const file = path.join(folder, 'generations.bin');
-  fs.writeFileSync(file, pokemonPacks.compile({ pokemon, moves: built.moves, rules: built.rules, types: built.types, speciesChanges: built.speciesChanges }));
-  for (const generation of chosen.generationPokemon) log(`Generation ${generation} Pokémon, from Pokémon Colosseum's disc: ${pokemon.filter(each => each.generation === generation).length} Pokémon and ${built.moves.length} new moves.`);
+  writePacksFile(file, { pokemon, moves: built.moves, rules: built.rules, types: built.types, speciesChanges: built.speciesChanges });
+  if (chosen.generationPokemon.length) log(`Later generations, from Pokémon Colosseum's disc: ${generationCounts(chosen.generationPokemon, pokemon)}, and ${built.moves.length} new moves.`);
   if (built.rules) log(`Battle rules: generation ${built.rules.generation}${mechanicsLogText(chosen.battleRules, built.mechanics)}.`);
   return file;
 }
@@ -1554,15 +1574,15 @@ function preparePlayPacks(rom, folder, battle = null) {
         { ...(battle.rules.mechanics || {}), gen6Types: Boolean(battle.rules.fairy) }), own: 0 };
     if (!pbrReplacing() || !supports('pbrAssets')) return { file: null, own: 0 };
     try { return { file: prepareOwnModels(packsDisc(rom, 'Your Battle Revolution models are given to the game'), folder), own: 0 }; }
-    catch (error) { log(`Your Battle Revolution models of the game's own Pokémon weren't loaded: ${error.message}`); return { file: null, own: 0 }; }
+    catch (error) { if (error.stopsPlay) throw error; log(`Your Battle Revolution models of the game's own Pokémon weren't loaded: ${error.message}`); return { file: null, own: 0 }; }
   }
   if (supports('pokemonPacks')) {
     try { return preparePokemonPacks(packsDisc(rom, `${activeGame().shortName}'s Pokémon packs and later generations are made`), folder); }
-    catch (error) { log(`Pokémon packs weren't loaded: ${error.message}`); return { file: null, own: 0 }; }
+    catch (error) { if (error.stopsPlay) throw error; log(`Pokémon packs weren't loaded: ${error.message}`); return { file: null, own: 0 }; }
   }
   if (!supports('generations')) return { file: null, own: 0 };
   try { return { file: prepareGenerations(teamDisc(`${activeGame().shortName}'s later generations are made`), folder), own: 0 }; }
-  catch (error) { log(`Later generations weren't loaded: ${error.message}`); return { file: null, own: 0 }; }
+  catch (error) { if (error.stopsPlay) throw error; log(`Later generations weren't loaded: ${error.message}`); return { file: null, own: 0 }; }
 }
 
 // The HD textures the Pokédex draws with: the folders the game would read, the player's custom textures and then

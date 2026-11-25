@@ -730,6 +730,16 @@ function pbrMakesCries(root) { return fs.existsSync(path.join(root, 'tools', 'pb
 // before skips the chunk, so Replace all models waits for an update.
 function playsOwnModels(root) { return fs.existsSync(path.join(root, 'host', 'packlooks.c')); }
 function playsPackCries(root) { return fs.existsSync(path.join(root, 'host', 'packcries.c')); }
+// The most the game reads of the launcher's file of Pokémon (COLO_POKEMON_PACKS), in bytes: the line host/colo.h has
+// (COLO_PACKS_FILE_MIB), or the 512 MiB of a game from before it.
+const OLD_PACKS_FILE_LIMIT = 512 * 1024 * 1024;
+function packsFileLimit(root) {
+  try {
+    const match = /^#define COLO_PACKS_FILE_MIB (\d+)\b/m.exec(fs.readFileSync(path.join(root, 'host', 'colo.h'), 'utf8'));
+    if (match) return Number(match[1]) * 1024 * 1024;
+  } catch (_) {}
+  return OLD_PACKS_FILE_LIMIT;
+}
 // gamecube: the player's own Colosseum or XD disc, which the converter takes the Pokémon's fire, gas and sparkles from
 // (tools/pbr2pkx/particles.py); an older converter doesn't read it
 function pbrModelsCommand(root, disc, work, numbers, platform = process.platform, environment = process.env, gamecube = null) {
@@ -826,5 +836,5 @@ module.exports = { PORT_URL, TEXTURE_PACK, PBR_TEXTURE_PACK, USUM_TEXTURE_PACK, 
   texturePackDirectory, texturePackInstalled, hdVisualsInstalled, dropLeftOutTextures, customTextureDirectory, customTexturesPresent, texturePackFolders,
   pbrTextureDirectory, pbrTexturesInstalled, pbrTextureFolder, dropLeftOutPbrTextures, pbrTextureCommand,
   buildEnvironment, binaryPath, longPathProblem, pathCharacterProblem, nonAsciiPathProblem, playableInstall, useLauncherScripts, launcherScript,
-  gameBuildEnvironment, buildCommand, buildJobs, textureCommand, pbrModelsScript, pbrModelsCommand, pbrOutdated, pbrMakesCries, playsOwnModels, playsPackCries,
+  gameBuildEnvironment, buildCommand, buildJobs, textureCommand, pbrModelsScript, pbrModelsCommand, pbrOutdated, pbrMakesCries, playsOwnModels, playsPackCries, packsFileLimit,
   usumModelsScript, usumModelsCommand, usumOutdated, gameRunCommand, gameRuntimeFolders, systemLibdrmAmdgpu };

@@ -268,6 +268,20 @@ test('Replace all models is off unless chosen, and waits for a game that shows t
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+test('the game reads a file of Pokémon as big as its host/colo.h says, or 512 MiB before that line', () => {
+  const fs = require('fs'), os = require('os'), path = require('path'), port = require('../src/port');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'packs-limit-'));
+  try {
+    assert.equal(port.packsFileLimit(root), 512 * 1024 * 1024, 'no colo.h');
+    assert.equal(port.packsFileLimit(null), 512 * 1024 * 1024, 'no game');
+    fs.mkdirSync(path.join(root, 'host'));
+    fs.writeFileSync(path.join(root, 'host', 'colo.h'), '#define COLO_LOW_END  0x80000000u\n');
+    assert.equal(port.packsFileLimit(root), 512 * 1024 * 1024, 'a game from before the line');
+    fs.writeFileSync(path.join(root, 'host', 'colo.h'), '/* ... */\n#define COLO_PACKS_FILE_MIB 2047\n');
+    assert.equal(port.packsFileLimit(root), 2047 * 1024 * 1024);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test("an ability Ruby writes as one word stays a Pokémon's under Generation 4's rules", () => {
   const data = generations.load(4);
   const row = Buffer.alloc(0x40); row[0x32] = 31; row[0x33] = 69;   // Rhydon: Lightning Rod, Rock Head
