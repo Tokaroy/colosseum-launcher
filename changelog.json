@@ -47,6 +47,21 @@
   },
   "releases": [
     {
+      "version": "0.6.1",
+      "date": "2026-11-25",
+      "title": "Online co-op and Poké Spot fixes",
+      "hotfixFor": "0.6.0",
+      "launcher": [],
+      "game": {
+        "version": "2026.11.25.2",
+        "commit": "8e2c11e1cfd86ba7ccf0b26bc30808ed4449b316",
+        "changes": [
+          "Fixed online co-op battles going out of step and leaving the joining player stuck in the fight. The host's battle and Gameplay settings now decide, and a Pokémon either player snags or catches ends up in both games.",
+          "Fixed Pokémon XD crashing when you continue a save made at a Poké Spot during a visit. It happened when the visitor came from More Poké Spot Pokémon."
+        ]
+      }
+    },
+    {
       "version": "0.6.0",
       "date": "2026-11-25",
       "launcher": [
