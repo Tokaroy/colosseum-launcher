@@ -731,7 +731,9 @@ function renderActivity(active) {
   $('view-build-log').textContent = active?.label.startsWith('Build ') ? 'View build log' : 'View activity';
   const pbrNote = pbrProgress(active);
   if (pbrNote) $('pbr-note').textContent = pbrNote;
-  if (current) renderPbrBanner({ ...current, active });
+  const usumNote = usumProgress(active);
+  if (usumNote) $('usum-note').textContent = usumNote;
+  if (current) { renderPbrBanner({ ...current, active }); renderUsumBanner({ ...current, active }); }
   $('task-status').textContent = active ? taskName(active.label)
     : current?.binaryReady && needsTextureDownload(current) ? 'HD setup needed'
     : current?.game.needsUpdate && current.config.completedSetup ? 'Update ready'
@@ -798,25 +800,39 @@ function renderGame(data) {
 
 // Later generations, as each game has them: Colosseum's own, with packs and Battle Revolution assets; another game's are
 // made from Colosseum's disc (main.js prepareGenerations), and its Pokémon look as the ones standing in for them.
-const GENERATION_RULES = 'Generation 4: each move is physical or special by itself, not by its type; a sandstorm raises Rock types\' Sp. Def; and moves Diamond and Pearl changed play as they did there.';
+// The battle rules' note, in a sentence for the rules chosen (renderMechanics), and whose online battles play by them
+const RULES_NOTES = {
+  3: game => `${game}'s own battle rules.`,
+  4: () => 'Moves are physical or special by themselves, as in Diamond and Pearl.',
+  6: () => 'X and Y\'s damage, critical hits and status, hidden abilities and the Fairy type.',
+};
+let rulesGame = { own: true, name: 'Colosseum' };
+function renderRulesNote(rules) {
+  $('battle-rules-note').textContent = `${(RULES_NOTES[rules] || RULES_NOTES[3])(rulesGame.name)} ${rulesGame.own
+    ? 'Online battles use the room\'s rules.' : `${rulesGame.name}'s online battles use Gen 3 rules for now.`}`;
+}
 function renderGenerationsText(data, chosen) {
   // Colosseum's own (with the Pokédex and the randomizer), or another game's, made from Colosseum's disc
   const own = chosen.id === 'colosseum';
+  rulesGame = { own, name: chosen.shortName };
+  renderRulesNote(Number(data.config?.settings?.battleRules) || 3);
   $('battle-rules-gen3').textContent = `${chosen.shortName} (Gen 3)`;
-  $('battle-rules-note').textContent = own
-    ? `${GENERATION_RULES} An online battle plays by its room's rules, chosen under Rules on the Online page.`
-    : `${GENERATION_RULES} It applies to Colosseum too, and ${chosen.shortName}'s online battles play by Gen 3 rules for now.`;
   // another game's story gives none yet, but its randomizer can choose them
-  const story = gameHas(data, 'randomizer') ? `Nothing in ${chosen.shortName}'s story gives you one, but the randomizer can choose them, with Gen 4 under its Generations.`
-    : `Nothing in ${chosen.shortName}'s story gives you one yet.`;
+  const story = gameHas(data, 'randomizer') ? 'The randomizer can choose them.' : `Nothing in ${chosen.shortName}'s story gives you one yet.`;
+  const looks = gameHas(data, 'pbrAssets') || own ? 'Their models and cries come from your Pokémon Battle Revolution disc, if you have one.'
+    : `Each one looks and sounds like a Pokémon of ${chosen.shortName} standing in for it.`;
   $('generation4-note').textContent = own
-    ? 'Adds the 107 Pokémon from Turtwig to Arceus, and the new moves of Diamond and Pearl that Colosseum can play, to your game and the Pokédex. The randomizer can choose them, with Gen 4 under its Generations. Their models and cries come from your own Pokémon Battle Revolution disc, asked for when you turn this on; without it, a Colosseum Pokémon stands in for each one\'s looks and cry.'
-    : gameHas(data, 'pbrAssets')
-      ? `Adds the 107 Pokémon from Turtwig to Arceus, and the new moves of Diamond and Pearl, to ${chosen.shortName}, and the game's own Pokémon learn moves and evolve as in Platinum. Their models and cries come from your own Pokémon Battle Revolution disc; without it, a Pokémon of the game stands in for each one's looks and cry. ${story} It applies to Colosseum too.`
-      : `Adds the 107 Pokémon from Turtwig to Arceus, and the new moves of Diamond and Pearl, to ${chosen.shortName}. Each one looks and sounds like a Pokémon of the game standing in for it. ${story} It applies to Colosseum too.`;
+    ? `Adds the 107 Pokémon from Turtwig to Arceus and their moves, for the randomizer and the Pokédex. ${looks}`
+    : `Adds the 107 Pokémon from Turtwig to Arceus and their moves. ${story} ${looks}`;
+  // generations 5 and 6's play their own moves and abilities only under X and Y battle rules
+  const xy = 'Their own moves and abilities play only under X and Y battle rules.';
+  const usumLooks = `Their models, icons and cries come from your own decrypted Pokémon Ultra Sun, Ultra Moon, Sun or Moon (.3ds) ROM, asked for when you turn this on; without it, a ${chosen.shortName} Pokémon stands in for each one's looks and cry.`;
+  $('generation6-note').textContent = own
+    ? `Adds the 228 Pokémon from Victini to Volcanion and their moves, for the Pokédex. ${xy} ${usumLooks}`
+    : `Adds the 228 Pokémon from Victini to Volcanion and their moves. ${story} ${xy} ${usumLooks}`;
   // made from Colosseum's disc, which has to be set up first
   $('generations-disc-note').hidden = own || data.teamDiscReady !== false;
-  $('generations-disc-note').textContent = `Generation 4 in ${chosen.shortName} is made from your Pokémon Colosseum disc. Choose Colosseum on the Play page and set up its disc first; until then ${chosen.shortName} plays by Gen 3 rules.`;
+  $('generations-disc-note').textContent = `Later generations in ${chosen.shortName} are made from your Pokémon Colosseum disc. Choose Colosseum on the Play page and set up its disc first; until then ${chosen.shortName} plays by Gen 3 rules.`;
 }
 
 // The GBA link, as each game has it: Colosseum registers a team and gives Poké Coupons; XD only trades, at the Trade
@@ -1050,9 +1066,10 @@ function refresh(data) {
   const finish = data.binaryReady ? 'Close Settings and choose Finish HD setup.' : '';
   badge('textures-badge', data.texturesInstalled ? 'Installed' : 'Not installed', data.texturesInstalled,
     config.settings.textures && !data.texturesInstalled);
-  $('texture-info').textContent = data.texturesInstalled
+  $('texture-info').textContent = (data.texturesInstalled
     ? config.settings.textures ? 'HD textures are ready.' : 'Already downloaded. Turn on to use them.'
-    : `${config.settings.textures ? `${finish || 'HD textures will download during setup.'} ` : ''}About ${gb(data.texturePack.size)} GB to download; allow ${gb(data.texturePack.size + data.texturePack.unpacked)} GB of free space for setup.`;
+    : `${config.settings.textures ? `${finish || 'HD textures will download during setup.'} ` : ''}About ${gb(data.texturePack.size)} GB to download; allow ${gb(data.texturePack.size + data.texturePack.unpacked)} GB of free space for setup.`)
+    + modelTexturesNote(data);
   $('clean').disabled = !data.repoReady || Boolean(data.active);
   $('clean-preview').disabled = !data.repoReady || Boolean(data.active);
   // Windows only: elsewhere the game runs with libraries from the build tools. Your own MSYS2 is never removed.
@@ -1126,6 +1143,7 @@ function refresh(data) {
   for (const key of SELECTS) $(key).value = String(config.settings[key]);
   renderRanges();
   for (const key of SWITCHES) $(key).checked = config.settings[key];
+  renderMechanics(config.settings);
   $('graphicsPreset').value = config.settings.graphicsPreset || 'custom';
   renderPreset();
   renderCrashReports(data.crashReports);
@@ -1154,13 +1172,14 @@ function refresh(data) {
   for (const key of [...SELECTS, ...SWITCHES, 'graphicsPreset']) $(key).disabled = Boolean(data.active);
   renderRandomizer(data);
   renderPbr(data);
+  renderUsum(data);
   renderDependents(Boolean(data.active));
   changing = false;
 }
 
 // The settings that are a list or a range, and the ones that are a switch: each saves under its element's id.
 const SELECTS = ['difficultyLevels', 'difficultyLevelsFrom', 'difficultyTeam', 'difficultyShadows', 'buttonPrompts', 'promptPad', 'battleRules', 'widescreen', 'resolution', 'frameRate', 'vsync', 'fullscreenMode', 'exclusiveResolution', 'display', 'msaa', 'anisotropic', 'sharpen', 'brightness', 'aspect', 'presentFilter', 'fsrMode', 'textureLoading', 'renderer', 'hdText', 'expAllShare', 'shinyOdds', 'language', 'battleSpeed', 'fastForward', 'fastForwardSpeed', 'coopHero', 'coopSplit', 'coopPads', 'padMode', 'updateChannel', 'randomizerSeed'];
-const SWITCHES = ['difficultyEvolve', 'randomizer', 'randomizerStarters', 'randomizerShadow', 'randomizerTrainers', 'randomizerGifts', 'randomizerGen1', 'randomizerGen2', 'randomizerGen3', 'randomizerGen4', 'randomizerPacks', 'randomizerSimilar', 'randomizerNoLegendaries', 'randomizerNoRepeats', 'randomizerBaseForms', 'generation4Pokemon', 'pbrReplaceAll', 'pbrTextures', 'fullscreen', 'hudEdges', 'skipMovies', 'skipBattleAnimations', 'quickMoves', 'quickStatus', 'shinyShadow', 'shinyStarters', 'chooseHero', 'chooseStarters', 'tmNames', 'infiniteTms', 'expAll', 'cstickMove', 'partnerPass', 'moveRelearner', 'coop', 'pokeSpotPool', 'overlay', 'backgroundInput', 'gbaAutoPower', 'gbaTradeAnytime', 'fxaa', 'textures', 'hdModels', 'shaderWarmup', 'autoUpdate', 'autoBackups', 'shareUsage', 'discordPresence', 'darkMode'];
+const SWITCHES = ['difficultyEvolve', 'randomizer', 'randomizerStarters', 'randomizerShadow', 'randomizerTrainers', 'randomizerGifts', 'randomizerGen1', 'randomizerGen2', 'randomizerGen3', 'randomizerGen4', 'randomizerGen5', 'randomizerGen6', 'randomizerPacks', 'randomizerSimilar', 'randomizerNoLegendaries', 'randomizerNoRepeats', 'randomizerBaseForms', 'generation4Pokemon', 'generation6Pokemon', 'fairyType', 'pbrReplaceAll', 'fullscreen', 'hudEdges', 'skipMovies', 'skipBattleAnimations', 'quickMoves', 'quickStatus', 'shinyShadow', 'shinyStarters', 'chooseHero', 'chooseStarters', 'tmNames', 'infiniteTms', 'expAll', 'cstickMove', 'partnerPass', 'battleLighting', 'moveRelearner', 'coop', 'pokeSpotPool', 'overlay', 'backgroundInput', 'gbaAutoPower', 'gbaTradeAnytime', 'fxaa', 'textures', 'hdModels', 'shaderWarmup', 'autoUpdate', 'autoBackups', 'shareUsage', 'discordPresence', 'darkMode'];
 
 // The languages: English, the launcher's packs and any found in the languages folder. One chosen and then
 // removed from the folder stays listed, as the game plays in English without it; so does one this game has no pack
@@ -1381,7 +1400,7 @@ function showError(error) { closeModal(); setMessage(errorText(error), true); }
 function needsBuild(method) {
   if (method === 'launchGame') return !current.binaryReady || !current.hdVisualsReady ||
     Boolean(current.config.settings.autoUpdate && current.game.needsUpdate);
-  return ['installPort', 'installTextures', 'installPbrTextures', 'makePbrModels', 'build', 'setupGame', 'prepareGame', 'updateAndPlay', 'updatePort'].includes(method);
+  return ['installPort', 'installTextures', 'installModelTextures', 'makePbrModels', 'makeUsumModels', 'build', 'setupGame', 'prepareGame', 'updateAndPlay', 'updatePort'].includes(method);
 }
 
 async function action(method) {
@@ -1389,7 +1408,7 @@ async function action(method) {
   // In a folder too deep for Windows, explain instead of starting a build that would fail.
   if (current?.pathProblem && needsBuild(method)) { showPathProblem(); return; }
   try {
-    if (['installPort', 'installTextures', 'installPbrTextures', 'makePbrModels', 'build', 'setupGame', 'prepareGame', 'launchGame', 'updateAndPlay', 'updatePort', 'play', 'playPrevious'].includes(method))
+    if (['installPort', 'installTextures', 'installModelTextures', 'makePbrModels', 'makeUsumModels', 'build', 'setupGame', 'prepareGame', 'launchGame', 'updateAndPlay', 'updatePort', 'play', 'playPrevious'].includes(method))
       setConsoleFollowing(true);
     const result = await window.colo[method]();
     if (result && result.config) refresh(result);
@@ -1467,6 +1486,44 @@ function renderDependents(busy = false) {
   }[$('textureLoading').value];
 }
 
+// Settings → Later generations → Customize rules (src/mechanics.js): Gen 6 types (their own switch, first), then a
+// switch for each other mechanic, on as the chosen battle rules' preset has it with the player's changes on top. A
+// mechanic the generation 4 engine plays isn't listed under Colosseum's rules. Changing the rules starts again from
+// their preset.
+const MECHANICS = window.coloMechanics;
+const GENERATION_NAMES = { 4: 'Gen 4', 5: 'Gen 5', 6: 'Gen 6' };
+function renderMechanics(settings) {
+  const rules = Number(settings.battleRules) || 3, chosen = new Set(settings.mechanics || []);
+  renderRulesNote(rules);
+  const rows = MECHANICS.MECHANICS.filter(each => each.id !== 'gen6Types' && !(each.engine && rules < 4)).map(each => {
+    const label = document.createElement('label'), span = document.createElement('span'), strong = document.createElement('strong');
+    const small = document.createElement('small'), input = document.createElement('input'), mark = document.createElement('i');
+    label.className = 'switch';
+    strong.textContent = each.name;
+    small.textContent = `${GENERATION_NAMES[each.generation] || `Gen ${each.generation}`}. ${each.note}`;
+    input.type = 'checkbox';
+    input.dataset.mechanic = each.id;
+    input.checked = chosen.has(each.id);
+    input.disabled = Boolean(current?.active);
+    input.addEventListener('change', saveSettings);
+    span.append(strong, small);
+    label.append(span, input, mark);
+    return label;
+  });
+  $('mechanics-list').replaceChildren(...rows);
+  const changed = Object.keys(settings.mechanicChanges || {}).length;
+  $('mechanics-changed').textContent = changed ? `· ${changed} changed` : '';
+}
+// The mechanics as the page has them, for the settings: { mechanicChanges, fairyType }
+function mechanicsValue(rules) {
+  const before = Number(current?.config?.settings?.battleRules) || 3;
+  // new rules: their preset, with Gen 6 types as they come with them (or as they were, leaving rules of neither)
+  if (rules !== before) return { mechanicChanges: {}, fairyType: rules >= 6 || (before < 6 && $('fairyType').checked) };
+  const chosen = [...document.querySelectorAll('#mechanics-list input[data-mechanic]')].filter(input => input.checked).map(input => input.dataset.mechanic);
+  if ($('fairyType').checked) chosen.push('gen6Types');
+  return { mechanicChanges: MECHANICS.changesFrom(rules, chosen), fairyType: $('fairyType').checked };
+}
+
 function settingsValue() {
   const value = { keyBindings, padBindings, stickDeadzone: Number($('stickDeadzone').value),
     triggerClick: Number($('triggerClick').value), rumbleStrength: Number($('rumbleStrength').value), gbaVolume: Number($('gbaVolume').value),
@@ -1474,6 +1531,7 @@ function settingsValue() {
     graphicsPreset: $('graphicsPreset').value };
   for (const key of SELECTS) value[key] = $(key).value;
   for (const key of SWITCHES) value[key] = $(key).checked;
+  Object.assign(value, mechanicsValue(Number(value.battleRules) || 3));
   return value;
 }
 
@@ -1489,16 +1547,23 @@ function pbrProgress(active) {
 // What the game makes from the disc: models and icons, and cries where it has them (pbr.cries)
 function pbrAssets(pbr, icons = false) { return pbr.cries ? (icons ? 'models, icons and cries' : 'models and cries') : (icons ? 'models and icons' : 'models'); }
 
+// One line under its generation's switch: the disc, and how many of the Pokémon have theirs. They're made when the disc
+// is chosen, when the switch is turned on and with each update, so Make now only shows when some are left to make.
 function renderPbr(data) {
-  const pbr = data.pbr || {};
+  const pbr = data.pbr || {}, usable = pbrDiscUsable(pbr), left = (pbr.wanted || 0) - (pbr.made || 0);
+  $('pbr-row').hidden = !pbr.wanted;
   $('pbr-note').textContent = pbrProgress(data.active)
     || (!pbr.supported ? 'Update your game to make models from your own Pokémon Battle Revolution disc.'
-      : !pbr.wanted ? `Turn on Generation 4 Pokémon above or Replace all models below, then make their ${pbrAssets(pbr)} from your own Pokémon Battle Revolution disc. No Blender needed.`
-        : !pbr.disc ? `Choose your own Pokémon Battle Revolution disc (RVZ, ISO or WBFS) and their ${pbrAssets(pbr, true)} are made from it. Until then, each has a Colosseum Pokémon standing in. ${pbr.made} of ${pbr.wanted} made.`
-          : pbr.outdated ? `${pbr.disc}: ${pbr.made} of ${pbr.wanted} made. A fix changed ${pbr.outdated === 1 ? '1 Pokémon\'s model' : `${pbr.outdated} Pokémon's models`}: press Make assets to make ${pbr.outdated === 1 ? 'it' : 'them'} again.`
-            : pbr.noCry ? `${pbr.disc}: ${pbr.made} of ${pbr.wanted} made. ${pbr.noCry === 1 ? '1 Pokémon has' : `${pbr.noCry} Pokémon have`} a model but no cry of its own yet: press Make assets to add ${pbr.noCry === 1 ? 'it' : 'them'}.`
-              : `${pbr.disc}: ${pbr.made} of ${pbr.wanted} made. Making them takes a few minutes, and only makes what's missing.`);
-  $('make-pbr-models').disabled = Boolean(data.active) || !pbr.supported || !pbr.wanted || !pbrDiscUsable(pbr);
+      : !pbr.disc ? `Choose your own Pokémon Battle Revolution disc (RVZ, ISO or WBFS) for their ${pbrAssets(pbr, true)}. Until then, each has a Colosseum Pokémon standing in.`
+        : !usable ? `${fileName(pbr.disc)} can't be used. Choose your disc again.`
+          : !left ? `${fileName(pbr.disc)}: all ${pbr.wanted} Pokémon have their ${pbrAssets(pbr, true)}.`
+            : !pbr.outdated && pbr.noCry === left ? `${fileName(pbr.disc)}: ${pbr.noCry === 1 ? '1 Pokémon has' : `${pbr.noCry} Pokémon have`} a model but no cry of ${pbr.noCry === 1 ? 'its' : 'their'} own yet, added with your next update.`
+            : pbr.outdated ? `${fileName(pbr.disc)}: ${pbr.made} of ${pbr.wanted} made. A fix changed ${pbr.outdated === 1 ? '1 Pokémon\'s model' : `${pbr.outdated} Pokémon's models`}, made again with your next update.`
+              : `${fileName(pbr.disc)}: ${pbr.made} of ${pbr.wanted} made. The rest are made with your next update.`);
+  $('pbr-note').title = pbr.disc || '';
+  $('make-pbr-models').hidden = !pbr.supported || !usable || left <= 0 || Boolean(pbrProgress(data.active));
+  $('make-pbr-models').disabled = Boolean(data.active);
+  $('choose-pbr-disc').textContent = pbr.disc ? 'Change' : 'Choose disc';
   $('choose-pbr-disc').disabled = Boolean(data.active);
   // Replace all models: the game's own Pokémon too, once the game can show them
   $('pbrReplaceAll').disabled = Boolean(data.active) || !pbr.ownModels;
@@ -1506,11 +1571,23 @@ function renderPbr(data) {
     ? 'Update your game to give its own Pokémon their Battle Revolution models.'
     : `Gives the game's own Pokémon, Bulbasaur to Deoxys, their Battle Revolution models too, so every Pokémon looks as it does there, in the game and the Pokédex. Off unless you choose it: ${pbrReplaceAllCost(pbr)}`;
   renderPbrCheck('pbr-check', pbr);
-  renderPbrTextures(data);
   renderPbrBanner(data);
 }
 
-// How much longer Make assets takes with Replace all models, as a multiple of making it without: each Pokémon takes about
+// What HD textures (Settings → Graphics) says of the Pokémon models' own packs: each downloads once, when its models are
+// made and HD textures are on.
+function modelTexturesNote(data) {
+  const notes = [];
+  for (const [name, source] of [['Battle Revolution', data.pbr], ['3DS', data.usum]]) {
+    const textures = source?.textures || {};
+    if (!textures.wanted) continue;
+    notes.push(textures.installed ? `Your ${name} models have theirs.`
+      : `Your ${name} models' are a download of about ${Math.max(1, Math.round((textures.size || 0) / 1e6))} MB, which starts when you play.`);
+  }
+  return notes.length ? ` ${notes.join(' ')}` : '';
+}
+
+// How much longer making the assets takes with Replace all models, as a multiple of making it without: each Pokémon takes about
 // as long, so Generation 4's 107 and the game's own 386 take about 4½ times as long as Generation 4's alone. Without a
 // later generation, it's compared with making Generation 4's.
 function pbrReplaceAllTimes(pbr) {
@@ -1521,25 +1598,11 @@ function pbrReplaceAllTimes(pbr) {
 function pbrReplaceAllCost(pbr) {
   const own = pbr.ownCount || 386, without = pbr.generationCount || 0;
   return without
-    ? `it's ${own} more Pokémon to make from your disc, so Make assets takes about ${pbrReplaceAllTimes(pbr)} times as long as without it (${without + own} Pokémon instead of ${without}), and uses about 500 MB more space.`
-    : `it's ${own} Pokémon to make from your disc, so Make assets takes about ${pbrReplaceAllTimes(pbr)} times as long as making Generation 4's ${pbr.generation4Count || 107}, and uses about 500 MB of space.`;
+    ? `it's ${own} more Pokémon to make from your disc, so making them takes about ${pbrReplaceAllTimes(pbr)} times as long as without it (${without + own} Pokémon instead of ${without}), and uses about 500 MB more space.`
+    : `it's ${own} Pokémon to make from your disc, so making them takes about ${pbrReplaceAllTimes(pbr)} times as long as making Generation 4's ${pbr.generation4Count || 107}, and uses about 500 MB of space.`;
 }
 
 // The disc chosen is there and is Battle Revolution
-// Battle Revolution HD textures: a switch that downloads them once, for the Pokémon whose models are made
-function renderPbrTextures(data) {
-  const pbr = data.pbr || {}, textures = pbr.textures || {}, on = Boolean(data.config.settings.pbrTextures);
-  const mb = Math.max(1, Math.round((textures.size || 0) / 1e6));
-  badge('pbr-textures-badge', textures.installed ? 'Installed' : 'Not installed', Boolean(textures.installed), on && !textures.installed && Boolean(pbr.wanted));
-  $('pbr-textures-note').textContent = !pbr.wanted
-    ? 'Battle Revolution\'s own textures, upscaled for sharper models. Turn on Generation 4 Pokémon above first.'
-    : textures.installed
-      ? on ? 'Battle Revolution\'s own textures, upscaled: your Battle Revolution models show them in the game and the Pokédex.'
-        : 'Already downloaded. Turn on to use them.'
-      : `Battle Revolution's own textures, upscaled for sharper Battle Revolution models. A one-time download of about ${mb} MB${on ? ', which starts when you play' : ''}.`;
-  $('pbrTextures').disabled = Boolean(data.active) || !pbr.wanted;
-}
-
 function pbrDiscUsable(pbr) { return Boolean(pbr?.discFound && !pbr.discProblem); }
 function fileName(file) { return String(file || '').split(/[\\/]/).pop(); }
 
@@ -1593,7 +1656,7 @@ function renderPbrBanner(data) {
     : pbr.outdated ? `A fix changed ${count(pbr.outdated, `${who}'s model`, `${who}'s models`)}. Until they're made again, they look as they did before the fix.`
       : !missing && pbr.noCry ? `${count(pbr.noCry, 'Generation 4 Pokémon cries', 'Generation 4 Pokémon cry')} with a Colosseum Pokémon's voice. Battle Revolution's own is on your disc.`
         : `${count(missing, `${who} has`, `${who} have`)} no ${who === 'Pokémon' ? 'Battle Revolution model' : 'model of its own'} yet.`);
-  $('pbr-banner-make').textContent = pbrDiscUsable(pbr) ? 'Make assets' : 'Open Settings';
+  $('pbr-banner-make').textContent = pbrDiscUsable(pbr) ? 'Make now' : 'Open Settings';
   $('pbr-banner-make').disabled = Boolean(data.active);
 }
 
@@ -1615,15 +1678,106 @@ async function choosePbrDisc() {
 function offerPbrModels() {
   const pbr = current?.pbr || {};
   if (!gameHas(current, 'pbrAssets') || current?.active || !pbr.supported || !pbr.wanted || pbr.made >= pbr.wanted) return;
-  const remake = pbr.made > 0 || pbr.outdated > 0 || pbr.noCry > 0;
+  // the disc is chosen already: they're made from it at once, with nothing to ask
+  if (pbrDiscUsable(pbr)) { action('makePbrModels'); return; }
   $('pbr-offer-check').hidden = true;
-  if (pbr.disc && !pbrDiscUsable(pbr)) renderPbrCheck('pbr-offer-check', pbr, { dismissible: false });
-  $('pbr-offer-lead').textContent = pbrDiscUsable(pbr)
-    ? `Your Battle Revolution disc is chosen: ${pbr.disc}. Make ${remake ? 'what\'s still missing' : `their ${pbrAssets(pbr, true)}`} from it now? It takes a few minutes.`
-    : `Each one can have its own ${pbr.cries ? 'model, icons and cry' : 'model and icons'}, as in Pokémon Battle Revolution, made from a file of your own Wii disc (RVZ, ISO or WBFS). Choose it and they're made in a few minutes. No Blender needed.`;
-  $('pbr-offer-confirm').textContent = pbrDiscUsable(pbr) ? 'Make assets' : pbr.disc ? 'Choose another file' : 'Choose disc';
+  if (pbr.disc) renderPbrCheck('pbr-offer-check', pbr, { dismissible: false });
+  $('pbr-offer-lead').textContent = `Each one can have its own ${pbr.cries ? 'model, icons and cry' : 'model and icons'}, as in Pokémon Battle Revolution, made from a file of your own Wii disc (RVZ, ISO or WBFS). Choose it and they're made in a few minutes. No Blender needed.`;
+  $('pbr-offer-confirm').textContent = pbr.disc ? 'Choose another file' : 'Choose disc';
   closeModal();
   $('pbr-offer').showModal();
+}
+
+// Nintendo 3DS assets (Gen 5–6, scripts/3ds2pkx): decrypted Ultra Sun / Ultra Moon / Sun / Moon .3ds ROM -> PKX models,
+// icons and cries, mirroring the Battle Revolution flow above.
+const USUM_LABEL = 'Make 3DS Pokémon assets';
+function usumProgress(active) {
+  if (active?.label !== USUM_LABEL) return null;
+  const detail = active.detail && active.detail !== 'Starting…' ? active.detail : 'Starting';
+  return `${detail}${Number.isFinite(active.percent) ? ` (${active.percent}%)` : '…'}`;
+}
+function usumRomUsable(usum) { return Boolean(usum?.romFound && !usum.romProblem); }
+
+let usumCheckDismissed = null;
+function usumCheck(usum) {
+  const choice = usum.choice;
+  if (choice && !choice.ok) return { kind: 'error', key: `choice:${choice.at}`, title: `${fileName(choice.file)} can't be used`,
+    detail: `${choice.message}${usum.rom && usumRomUsable(usum) ? ` Your ROM stays ${fileName(usum.rom)}.` : ''}` };
+  if (usum.rom && usum.romProblem) return { kind: 'error', key: `problem:${usum.rom}:${usum.romProblem}`, title: 'Your 3DS Pokémon ROM can\'t be used',
+    detail: `${fileName(usum.rom)}: ${usum.romProblem}` };
+  if (usum.rom && !usum.romFound) return { kind: 'warn', key: `missing:${usum.rom}`, title: 'Your 3DS Pokémon ROM isn\'t where it was',
+    detail: `${usum.rom} can't be found. Choose it again.` };
+  if (choice?.ok && choice.file === usum.rom) return { kind: choice.warning ? 'warn' : 'ok', key: `choice:${choice.at}`,
+    title: choice.warning ? '3DS Pokémon ROM found, but check it' : '3DS Pokémon ROM found', detail: choice.message };
+  return null;
+}
+function renderUsumCheck(id, usum, { dismissible = true } = {}) {
+  const check = usumCheck(usum || {});
+  const show = Boolean(check && !(dismissible && usumCheckDismissed === check.key));
+  $(id).hidden = !show;
+  if (!show) return;
+  $(id).classList.toggle('ok', check.kind === 'ok');
+  $(id).classList.toggle('warn', check.kind === 'warn');
+  $(id).dataset.key = check.key;
+  $(`${id}-title`).textContent = check.title;
+  $(`${id}-detail`).textContent = check.detail;
+}
+function renderUsumBanner(data) {
+  const usum = data.usum || {}, making = Boolean(usumProgress(data.active));
+  const missing = (usum.wanted || 0) - (usum.made || 0) - (usum.outdated || 0) - (usum.noCry || 0);
+  const show = Boolean(usum.supported && usum.wanted && usum.rom && !making && (usum.romProblem || usum.outdated || usum.noCry || (missing > 0 && usum.made > 0)));
+  $('usum-banner').hidden = !show;
+  if (!show) return;
+  const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  $('usum-banner-title').textContent = usum.romProblem ? 'Your 3DS Pokémon ROM can\'t be used'
+    : usum.outdated ? 'Your 3DS Pokémon assets need making again'
+    : !missing && usum.noCry ? 'Your Gen 5–6 Pokémon can have their own cries' : 'Some 3DS Pokémon assets aren\'t made yet';
+  $('usum-banner-detail').textContent = usum.romProblem && usum.romFound
+    ? `${usum.romProblem} Choose it under Settings → Gameplay.`
+    : !usum.romFound ? 'Your 3DS Pokémon ROM isn\'t where it was. Choose it again under Settings → Gameplay, then make them.'
+    : usum.outdated ? `A fix changed ${count(usum.outdated, 'Pokémon\'s model', 'Pokémon\'s models')}. Until they're made again, they look as they did before the fix.`
+    : !missing && usum.noCry ? `${count(usum.noCry, 'Pokémon cries', 'Pokémon cry')} with a stand-in voice.`
+    : `${count(missing, 'Pokémon has', 'Pokémon have')} no 3DS model made yet.`;
+  $('usum-banner-make').textContent = usumRomUsable(usum) ? 'Make now' : 'Open Settings';
+  $('usum-banner-make').disabled = Boolean(data.active);
+}
+function renderUsum(data) {
+  const usum = data.usum || {}, usable = usumRomUsable(usum), left = (usum.wanted || 0) - (usum.made || 0);
+  $('usum-row').hidden = !usum.wanted;
+  $('usum-note').textContent = usumProgress(data.active)
+    || (!usum.supported ? '3DS model converter scripts are missing from this launcher build.'
+      : !usum.rom ? 'Choose your own decrypted Pokémon Ultra Sun, Ultra Moon, Sun or Moon (.3ds) ROM for their models, icons and cries. Until then, each has a Colosseum Pokémon standing in.'
+        : !usable ? `${fileName(usum.rom)} can't be used. Choose your ROM again.`
+          : !left ? `${fileName(usum.rom)}: all ${usum.wanted} Pokémon have their models, icons and cries.`
+            : usum.outdated ? `${fileName(usum.rom)}: ${usum.made} of ${usum.wanted} made. A fix changed ${usum.outdated === 1 ? '1 Pokémon\'s model' : `${usum.outdated} Pokémon's models`}, made again with your next update.`
+              : `${fileName(usum.rom)}: ${usum.made} of ${usum.wanted} made. The rest are made with your next update.`);
+  $('usum-note').title = usum.rom || '';
+  $('make-usum-models').hidden = !usum.supported || !usable || left <= 0 || Boolean(usumProgress(data.active));
+  $('make-usum-models').disabled = Boolean(data.active);
+  $('choose-usum-rom').textContent = usum.rom ? 'Change' : 'Choose ROM';
+  $('choose-usum-rom').disabled = Boolean(data.active);
+  renderUsumCheck('usum-check', usum);
+  renderUsumBanner(data);
+}
+async function chooseUsumRom() {
+  const before = current?.usum?.rom, last = current?.usum?.choice?.at;
+  usumCheckDismissed = null;
+  await action('chooseUsumRom');
+  const usum = current?.usum || {};
+  const choice = usum.choice && usum.choice.at !== last ? usum.choice : null;
+  if (choice?.ok && !current?.active && usumRomUsable(usum) && usum.rom !== before && usum.supported && usum.made < usum.wanted) action('makeUsumModels');
+  return choice;
+}
+function offerUsumModels() {
+  const usum = current?.usum || {};
+  if (!gameHas(current, 'pbrAssets') || current?.active || !usum.supported || !usum.wanted || usum.made >= usum.wanted) return;
+  if (usumRomUsable(usum)) { action('makeUsumModels'); return; }
+  $('usum-offer-check').hidden = true;
+  if (usum.rom) renderUsumCheck('usum-offer-check', usum, { dismissible: false });
+  $('usum-offer-lead').textContent = 'Each one can have its own 3D model, icons and cry, converted directly from your own decrypted Pokémon Ultra Sun, Ultra Moon, Sun or Moon (.3ds) ROM. Choose it and they\'re made in a few minutes. No Blender needed.';
+  $('usum-offer-confirm').textContent = usum.rom ? 'Choose another file' : 'Choose ROM';
+  closeModal();
+  $('usum-offer').showModal();
 }
 
 // What the randomizer will do, and what the save on the card already is: the save wins.
@@ -1633,13 +1787,21 @@ function renderRandomizer(data) {
   $('randomizer-spoilers').hidden = !run;
   $('randomizer-spoilers').disabled = Boolean(data.active);
   $('randomizer-reroll').disabled = Boolean(data.active);
-  // The fourth generation's Pokémon are the randomizer's to choose only once they're added, by a game that knows them
+  // The fourth, fifth and sixth generations' Pokémon are the randomizer's to choose only once they're added, by a game that knows them
   const settings = data.config.settings, gen4Pokemon = Boolean(settings.generation4Pokemon), gen4Game = data.randomizerGenerations !== false;
+  const gen6Pokemon = Boolean(settings.generation6Pokemon), gen6Game = data.randomizerGen6 !== false;
   $('randomizerGen4').disabled = !gen4Pokemon || !gen4Game;
   $('randomizer-gen4').classList.toggle('disabled', !gen4Pokemon || !gen4Game);
   $('randomizer-gen4-note').hidden = !settings.randomizerGen4 || (gen4Pokemon && gen4Game);
   $('randomizer-gen4-note').textContent = !gen4Pokemon ? 'Gen 4 counts once you turn on Generation 4 Pokémon, under Later generations.'
     : 'Update your game to have Gen 4 Pokémon in a randomized run.';
+  $('randomizerGen5').disabled = !gen6Pokemon || !gen6Game;
+  $('randomizerGen6').disabled = !gen6Pokemon || !gen6Game;
+  $('randomizer-gen5').classList.toggle('disabled', !gen6Pokemon || !gen6Game);
+  $('randomizer-gen6').classList.toggle('disabled', !gen6Pokemon || !gen6Game);
+  $('randomizer-gen56-note').hidden = !(settings.randomizerGen5 || settings.randomizerGen6) || (gen6Pokemon && gen6Game);
+  $('randomizer-gen56-note').textContent = !gen6Pokemon ? 'Gen 5 and 6 count once you turn on Generation 5 and 6 Pokémon, under Later generations.'
+    : 'Update your game to have Gen 5 and 6 Pokémon in a randomized run.';
   // Pokémon packs' own Pokémon, which a run can have once the game can choose them
   const packsGame = data.randomizerPacks !== false;
   $('randomizerPacks').disabled = !packsGame;
@@ -1655,6 +1817,7 @@ function renderRandomizer(data) {
     : 'The Pokémon you start with and the Shadow Pokémon are only ones that don\'t evolve from another, such as Charmander or Tauros, so you can raise and evolve them. Trainers\' Pokémon and gifts are chosen as usual.';
   $('randomizer-save-note').textContent = !ready ? 'Update your game to use the randomizer. This version of the game plays every save as normal.'
     : run && (run.options & 64) ? `A randomized run with your Pokémon packs' Pokémon, seed ${run.seed}. Keep the packs it started with to play it as it was made; a New Game uses the settings above.`
+    : run && (run.generations & 48) && !gen6Pokemon ? `A randomized run with Gen 5 or 6 Pokémon, seed ${run.seed}. Turn on Generation 5 and 6 Pokémon, under Later generations, to play it as it was made.`
     : run && (run.generations & 8) && !gen4Pokemon ? `A randomized run with Gen 4 Pokémon, seed ${run.seed}. Turn on Generation 4 Pokémon, under Later generations, to play it as it was made.`
     : run ? `A randomized run, seed ${run.seed}. It keeps this seed whatever is set here; a New Game uses the settings above.`
       : exists ? 'The normal game. It stays that way: settings here start with your next New Game.'
@@ -2143,17 +2306,29 @@ $('pbr-banner-make').addEventListener('click', () => {
   if (pbrDiscUsable(current?.pbr)) action('makePbrModels');
   else { showPage('settings'); showSettingsTab('gameplay'); }
 });
+$('choose-usum-rom').addEventListener('click', chooseUsumRom);
+$('make-usum-models').addEventListener('click', () => action('makeUsumModels'));
+$('usum-check-close').addEventListener('click', () => { usumCheckDismissed = $('usum-check').dataset.key; $('usum-check').hidden = true; });
+$('usum-banner-make').addEventListener('click', () => {
+  if (usumRomUsable(current?.usum)) action('makeUsumModels');
+  else { showPage('settings'); showSettingsTab('gameplay'); }
+});
 $('open-languages').addEventListener('click', () => window.colo.openLanguages().catch(showError));
-for (const key of [...SELECTS, ...SWITCHES]) if (key !== 'generation4Pokemon' && key !== 'pbrReplaceAll' && key !== 'pbrTextures') $(key).addEventListener('change', saveSettings);
-// Turned on: the download starts now, unless something else is running (then it starts when you play)
-$('pbrTextures').addEventListener('change', async () => {
+for (const key of [...SELECTS, ...SWITCHES]) if (key !== 'generation4Pokemon' && key !== 'generation6Pokemon' && key !== 'pbrReplaceAll' && key !== 'textures') $(key).addEventListener('change', saveSettings);
+// HD textures turned on with the game's pack already there: the Pokémon models' packs download now, unless something
+// else is running (then they download when you play)
+$('textures').addEventListener('change', async () => {
   await saveSettings();
-  const pbr = current?.pbr || {};
-  if (current?.config.settings.pbrTextures && pbr.wanted && !pbr.textures?.installed && !current.active) action('installPbrTextures');
+  const missing = [current?.pbr, current?.usum].some(source => source?.textures?.wanted && !source.textures.installed);
+  if (current?.config.settings.textures && current.texturesInstalled && missing && !current.active) action('installModelTextures');
 });
 $('generation4Pokemon').addEventListener('change', async () => {
   await saveSettings();
   if (current?.config.settings.generation4Pokemon) offerPbrModels();
+});
+$('generation6Pokemon').addEventListener('change', async () => {
+  await saveSettings();
+  if (current?.config.settings.generation6Pokemon) offerUsumModels();
 });
 // Replace all models turned on with the disc chosen makes the models at once, as choosing the disc does; without the
 // disc, the Settings row asks for it
@@ -2189,6 +2364,18 @@ $('pbr-offer-confirm').addEventListener('click', async () => {
     $('pbr-offer-confirm').textContent = 'Choose another file';
     if (!$('pbr-offer').open) $('pbr-offer').showModal();
   } finally { $('pbr-offer-confirm').disabled = false; }
+});
+$('usum-offer-confirm').addEventListener('click', async () => {
+  if (usumRomUsable(current?.usum)) { $('usum-offer').close(); action('makeUsumModels'); return; }
+  $('usum-offer-confirm').disabled = true;
+  try {
+    const choice = await chooseUsumRom();
+    if (choice?.ok) { $('usum-offer').close(); return; }
+    if (!choice) return;
+    renderUsumCheck('usum-offer-check', current?.usum, { dismissible: false });
+    $('usum-offer-confirm').textContent = 'Choose another file';
+    if (!$('usum-offer').open) $('usum-offer').showModal();
+  } finally { $('usum-offer-confirm').disabled = false; }
 });
 $('randomizer-reroll').addEventListener('click', async () => {
   try {

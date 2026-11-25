@@ -25,7 +25,8 @@ const EVERSTONE = 195;
 // The trade evolutions both discs have (research-trade-evolution.md), by Colosseum's species: [item or 0, into].
 // The game decides (pokemonEvolutionCheck's trade mode); this only says which may, so a closed game's waits.
 const TRADE_EVOLUTIONS = new Map([[61, [[187, 186]]], [64, [[0, 65]]], [67, [[0, 68]]], [75, [[0, 76]]], [79, [[187, 199]]],
-  [93, [[0, 94]]], [95, [[199, 208]]], [117, [[201, 230]]], [123, [[199, 212]]], [137, [[218, 233]]], [373, [[192, 374], [193, 375]]]]);
+  [93, [[0, 94]]], [95, [[199, 208]]], [117, [[201, 230]]], [123, [[199, 212]]], [137, [[218, 233]]], [328, [[0x2a2, 329]]],
+  [373, [[192, 374], [193, 375]]], [708, [[0x2a4, 709]]], [710, [[0x2a3, 711]]]]);
 
 const b64 = bytes => Buffer.from(bytes).toString('base64');
 const unb64 = text => Buffer.from(String(text || ''), 'base64');

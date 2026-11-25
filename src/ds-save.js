@@ -117,4 +117,4 @@ function parse(buffer) {
   throw new Error("This isn't a Pokémon Diamond, Pearl or Platinum save, or it's damaged. (HeartGold and SoulSilver saves can't be read yet.)");
 }
 
-module.exports = { SAVE_SIZE, GAMES, parse, decipher, cipher, crc16, codes, BOX_SIZE, PARTY_SIZE };
+module.exports = { SAVE_SIZE, GAMES, ORDERS, parse, decipher, cipher, crc16, codes, BOX_SIZE, PARTY_SIZE };

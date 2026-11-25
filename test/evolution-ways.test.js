@@ -36,7 +36,15 @@ test('an item or place evolution made a level says how Platinum has it', () => {
   // the game has the item, or Platinum evolves it by level: nothing to add
   assert.equal(ways.platinumWay(25, 26), null);
   assert.equal(ways.platinumWay(1, 2), null);
-  assert.deepEqual(ways.platinumOnly(470).map(each => [each.from, each.blocked]), [[133, true]]);
+  // Eevee's Moss and Ice Rocks: a Leaf Stone and NeverMeltIce stand in, so nothing is left that the game can't make
+  assert.deepEqual(ways.platinumOnly(470), []);
+  assert.match(ways.platinumWay(133, 471), /NeverMeltIce stands in/);
+  // generations 5 and 6's, as the 3DS games have them
+  assert.match(ways.platinumWay(686, 687), /upside down/);
+  assert.match(ways.platinumWay(133, 700), /Affection/);
+  assert.equal(ways.describe(20, 212).text, 'Level up holding NeverMeltIce');
+  assert.equal(ways.describe(21, 18).text, 'High friendship, knowing a Fairy-type move');
+  assert.equal(ways.describe(22, 32).text, 'Level 32, a Dark type in the party');
 });
 
 test('a lower level comes first, and the higher is had by stopping it', () => {

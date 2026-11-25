@@ -86,9 +86,9 @@ test('what a pokemon.json gets wrong is said plainly', () => {
   wrong({ base: 'Umbreon', name: 'X', stats: { hp: 0 } }, /stats.hp must be a whole number from 1 to 255/);
   wrong({ base: 'Umbreon', name: 'X', stats: { power: 9 } }, /"stats" has "power"/);
   wrong({ base: 'Umbreon', name: 'X', moves: [[1, 'Hyper Beam']] }, /move "Hyper Beam" isn't one the game has/);
-  wrong({ base: 'Umbreon', name: 'X', moves: Array(21).fill([1, 'Bite']) }, /1 to 20/);
+  wrong({ base: 'Umbreon', name: 'X', moves: Array(61).fill([1, 'Bite']) }, /1 to 60/);
   wrong({ base: 'Umbreon', name: 'X', tms: ['TM51'] }, /"TM51" isn't a TM/);
-  wrong({ base: 'Umbreon', name: 'X', evolutions: [{ into: 'Raichu' }] }, /one of "level", "item", "friendship", "trade", "knowsMove", "withPokemon" or "beauty"/);
+  wrong({ base: 'Umbreon', name: 'X', evolutions: [{ into: 'Raichu' }] }, /one of "level", "item", "friendship", "trade", "knowsMove", "withPokemon", "beauty" or "heldItem"/);
   wrong({ base: 'Umbreon', name: 'X', evolutions: [{ into: 'Raichu', item: 'Thunder Stone', gender: 'male' }] }, /"gender" goes with "level"/);
   wrong({ base: 'Umbreon', name: 'X', evolutions: [{ into: 'Raichu', knowsMove: 'Splash' }] }, /"knowsMove": "Splash" isn't a move/);
   wrong({ base: 'Umbreon', name: 'X', evolutions: [{ into: 'Raichu', item: 'Rare Candy' }] }, /isn't an evolution item/);
@@ -137,12 +137,23 @@ test('the game\'s own Pokémon get a generation\'s level-up moves, and its evolu
   assert.deepEqual(evolution(rows[0], 1), [16, 85, 495], 'then the generation\'s, into a Pokémon that was loaded (500 wasn\'t)');
   assert.deepEqual(evolution(rows[0], 2), [0, 0, 0]);
   assert.deepEqual([rows[0].moves[4], rows[0].moves.readUInt16BE(6), rows[0].moves.readUInt16BE(10)], [5, 85, 0]);
-  // A row with all five places taken keeps its own
+  // A row with all five places taken keeps its own, and the new one goes past them (the MORE chunk: Eevee's Sylveon)
   const full = { ownSpecies: [{ id: 197, national: 197, levelUp: [[1, 33]], evolutions: [{ into: 'Raichu', level: 30 }] }] };
   for (let i = 0; i < 5; i++) { game.species[2].row[0x9c + i * 6] = 4; game.species[2].row.writeUInt16BE(25, 0xa0 + i * 6); }
   const again = packs.ownRows(game, full, []);
-  assert.equal(again.rows.length, 0);
-  assert.match(again.problems[0].message, /no room for another evolution/);
+  assert.deepEqual(again.problems, []);
+  assert.equal(again.rows.length, 1);
+  assert.deepEqual([...again.rows[0].more.evolutions[0]], [4, 0, 0, 30, 0, 26]);
+  // and level-up moves past twenty too
+  const many = { ownSpecies: [{ id: 197, national: 197, levelUp: Array.from({ length: 23 }, (_, i) => [i + 1, 10 + i]), evolutions: [] }] };
+  const long = packs.ownRows(game, many, []).rows[0];
+  assert.deepEqual(long.more.moves, [[21, 30], [22, 31], [23, 32]]);
+  const file = packs.compile({ pokemon: [], ownRows: [long] });
+  const at = file.indexOf('MORE');
+  assert.ok(at > 0, 'a MORE chunk');
+  assert.equal(file.readUInt32BE(at + 8), 1);
+  assert.deepEqual([file.readUInt16BE(at + 12), file[at + 14], file[at + 15]], [197, 0, 3]);
+  assert.deepEqual([file[at + 16], file.readUInt16BE(at + 18)], [21, 30]);
 });
 
 test('the game\'s own Pokémon\'s rows and the relearner go in a chunk of their own', () => {
@@ -288,9 +299,9 @@ test('"evolvesFrom" adds an evolution into a pack Pokémon to the game\'s own Po
     assert.deepEqual(evolution(packs.ownRows(game, generation, [], loaded.pokemon).rows[0], 1), [4, 30, 26]);
     for (let i = 0; i < 5; i++) { game.species[1].row[0x9c + i * 6] = 4; game.species[1].row.writeUInt16BE(25, 0xa0 + i * 6); }
     const full = packs.ownRows(game, { ownSpecies: [] }, [], loaded.pokemon);
-    assert.deepEqual(full.rows.map(row => row.id), [25]);
-    assert.deepEqual(full.problems.map(problem => `${problem.pack}/${problem.entry}: ${problem.message}`),
-      ['moon/moonfang: Raichu has no room for another evolution, so its evolution into this one is left out']);
+    assert.deepEqual(full.rows.map(row => row.id), [25, 26], 'past the five places (the MORE chunk)');
+    assert.deepEqual(full.problems, []);
+    assert.equal(full.rows[1].more.evolutions.length, 1);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -618,4 +629,36 @@ test('a pack\'s cry.wav and a Battle Revolution one are read beside their Pokém
     const [entry] = packs.pokedexEntries([pokemon[0]], tables());
     assert.match(entry.status.note, /with its cry from your Battle Revolution disc\. Umbreon stands in for its looks until its Battle Revolution assets are made\./);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('a 3DS Pokémon\'s forms are Pokédex looks, each then its shiny one, and only folders it has', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'forms-'));
+  try {
+    const put = (name, files) => {
+      fs.mkdirSync(path.join(root, 'forms', name), { recursive: true });
+      for (const file of files) fs.writeFileSync(path.join(root, 'forms', name, file), 'x');
+    };
+    put('mega-charizard-x', ['model.pkx', 'model-shiny.pkx']);
+    put('female', ['model.pkx']);
+    put('not-made', []);
+    fs.writeFileSync(path.join(root, 'forms', 'forms.json'), JSON.stringify([
+      { folder: 'mega-charizard-x', name: 'Mega Charizard X', form: 1, female: false, kind: 'mega', types: ['Fire', 'Dragon'],
+        stats: [78, 130, 111, 130, 85, 100], abilities: ['Tough Claws'], height: 1.7, weight: 110.5 },
+      { folder: 'female', name: 'Female', form: 0, female: true, kind: 'female' },
+      { folder: 'not-made', name: 'Not made', form: 2, female: false },
+      { folder: '../escape', name: 'Escape', form: 3, female: false }]));
+    const mega = { title: 'Mega Evolution', note: 'Mega Evolution isn\'t in the game, so no Pokémon becomes this: its model from your 3DS ROM, to look at.',
+      info: { types: ['Fire', 'Dragon'], stats: [78, 130, 111, 130, 85, 100], abilities: ['Tough Claws'], height: '5\'07"', weight: '243.6 lbs' } };
+    const female = { title: 'Female look', note: 'How a female one looks in the 3DS games. The game shows female and male ones alike, as the usual model.', info: {} };
+    assert.deepEqual(packs.formLooks(root), [
+      { id: 'form:mega-charizard-x', label: 'Mega Charizard X', ...mega }, { id: 'form:mega-charizard-x:shiny', label: 'Shiny Mega Charizard X', ...mega },
+      { id: 'form:female', label: 'Female', ...female }]);
+    assert.equal(packs.formModelFile(root, 'form:mega-charizard-x:shiny'), path.join(root, 'forms', 'mega-charizard-x', 'model-shiny.pkx'));
+    assert.equal(packs.formModelFile(root, 'form:female'), path.join(root, 'forms', 'female', 'model.pkx'));
+    for (const bad of ['form:../escape', 'form:female:other', 'model', 'form:a:shiny:more', 'form:'])
+      assert.throws(() => packs.formModelFile(root, bad), /no such form/);
+    assert.deepEqual(packs.formLooks(path.join(root, 'nowhere')), [], 'none before they are made');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });

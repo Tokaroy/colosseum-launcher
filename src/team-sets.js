@@ -14,10 +14,17 @@
   const STAT_NAMES = ['HP', 'Attack', 'Defense', 'Sp. Atk', 'Sp. Def', 'Speed'];
   const EV_MAX = 252, EV_TOTAL = 510, IV_MAX = 31;
   const MOVE_LAST = 0x162;        // the game's Shadow moves come after
-  const GENERATIONS = [3, 4];
+  // A party's generation: the third's, the fourth's (Platinum's rules, or X and Y's), or the sixth's (X and Y's rules
+  // only: generation 6's level-up moves, hidden abilities and held items)
+  const GENERATIONS = [3, 4, 6];
   // The fourth generation's Pokémon (Turtwig to Arceus), its last move (Shadow Force) and its held items (Adamant Orb to
   // Zoom Lens, and the Enigma Berry, blank in Colosseum), by the game's numbers.
-  const LATER = { 4: { species: [413, 519], lastMove: 470, items: [0x224, 0x289], enigmaBerry: 175 } };
+  const LATER = { 4: { species: [413, 519], lastMove: 470, items: [0x224, 0x289], enigmaBerry: 175 },
+    // generations 5 and 6's Pokémon (Victini to Volcanion), their last move (Hyperspace Fury) and their held items
+    // (Assault Vest to Sachet), which a Generation 6 party has
+    6: { species: [520, 773], lastMove: 624, items: [0x28A, 0x2A4] } };
+  // A set's ability: its species' first (0), second (1), or with generation 6 its hidden ability (2)
+  const HIDDEN_ABILITY = 2;
   const ITEM_LAST = 0xffff;
   const BALLS = 12, BALL = 4;     // Poké Ball
   const NICKNAME_LENGTH = 10;
@@ -47,13 +54,21 @@
   // The species a party of the generation can have: the game numbers its own up to 411, with a gap between the second
   // generation and the third.
   const validSpecies = (id, generation = 3) => Number.isInteger(id) && ((id >= 1 && id <= 251) || (id >= 277 && id <= 411)
-    || (generation >= 4 && id >= LATER[4].species[0] && id <= LATER[4].species[1]));
-  // The last move a party of the generation can have: the third's, or the fourth's new ones after the game's own.
-  const lastMove = generation => generation >= 4 ? LATER[4].lastMove : MOVE_LAST;
+    || (generation >= 4 && id >= LATER[4].species[0] && id <= LATER[4].species[1])
+    || (generation >= 6 && id >= LATER[6].species[0] && id <= LATER[6].species[1]));
+  // The last move a party of the generation can have: the third's, the fourth's new ones after the game's own, or the
+  // fifth and sixth's after those.
+  const lastMove = generation => generation >= 6 ? LATER[6].lastMove : generation >= 4 ? LATER[4].lastMove : MOVE_LAST;
+  // The Fairy type's moves (src/generations.js: 3 past their own numbers), which a party in a room with the type can
+  // know under either battle rules (src/formats.js)
+  const FAIRY_MOVES = [577, 580, 586, 587, 588, 608, 611];
   // Whether the species or move is one only a later generation's party can have: the generation, or 3.
-  const speciesGeneration = id => id >= LATER[4].species[0] && id <= LATER[4].species[1] ? 4 : 3;
-  const moveGeneration = id => id > MOVE_LAST && id <= LATER[4].lastMove ? 4 : 3;
-  const itemGeneration = id => id === LATER[4].enigmaBerry || (id >= LATER[4].items[0] && id <= LATER[4].items[1]) ? 4 : 3;
+  const speciesGeneration = id => id >= LATER[6].species[0] && id <= LATER[6].species[1] ? 6 : id >= LATER[4].species[0] && id <= LATER[4].species[1] ? 4 : 3;
+  // (the Fairy type's moves are any party's, in a room with the type)
+  const moveGeneration = id => id > LATER[4].lastMove && id <= LATER[6].lastMove && !FAIRY_MOVES.includes(id) ? 6
+    : id > MOVE_LAST && id <= LATER[4].lastMove ? 4 : 3;
+  const itemGeneration = id => id >= LATER[6].items[0] && id <= LATER[6].items[1] ? 6
+    : id === LATER[4].enigmaBerry || (id >= LATER[4].items[0] && id <= LATER[4].items[1]) ? 4 : 3;
 
   function natureEffect(nature) {
     const up = NATURE_STATS[Math.floor(nature / 5)], down = NATURE_STATS[nature % 5];
@@ -91,7 +106,8 @@
     const out = [];
     for (const move of Array.isArray(moves) ? moves : []) {
       // Colosseum's own moves 355 to 357 (its Shadow Rush and two unnamed) are no party's
-      if (out.length < 4 && int(move, 1, lastMove(generation), 0) && (move <= MOVE_LAST || move > 357) && !out.includes(move)) out.push(move);
+      const known = int(move, 1, lastMove(generation), 0) || FAIRY_MOVES.includes(move);
+      if (out.length < 4 && known && (move <= MOVE_LAST || move > 357) && !out.includes(move)) out.push(move);
     }
     return out;
   }
@@ -106,7 +122,8 @@
   function normalizeSet(input, species, generation = 3) {
     const set = defaultSet(species);
     if (!input || typeof input !== 'object' || input.species !== species) return set;
-    return { species, nickname: cleanNickname(input.nickname), item: int(input.item, 0, ITEM_LAST, 0), ability: input.ability === 1 ? 1 : 0,
+    return { species, nickname: cleanNickname(input.nickname), item: int(input.item, 0, ITEM_LAST, 0),
+      ability: input.ability === 1 ? 1 : input.ability === HIDDEN_ABILITY && generation >= 6 ? HIDDEN_ABILITY : 0,
       nature: int(input.nature, 0, 24, 0), gender: input.gender === 'M' || input.gender === 'F' ? input.gender : '',
       shiny: input.shiny === true, moves: cleanMoves(input.moves, generation), evs: cleanEvs(input.evs), ivs: cleanIvs(input.ivs),
       friendship: int(input.friendship, 0, 255, 255), ball: int(input.ball, 1, BALLS, BALL) };
@@ -221,9 +238,11 @@
       const named = /^(.*)\(([^()]+)\)$/.exec(first);
       const speciesName = named ? named[2].trim() : first, nickname = named ? named[1].trim() : '';
       // a form's name (Unown-B, Castform-Sunny) is its species' here
-      const species = find(dex.species, speciesName) || find(dex.species, speciesName.replace(/-[^-]*$/, ''));
+      // (Basculin-Blue-Striped, Pumpkaboo-Super: a form's name of more than one word)
+      const species = find(dex.species, speciesName) || find(dex.species, speciesName.replace(/-[^-]*$/, '')) || find(dex.species, speciesName.replace(/-.*$/, ''));
       if (!species || !validSpecies(species.id, generation)) {
         problems.push(species && validSpecies(species.id, 4) ? `${speciesName}: a Generation 4 Pokémon, which only a Generation 4 party can have.`
+          : species && validSpecies(species.id, 6) ? `${speciesName}: a Generation ${species.id <= 649 + 26 ? 5 : 6} Pokémon, which only a Generation 6 party can have.`
           : `${speciesName}: not a Pokémon this game has.`);
         continue;
       }
@@ -233,7 +252,7 @@
       if (genders(dex.gender(species.id)).includes(gender)) set.gender = gender;
       if (itemName) {
         const item = find(dex.items, itemName);
-        if (item && itemGeneration(item.id) > generation) problems.push(`${species.name}: ${item.name} is a Generation 4 item, which only a Generation 4 party can hold.`);
+        if (item && itemGeneration(item.id) > generation) problems.push(`${species.name}: ${item.name} is a Generation ${itemGeneration(item.id)} item, which only a Generation ${itemGeneration(item.id)} party can hold.`);
         else if (item) set.item = item.id; else problems.push(`${species.name}: no held item called ${itemName}.`);
       }
       let ivsGiven = false, hiddenType = null;
@@ -299,7 +318,7 @@
     }).join('\n\n');
   }
 
-  const api = { STATS, STAT_NAMES, EV_MAX, EV_TOTAL, IV_MAX, MOVE_LAST, GENERATIONS, LATER, generationOf, lastMove, speciesGeneration, moveGeneration, itemGeneration, NATURES, NICKNAME_LENGTH, HIDDEN_POWER, HIDDEN_POWER_TYPES, TRAINER, GENDER,
+  const api = { STATS, STAT_NAMES, EV_MAX, EV_TOTAL, IV_MAX, MOVE_LAST, GENERATIONS, LATER, HIDDEN_ABILITY, FAIRY_MOVES, generationOf, lastMove, speciesGeneration, moveGeneration, itemGeneration, NATURES, NICKNAME_LENGTH, HIDDEN_POWER, HIDDEN_POWER_TYPES, TRAINER, GENDER,
     PHYSICAL_TYPES, category, validSpecies, natureEffect, natureLabel, cleanNickname, cleanEvs, defaultSet, normalizeSet, genders, genderOf, stats, hiddenPower,
     hiddenPowerIvs, personality, toWire, parseShowdown, formatShowdown };
   if (typeof module === 'object' && module.exports) module.exports = api;

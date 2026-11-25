@@ -23,9 +23,9 @@ const BASE_FORMS = 256;
 const SPREAD = 512;
 // A pack's own Pokémon in the game's spoiler log: this much past its place in the species table, as it may share its base's number.
 const PACK_SPECIES = 0x10000;
-const GENERATIONS = { randomizerGen1: 1, randomizerGen2: 2, randomizerGen3: 4, randomizerGen4: 8 };
+const GENERATIONS = { randomizerGen1: 1, randomizerGen2: 2, randomizerGen3: 4, randomizerGen4: 8, randomizerGen5: 16, randomizerGen6: 32 };
 const GAME_GENERATIONS = 7;   // the game's own: the first three
-const GEN4 = 8;
+const GEN4 = 8, GEN5 = 16, GEN6 = 32, GEN56 = GEN5 | GEN6;
 
 // The stamp, in a save's unscrambled slot: its place in the body, past where the body starts.
 const STAMP = 8 + 0x1df80;
@@ -63,10 +63,11 @@ function normalize(input = {}) {
     randomizerTrainers: Boolean(input.randomizerTrainers), randomizerGifts: Boolean(input.randomizerGifts),
     randomizerSimilar: input.randomizerSimilar !== false, randomizerNoLegendaries: Boolean(input.randomizerNoLegendaries),
     randomizerGen1: input.randomizerGen1 !== false, randomizerGen2: input.randomizerGen2 !== false, randomizerGen3: input.randomizerGen3 !== false,
-    randomizerGen4: input.randomizerGen4 !== false, randomizerPacks: input.randomizerPacks !== false,
+    randomizerGen4: input.randomizerGen4 !== false, randomizerGen5: input.randomizerGen5 !== false, randomizerGen6: input.randomizerGen6 !== false,
+    randomizerPacks: input.randomizerPacks !== false,
     randomizerNoRepeats: Boolean(input.randomizerNoRepeats), randomizerBaseForms: Boolean(input.randomizerBaseForms) };
-  if (!settings.randomizerGen1 && !settings.randomizerGen2 && !settings.randomizerGen3 && !settings.randomizerGen4)
-    settings.randomizerGen1 = settings.randomizerGen2 = settings.randomizerGen3 = settings.randomizerGen4 = true;
+  if (!settings.randomizerGen1 && !settings.randomizerGen2 && !settings.randomizerGen3 && !settings.randomizerGen4 && !settings.randomizerGen5 && !settings.randomizerGen6)
+    settings.randomizerGen1 = settings.randomizerGen2 = settings.randomizerGen3 = settings.randomizerGen4 = settings.randomizerGen5 = settings.randomizerGen6 = true;
   if (settings.randomizer && !settings.randomizerSeed) settings.randomizerSeed = newSeed();
   return settings;
 }
@@ -80,17 +81,20 @@ function flags(settings, table) {
 // change once the game updates).
 const hasGen4 = (settings, laterGenerations) => Boolean(settings.randomizerGen4 && laterGenerations
   && Array.isArray(settings.generationPokemon) && settings.generationPokemon.includes(4));
+const hasGen56 = (settings, gen6Randomizer) => Boolean((settings.randomizerGen5 || settings.randomizerGen6) && gen6Randomizer
+  && Array.isArray(settings.generationPokemon) && settings.generationPokemon.includes(6));
 
-// COLO_RANDOMIZER for these settings, or null when a new save should be the normal game. A run of only the fourth
-// generation without its Pokémon is a run of the game's own three. packPokemon: the player has Pokémon packs' Pokémon and
+// COLO_RANDOMIZER for these settings, or null when a new save should be the normal game. A run of only later
+// generations without their Pokémon is a run of the game's own three. packPokemon: the player has Pokémon packs' Pokémon and
 // the game can choose them. Without them the run isn't one with packs, so it stays as it is when a pack is added later.
 // noRepeats and baseForms: the game knows those options (a game before them would keep only the first eight bits).
 // spread: the game spreads similar strength's choices (SPREAD); a save keeps how its run was made.
-function environmentValue(settings, { laterGenerations = false, packPokemon = false, noRepeats = false, baseForms = false, spread = false } = {}) {
+function environmentValue(settings, { laterGenerations = false, gen6Randomizer = false, packPokemon = false, noRepeats = false, baseForms = false, spread = false } = {}) {
   let options = flags(settings, OPTIONS) & (packPokemon ? ~0 : ~PACKS) & (noRepeats ? ~0 : ~NO_REPEATS) & (baseForms ? ~0 : ~BASE_FORMS);
   if (spread && (options & OPTIONS.randomizerSimilar)) options |= SPREAD;
   if (!settings.randomizer || !settings.randomizerSeed || !(options & PARTS)) return null;
-  let generations = flags(settings, GENERATIONS) & (hasGen4(settings, laterGenerations) ? GAME_GENERATIONS | GEN4 : GAME_GENERATIONS);
+  const mask = GAME_GENERATIONS | (hasGen4(settings, laterGenerations) ? GEN4 : 0) | (hasGen56(settings, gen6Randomizer) ? GEN56 : 0);
+  let generations = flags(settings, GENERATIONS) & mask;
   if (!generations) generations = GAME_GENERATIONS;
   return `${settings.randomizerSeed}:${options}:${generations}`;
 }
@@ -164,4 +168,4 @@ function spoilerText(raw, species, packs = [], gameId = 'colosseum') {
 
 function spoilerSeed(raw) { return (String(raw).match(/^seed ([0-9A-F]{8})/) || [])[1] || null; }
 
-module.exports = { OPTIONS, GENERATIONS, PACKS, NO_REPEATS, BASE_FORMS, SPREAD, SPOILER_FILE, hasGen4, newSeed, normalizeSeed, normalize, environmentValue, runOf, readSave, createSaveReader, spoilerText, spoilerSeed };
+module.exports = { OPTIONS, GENERATIONS, PACKS, NO_REPEATS, BASE_FORMS, SPREAD, SPOILER_FILE, hasGen4, hasGen56, newSeed, normalizeSeed, normalize, environmentValue, runOf, readSave, createSaveReader, spoilerText, spoilerSeed };

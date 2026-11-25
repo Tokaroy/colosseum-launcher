@@ -162,10 +162,10 @@ test('XD\'s Story party keeps its Generation 4 Pokémon, in Colosseum\'s numbers
   assert.deepEqual(read.members.map(member => member.species), [122, 413, 519, 464, 472]);
   assert.equal(read.packsLeftOut, 1);
   assert.ok(read.members.every(member => story.validWireMember(story.wireMember(member), member.species)));
-  // they battle under Platinum's rules, as a Generation 4 party does, and Colosseum's rules say why not
+  // they battle under Diamond and Pearl rules, as a Generation 4 party does, and Colosseum's rules say why not
   const wire = read.members.map(story.wireMember), species = read.members.map(member => member.species);
   assert.deepEqual(formats.problems({ format: 'casual', size: 3, battleRules: 4 }, species, wire), []);
-  assert.match(formats.problems({ format: 'casual', size: 3, battleRules: 3 }, species, wire).join(' '), /Generation 4 Pokémon, which play only under Pokémon Platinum's battle rules/);
+  assert.match(formats.problems({ format: 'casual', size: 3, battleRules: 3 }, species, wire).join(' '), /Generation 4 Pokémon, which play only under Diamond and Pearl battle rules/);
 });
 
 // --- A real card the port wrote: XD_TEST_CARD=/path/to/PokemonXD.dat (a randomized new game) npm test ------------

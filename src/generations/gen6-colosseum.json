@@ -1,0 +1,828 @@
+{
+  "about": "How the game plays generation 6's moves: as generation 4's file says (inherits), with the Fairy type's moves as fairy-colosseum.json has them. Generations 5 and 6's own moves each borrow an old move's animation (`as`) and play their own effect (300 on: the port's, host/gen6_moves.inc, 300 plus the move's number past 468). Generation 6's changes to what old moves, abilities and items do are mechanics the port plays (src/mechanics.js), not stand-ins.",
+  "inherits": 4,
+  "evolutionItems": {},
+  "moves": {
+    "Fairy Wind": {
+      "as": "Gust",
+      "effectAs": "Tackle",
+      "exact": true
+    },
+    "Disarming Voice": {
+      "name": "DISARM VOICE",
+      "as": "Hyper Voice",
+      "effectAs": "Swift",
+      "exact": true
+    },
+    "Draining Kiss": {
+      "name": "DRAININGKISS",
+      "as": "Sweet Kiss",
+      "effect": 261,
+      "exact": true,
+      "note": "Gives back three quarters of the damage (host/gen4.c)."
+    },
+    "Play Rough": {
+      "as": "Slam",
+      "effectAs": "Aurora Beam",
+      "exact": true
+    },
+    "Moonblast": {
+      "as": "Mist Ball",
+      "exact": true
+    },
+    "Dazzling Gleam": {
+      "name": "DAZZLINGLEAM",
+      "as": "Swift",
+      "effectAs": "Tackle",
+      "exact": true
+    },
+    "Baby-Doll Eyes": {
+      "name": "BABYDOLLEYES",
+      "as": "Charm",
+      "effectAs": "Growl",
+      "exact": true
+    },
+    "Hone Claws": {
+      "as": "Sharpen",
+      "effect": 300,
+      "exact": true
+    },
+    "Wide Guard": {
+      "as": "Protect",
+      "effect": 301,
+      "exact": true
+    },
+    "Guard Split": {
+      "as": "Pain Split",
+      "effect": 302,
+      "exact": true
+    },
+    "Power Split": {
+      "as": "Pain Split",
+      "effect": 303,
+      "exact": true
+    },
+    "Wonder Room": {
+      "as": "Imprison",
+      "effect": 304,
+      "exact": true
+    },
+    "Psyshock": {
+      "as": "Psybeam",
+      "effect": 305,
+      "exact": true
+    },
+    "Venoshock": {
+      "as": "Sludge",
+      "effect": 306,
+      "exact": true
+    },
+    "Autotomize": {
+      "as": "Agility",
+      "effect": 307,
+      "exact": true
+    },
+    "Rage Powder": {
+      "as": "Follow Me",
+      "effect": 308,
+      "exact": true
+    },
+    "Telekinesis": {
+      "as": "Psychic",
+      "effect": 309,
+      "exact": true
+    },
+    "Magic Room": {
+      "as": "Imprison",
+      "effect": 310,
+      "exact": true
+    },
+    "Smack Down": {
+      "as": "Rock Throw",
+      "effect": 311,
+      "exact": true
+    },
+    "Storm Throw": {
+      "as": "Cross Chop",
+      "effect": 312,
+      "exact": true
+    },
+    "Flame Burst": {
+      "as": "Flamethrower",
+      "effect": 313,
+      "exact": true
+    },
+    "Sludge Wave": {
+      "as": "Sludge Bomb",
+      "effect": 314,
+      "exact": true
+    },
+    "Quiver Dance": {
+      "as": "Teeter Dance",
+      "effect": 315,
+      "exact": true
+    },
+    "Heavy Slam": {
+      "as": "Body Slam",
+      "effect": 316,
+      "exact": true
+    },
+    "Synchronoise": {
+      "as": "Psywave",
+      "effect": 317,
+      "exact": true
+    },
+    "Electro Ball": {
+      "as": "Zap Cannon",
+      "effect": 318,
+      "exact": true
+    },
+    "Soak": {
+      "as": "Water Gun",
+      "effect": 319,
+      "exact": true
+    },
+    "Flame Charge": {
+      "as": "Flame Wheel",
+      "effect": 320,
+      "exact": true
+    },
+    "Coil": {
+      "as": "Wrap",
+      "effect": 321,
+      "exact": true
+    },
+    "Low Sweep": {
+      "as": "Low Kick",
+      "effect": 322,
+      "exact": true
+    },
+    "Acid Spray": {
+      "as": "Acid",
+      "effect": 323,
+      "exact": true
+    },
+    "Foul Play": {
+      "as": "Faint Attack",
+      "effect": 324,
+      "exact": true
+    },
+    "Simple Beam": {
+      "as": "Psybeam",
+      "effect": 325,
+      "exact": true
+    },
+    "Entrainment": {
+      "as": "Teeter Dance",
+      "effect": 326,
+      "exact": true
+    },
+    "After You": {
+      "as": "Helping Hand",
+      "effect": 327,
+      "exact": true
+    },
+    "Round": {
+      "as": "Sing",
+      "effect": 328,
+      "exact": true
+    },
+    "Echoed Voice": {
+      "as": "Hyper Voice",
+      "effect": 329,
+      "exact": true
+    },
+    "Chip Away": {
+      "as": "Slash",
+      "effect": 330,
+      "exact": true
+    },
+    "Clear Smog": {
+      "as": "Smog",
+      "effect": 331,
+      "exact": true
+    },
+    "Stored Power": {
+      "as": "Psybeam",
+      "effect": 332,
+      "exact": true
+    },
+    "Quick Guard": {
+      "as": "Detect",
+      "effect": 333,
+      "exact": true
+    },
+    "Ally Switch": {
+      "as": "Teleport",
+      "effect": 334,
+      "exact": true
+    },
+    "Scald": {
+      "as": "Water Pulse",
+      "effect": 335,
+      "exact": true
+    },
+    "Shell Smash": {
+      "as": "Withdraw",
+      "effect": 336,
+      "exact": true
+    },
+    "Heal Pulse": {
+      "as": "Heal Bell",
+      "effect": 337,
+      "exact": true
+    },
+    "Hex": {
+      "as": "Night Shade",
+      "effect": 338,
+      "exact": true
+    },
+    "Sky Drop": {
+      "as": "Fly",
+      "effect": 339,
+      "exact": true
+    },
+    "Shift Gear": {
+      "as": "Metal Sound",
+      "effect": 340,
+      "exact": true
+    },
+    "Circle Throw": {
+      "as": "Seismic Toss",
+      "effect": 341,
+      "exact": true
+    },
+    "Incinerate": {
+      "as": "Ember",
+      "effect": 342,
+      "exact": true
+    },
+    "Quash": {
+      "as": "Faint Attack",
+      "effect": 343,
+      "exact": true
+    },
+    "Acrobatics": {
+      "as": "Aerial Ace",
+      "effect": 344,
+      "exact": true
+    },
+    "Reflect Type": {
+      "as": "Conversion 2",
+      "effect": 345,
+      "exact": true
+    },
+    "Retaliate": {
+      "as": "Mega Punch",
+      "effect": 346,
+      "exact": true
+    },
+    "Final Gambit": {
+      "as": "Mega Punch",
+      "effect": 347,
+      "exact": true
+    },
+    "Bestow": {
+      "as": "Trick",
+      "effect": 348,
+      "exact": true
+    },
+    "Inferno": {
+      "as": "Fire Blast",
+      "effect": 349,
+      "exact": true
+    },
+    "Water Pledge": {
+      "as": "Surf",
+      "effect": 350,
+      "exact": true
+    },
+    "Fire Pledge": {
+      "as": "Flamethrower",
+      "effect": 351,
+      "exact": true
+    },
+    "Grass Pledge": {
+      "as": "SolarBeam",
+      "effect": 352,
+      "exact": true
+    },
+    "Volt Switch": {
+      "as": "Shock Wave",
+      "effect": 353,
+      "exact": true
+    },
+    "Struggle Bug": {
+      "as": "Signal Beam",
+      "effect": 354,
+      "exact": true
+    },
+    "Bulldoze": {
+      "as": "Earthquake",
+      "effect": 355,
+      "exact": true
+    },
+    "Frost Breath": {
+      "as": "Powder Snow",
+      "effect": 356,
+      "exact": true
+    },
+    "Dragon Tail": {
+      "as": "Iron Tail",
+      "effect": 357,
+      "exact": true
+    },
+    "Work Up": {
+      "as": "Bulk Up",
+      "effect": 358,
+      "exact": true
+    },
+    "Electroweb": {
+      "as": "Thunder Wave",
+      "effect": 359,
+      "exact": true
+    },
+    "Wild Charge": {
+      "as": "Spark",
+      "effect": 360,
+      "exact": true
+    },
+    "Drill Run": {
+      "as": "Horn Drill",
+      "effect": 361,
+      "exact": true
+    },
+    "Dual Chop": {
+      "as": "Double Kick",
+      "effect": 362,
+      "exact": true
+    },
+    "Heart Stamp": {
+      "as": "Stomp",
+      "effect": 363,
+      "exact": true
+    },
+    "Horn Leech": {
+      "as": "Horn Attack",
+      "effect": 364,
+      "exact": true
+    },
+    "Sacred Sword": {
+      "as": "Slash",
+      "effect": 365,
+      "exact": true
+    },
+    "Razor Shell": {
+      "as": "Crabhammer",
+      "effect": 366,
+      "exact": true
+    },
+    "Heat Crash": {
+      "as": "Heat Wave",
+      "effect": 367,
+      "exact": true
+    },
+    "Leaf Tornado": {
+      "as": "Leaf Blade",
+      "effect": 368,
+      "exact": true
+    },
+    "Steamroller": {
+      "as": "Rollout",
+      "effect": 369,
+      "exact": true
+    },
+    "Cotton Guard": {
+      "as": "Cotton Spore",
+      "effect": 370,
+      "exact": true
+    },
+    "Night Daze": {
+      "as": "Crunch",
+      "effect": 371,
+      "exact": true
+    },
+    "Psystrike": {
+      "as": "Psychic",
+      "effect": 372,
+      "exact": true
+    },
+    "Tail Slap": {
+      "as": "DoubleSlap",
+      "effect": 373,
+      "exact": true
+    },
+    "Hurricane": {
+      "as": "Gust",
+      "effect": 374,
+      "exact": true
+    },
+    "Head Charge": {
+      "as": "Take Down",
+      "effect": 375,
+      "exact": true
+    },
+    "Gear Grind": {
+      "as": "Double Kick",
+      "effect": 376,
+      "exact": true
+    },
+    "Searing Shot": {
+      "as": "Fire Blast",
+      "effect": 377,
+      "exact": true
+    },
+    "Techno Blast": {
+      "as": "Zap Cannon",
+      "effect": 378,
+      "exact": true
+    },
+    "Relic Song": {
+      "as": "Sing",
+      "effect": 379,
+      "exact": true
+    },
+    "Secret Sword": {
+      "as": "Slash",
+      "effect": 380,
+      "exact": true
+    },
+    "Glaciate": {
+      "as": "Icy Wind",
+      "effect": 381,
+      "exact": true
+    },
+    "Bolt Strike": {
+      "as": "Volt Tackle",
+      "effect": 382,
+      "exact": true
+    },
+    "Blue Flare": {
+      "as": "Fire Blast",
+      "effect": 383,
+      "exact": true
+    },
+    "Fiery Dance": {
+      "as": "Fire Spin",
+      "effect": 384,
+      "exact": true
+    },
+    "Freeze Shock": {
+      "as": "Ice Beam",
+      "effect": 385,
+      "exact": true
+    },
+    "Ice Burn": {
+      "as": "Ice Beam",
+      "effect": 386,
+      "exact": true
+    },
+    "Snarl": {
+      "as": "Howl",
+      "effect": 387,
+      "exact": true
+    },
+    "Icicle Crash": {
+      "as": "Icicle Spear",
+      "effect": 388,
+      "exact": true
+    },
+    "V-create": {
+      "as": "Overheat",
+      "effect": 389,
+      "exact": true
+    },
+    "Fusion Flare": {
+      "as": "Fire Blast",
+      "effect": 390,
+      "exact": true
+    },
+    "Fusion Bolt": {
+      "as": "ThunderPunch",
+      "effect": 391,
+      "exact": true
+    },
+    "Flying Press": {
+      "as": "Wing Attack",
+      "effect": 392,
+      "exact": true
+    },
+    "Mat Block": {
+      "as": "Protect",
+      "effect": 393,
+      "exact": true
+    },
+    "Belch": {
+      "as": "Sludge",
+      "effect": 394,
+      "exact": true
+    },
+    "Rototiller": {
+      "as": "Growth",
+      "effect": 395,
+      "exact": true
+    },
+    "Sticky Web": {
+      "as": "String Shot",
+      "effect": 396,
+      "exact": true
+    },
+    "Fell Stinger": {
+      "as": "Pin Missile",
+      "effect": 397,
+      "exact": true
+    },
+    "Phantom Force": {
+      "name": "PHANTOMFORCE",
+      "as": "Shadow Punch",
+      "effect": 398,
+      "exact": true
+    },
+    "Trick-or-Treat": {
+      "as": "Curse",
+      "effect": 399,
+      "exact": true
+    },
+    "Noble Roar": {
+      "as": "Roar",
+      "effect": 400,
+      "exact": true
+    },
+    "Ion Deluge": {
+      "as": "Charge",
+      "effect": 401,
+      "exact": true
+    },
+    "Parabolic Charge": {
+      "name": "PARABOLICCHG",
+      "as": "Spark",
+      "effect": 402,
+      "exact": true
+    },
+    "Forest's Curse": {
+      "name": "FORESTSCURSE",
+      "as": "Ingrain",
+      "effect": 403,
+      "exact": true
+    },
+    "Petal Blizzard": {
+      "name": "PETALBLIZZRD",
+      "as": "Razor Leaf",
+      "effect": 404,
+      "exact": true
+    },
+    "Freeze-Dry": {
+      "as": "Ice Beam",
+      "effect": 405,
+      "exact": true
+    },
+    "Parting Shot": {
+      "as": "Memento",
+      "effect": 407,
+      "exact": true
+    },
+    "Topsy-Turvy": {
+      "as": "Psych Up",
+      "effect": 408,
+      "exact": true
+    },
+    "Crafty Shield": {
+      "name": "CRAFTYSHIELD",
+      "as": "Protect",
+      "effect": 410,
+      "exact": true
+    },
+    "Flower Shield": {
+      "name": "FLOWERSHIELD",
+      "as": "Aromatherapy",
+      "effect": 411,
+      "exact": true
+    },
+    "Grassy Terrain": {
+      "name": "GRASSTERRAIN",
+      "as": "Ingrain",
+      "effect": 412,
+      "exact": true
+    },
+    "Misty Terrain": {
+      "name": "MISTYTERRAIN",
+      "as": "Mist",
+      "effect": 413,
+      "exact": true
+    },
+    "Electrify": {
+      "as": "Thunder Wave",
+      "effect": 414,
+      "exact": true
+    },
+    "Boomburst": {
+      "as": "Hyper Voice",
+      "effect": 418,
+      "exact": true
+    },
+    "Fairy Lock": {
+      "as": "Mean Look",
+      "effect": 419,
+      "exact": true
+    },
+    "King's Shield": {
+      "as": "Protect",
+      "effect": 420,
+      "exact": true
+    },
+    "Play Nice": {
+      "as": "Charm",
+      "effect": 421,
+      "exact": true
+    },
+    "Confide": {
+      "as": "Growl",
+      "effect": 422,
+      "exact": true
+    },
+    "Diamond Storm": {
+      "name": "DIAMONDSTORM",
+      "as": "AncientPower",
+      "effect": 423,
+      "exact": true
+    },
+    "Steam Eruption": {
+      "name": "STEAM ERUPTN",
+      "as": "Hydro Pump",
+      "effect": 424,
+      "exact": true
+    },
+    "Hyperspace Hole": {
+      "name": "HYPRSPC HOLE",
+      "as": "Psychic",
+      "effect": 425,
+      "exact": true
+    },
+    "Water Shuriken": {
+      "name": "WATERSHURIKN",
+      "as": "Water Gun",
+      "effect": 426,
+      "exact": true
+    },
+    "Mystical Fire": {
+      "name": "MYSTICALFIRE",
+      "as": "Will-O-Wisp",
+      "effect": 427,
+      "exact": true
+    },
+    "Spiky Shield": {
+      "as": "Protect",
+      "effect": 428,
+      "exact": true
+    },
+    "Aromatic Mist": {
+      "name": "AROMATICMIST",
+      "as": "Aromatherapy",
+      "effect": 429,
+      "exact": true
+    },
+    "Eerie Impulse": {
+      "name": "EERIEIMPULSE",
+      "as": "Thunder Wave",
+      "effect": 430,
+      "exact": true
+    },
+    "Venom Drench": {
+      "as": "Acid Armor",
+      "effect": 431,
+      "exact": true
+    },
+    "Powder": {
+      "as": "PoisonPowder",
+      "effect": 432,
+      "exact": true
+    },
+    "Geomancy": {
+      "as": "Cosmic Power",
+      "effect": 433,
+      "exact": true
+    },
+    "Magnetic Flux": {
+      "name": "MAGNETICFLUX",
+      "as": "Charge",
+      "effect": 434,
+      "exact": true
+    },
+    "Happy Hour": {
+      "as": "Helping Hand",
+      "effect": 435,
+      "exact": true
+    },
+    "Electric Terrain": {
+      "name": "ELEC.TERRAIN",
+      "as": "Charge",
+      "effect": 436,
+      "exact": true
+    },
+    "Celebrate": {
+      "as": "Splash",
+      "effect": 438,
+      "exact": true
+    },
+    "Hold Hands": {
+      "as": "Helping Hand",
+      "effect": 439,
+      "exact": true
+    },
+    "Nuzzle": {
+      "as": "Spark",
+      "effect": 441,
+      "exact": true
+    },
+    "Hold Back": {
+      "as": "Tackle",
+      "effect": 442,
+      "exact": true
+    },
+    "Infestation": {
+      "as": "Whirlpool",
+      "effect": 443,
+      "exact": true
+    },
+    "Power-Up Punch": {
+      "name": "POWERUPPUNCH",
+      "as": "Mega Punch",
+      "effect": 444,
+      "exact": true
+    },
+    "Oblivion Wing": {
+      "name": "OBLIVIONWING",
+      "as": "Gust",
+      "effect": 445,
+      "exact": true
+    },
+    "Thousand Arrows": {
+      "name": "THOUS.ARROWS",
+      "as": "Rock Slide",
+      "effect": 446,
+      "exact": true
+    },
+    "Thousand Waves": {
+      "name": "THOUS.WAVES",
+      "as": "Earthquake",
+      "effect": 447,
+      "exact": true
+    },
+    "Land's Wrath": {
+      "as": "Earthquake",
+      "effect": 448,
+      "exact": true
+    },
+    "Light of Ruin": {
+      "name": "LIGHTOFRUIN",
+      "as": "Moonlight",
+      "effect": 449,
+      "exact": true
+    },
+    "Origin Pulse": {
+      "as": "Water Pulse",
+      "effect": 450,
+      "exact": true
+    },
+    "Precipice Blades": {
+      "name": "PRECIP.BLADE",
+      "as": "Earthquake",
+      "effect": 451,
+      "exact": true
+    },
+    "Dragon Ascent": {
+      "name": "DRAGONASCENT",
+      "as": "Aerial Ace",
+      "effect": 452,
+      "exact": true
+    },
+    "Hyperspace Fury": {
+      "name": "HYPRSPC FURY",
+      "as": "Faint Attack",
+      "effect": 453,
+      "exact": true
+    }
+  },
+  "oldMoves": {
+    "String Shot": {
+      "effect": 60,
+      "note": "Generation 6: Speed down two (the game's Scary Face)."
+    },
+    "Sweet Scent": {
+      "effect": 64,
+      "note": "Generation 6: evasion down two."
+    },
+    "Tail Glow": {
+      "effect": 262,
+      "note": "Generation 5 and 6: Sp. Atk up three (host/gen6_moves.inc)."
+    },
+    "Growth": {
+      "effect": 263,
+      "note": "Generation 5 and 6: Attack and Sp. Atk up one, two in the sun."
+    },
+    "Minimize": {
+      "effect": 264,
+      "note": "Generation 5 and 6: evasion up two."
+    }
+  }
+}

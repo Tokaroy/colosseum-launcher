@@ -326,6 +326,20 @@ test('Split-screen co-op is on unless turned off, with player 2\'s hero, layout 
   }
 });
 
+test('Battle lighting is on unless turned off, in Colosseum and XD', () => {
+  const env = (settings, options) => port.buildEnvironment(port.normalizeSettings(settings), 'disc', '/port', options);
+  const saved = process.env.COLO_BATTLE_LIGHT;
+  delete process.env.COLO_BATTLE_LIGHT;
+  try {
+    assert.equal(port.normalizeSettings({}).battleLighting, true);
+    assert.equal(env({}).COLO_BATTLE_LIGHT, undefined, 'unset is on in the game');
+    assert.equal(env({ battleLighting: false }).COLO_BATTLE_LIGHT, '0');
+    assert.equal(env({ battleLighting: false }, { game: 'xd' }).COLO_BATTLE_LIGHT, '0');
+  } finally {
+    if (saved !== undefined) process.env.COLO_BATTLE_LIGHT = saved;
+  }
+});
+
 test('More Poké Spot Pokémon is on unless turned off, and is XD only', () => {
   const env = (settings, options) => port.buildEnvironment(port.normalizeSettings(settings), 'disc', '/port', options);
   const saved = process.env.COLO_POKESPOT_POOL;
@@ -542,9 +556,8 @@ test('the texture installer gets the pinned pack', () => {
   assert.match(port.TEXTURE_PACK.url, /^https:\/\//);
 });
 
-test('Battle Revolution HD textures: off at first, their own installer and folder, read after the HD pack', t => {
-  assert.equal(port.normalizeSettings({}).pbrTextures, false);
-  assert.equal(port.normalizeSettings({ pbrTextures: true }).pbrTextures, true);
+test('Battle Revolution HD textures: no switch of their own (HD textures covers them), their own installer and folder, read after the HD pack', t => {
+  assert.equal('pbrTextures' in port.normalizeSettings({ pbrTextures: true }), false);
   const work = path.join(temporary(t), 'battle-revolution');
   const pack = port.PBR_TEXTURE_PACK;
   const { args, cwd } = port.pbrTextureCommand(work, 'linux', {});
@@ -566,6 +579,29 @@ test('Battle Revolution HD textures: off at first, their own installer and folde
   assert.deepEqual(port.texturePackFolders({ ...settings, textures: false }, '/port', null, folder), [folder]);
   const env = port.buildEnvironment({ ...settings, textures: false }, '/disc.iso', '/port', { pbrTextures: folder });
   assert.equal(env.SMS_TEXTURE_PACKS, folder);
+});
+
+test('3DS HD textures: no switch of their own, their own pack and folder, read after Battle Revolution\'s', t => {
+  assert.equal('usumTextures' in port.normalizeSettings({ usumTextures: true }), false);
+  const work = path.join(temporary(t), 'usum-models');
+  const pack = port.USUM_TEXTURE_PACK;
+  assert.notEqual(pack.folder, port.PBR_TEXTURE_PACK.folder);
+  assert.match(pack.sha256, /^[a-f0-9]{64}$/);
+  assert.match(pack.url, /^https:\/\//);
+  const { args, cwd } = port.pbrTextureCommand(work, 'linux', {}, pack);
+  assert.deepEqual(args.slice(1), [path.join(work, 'textures'), pack.url, pack.sha256, String(pack.size), pack.folder]);
+  assert.equal(cwd, work);
+  assert.equal(port.pbrTexturesInstalled(work, pack), false);
+  const folder = port.pbrTextureFolder(work, pack);
+  fs.mkdirSync(folder, { recursive: true });
+  fs.writeFileSync(path.join(folder, '.release'), JSON.stringify({ sha256: pack.sha256 }));
+  assert.equal(port.pbrTexturesInstalled(work, pack), true);
+  assert.equal(port.pbrTexturesInstalled(work), false);
+  const settings = { ...port.normalizeSettings({}), textures: false };
+  assert.deepEqual(port.texturePackFolders(settings, '/port', null, '/pbr', folder), ['/pbr', folder]);
+  assert.deepEqual(port.texturePackFolders(settings, '/port', null, null, folder), [folder]);
+  const env = port.buildEnvironment(settings, '/disc.iso', '/port', { pbrTextures: '/pbr', usumTextures: folder });
+  assert.equal(env.SMS_TEXTURE_PACKS, ['/pbr', folder].join(';'));
 });
 
 test('a Windows folder too deep to build in is found before the build, with what to do', () => {

@@ -17,6 +17,7 @@ const PORT_URL = 'https://git.softwareauralabs.com/chase/pokemon-colosseum.git';
 // The HD texture pack: the port's own release, unpacked into mods/textures/colo-upscale-4x.
 const TEXTURE_PACK = require('./texture-pack.json');
 const PBR_TEXTURE_PACK = require('./pbr-texture-pack.json');
+const USUM_TEXTURE_PACK = require('./usum-texture-pack.json');
 const release = require('./game-release.json');
 
 // The processor the game is built for. A game marked "rosetta" in game-release.json predates the native
@@ -153,7 +154,8 @@ function generationSettings(input) {
   const listed = Array.isArray(input.generationPokemon) ? input.generationPokemon : [];
   const switched = generations.available().map(each => each.generation).filter(n => input[`generation${n}Pokemon`] !== undefined);
   const chosen = switched.length ? switched.filter(n => Boolean(input[`generation${n}Pokemon`])) : listed;
-  const settings = generations.normalize({ battleRules: input.battleRules, generationPokemon: chosen });
+  const settings = generations.normalize({ battleRules: input.battleRules, generationPokemon: chosen, fairyType: input.fairyType,
+    mechanicChanges: input.mechanicChanges, learnsets: input.learnsets });
   for (const { generation } of generations.available()) settings[`generation${generation}Pokemon`] = settings.generationPokemon.includes(generation);
   return settings;
 }
@@ -226,6 +228,9 @@ function normalizeSettings(input = {}, platform = process.platform, arch = gameA
     coopHero: choiceSetting(input.coopHero, ['auto', 'michael', 'wes', 'brendan', 'may', 'red', 'leaf'], 'auto'),
     coopSplit: choiceSetting(input.coopSplit, ['side', 'stacked'], 'side'),
     coopPads: choiceSetting(input.coopPads, ['controllers', 'keyboard'], 'controllers'),
+    // In battle, the lights behind the Pokémon come from the front and all are 15% brighter (host/battlelight.c). On
+    // unless turned off.
+    battleLighting: input.battleLighting !== false,
     // XD: a Poké Spot draws from every Pokémon a player could find in the wild, not only its own three. Off unless chosen.
     pokeSpotPool: input.pokeSpotPool !== false,
     // A New Game asks who to play as (Wes, or a Game Boy Advance hero Mt. Battle shows) before the name, and the save
@@ -251,9 +256,8 @@ function normalizeSettings(input = {}, platform = process.platform, arch = gameA
     presentFilter: choiceSetting(input.presentFilter, ['bilinear', 'sharp', 'nearest', 'fsr', 'nis'], 'bilinear'),
     fsrMode: choiceSetting(input.fsrMode, ['native', 'quality', 'balanced', 'performance', 'ultraperformance'], 'quality'),
     textures: input.textures !== false,
-    // Battle Revolution HD textures: PBR's own textures for the models Make assets makes, upscaled (4×, at most 1024
-    // pixels), a download of their own (pbr-texture-pack.json). Off until the player turns it on.
-    pbrTextures: Boolean(input.pbrTextures),
+    // (HD textures covers the Pokémon models' packs too, pbr-texture-pack.json and usum-texture-pack.json: each is
+    // downloaded once its models are made. They had switches of their own before, pbrTextures and usumTextures.)
     // People in the field drawn with their detailed models, made from the disc.
     hdModels: input.hdModels !== false,
     // When HD textures load: while each area loads (stage), the whole pack and kept (all), or each when first drawn (play).
@@ -393,14 +397,19 @@ function dropLeftOutPbrTextures(work, pack = PBR_TEXTURE_PACK) {
   }
   return removed;
 }
+// The 3DS HD textures (usum-texture-pack.json) the same way: the 3DS games' own textures of the Generation 5 and 6
+// Pokémon Make assets makes models of, upscaled 4×, kept with those models (main.js usumWork). The functions above
+// take this pack as `pack`.
 
 // The texture folders the game reads, first match wins: the player's custom textures, then the HD pack, then
-// Battle Revolution's HD textures (`pbrTextures`, a folder, when they're on and installed).
-function texturePackFolders(settings, root, customTextures, pbrTextures = null) {
+// Battle Revolution's HD textures (`pbrTextures`) and the 3DS ones (`usumTextures`), each a folder when HD textures are on and
+// installed.
+function texturePackFolders(settings, root, customTextures, pbrTextures = null, usumTextures = null) {
   const folders = [];
   if (customTextures && customTexturesPresent(customTextures)) folders.push(customTextures);
   if (settings.textures) folders.push(texturePackDirectory(root));
   if (pbrTextures) folders.push(pbrTextures);
+  if (usumTextures) folders.push(usumTextures);
   return folders;
 }
 
@@ -422,6 +431,7 @@ const FEATURE_ENVIRONMENT = {
   expAll: ['COLO_EXP_ALL'],
   cstickMove: ['COLO_CSTICK_MOVE'],
   partnerPass: ['COLO_PARTNER_PASS'],
+  battleLighting: ['COLO_BATTLE_LIGHT'],
   pokeSpots: ['COLO_POKESPOT_POOL'],
   coop: ['COLO_COOP', 'COLO_COOP_HERO', 'COLO_COOP_SPLIT', 'COLO_COOP_PADS'],
   playAs: ['COLO_CHOOSE_HERO', 'COLO_PLAYER'],
@@ -434,7 +444,7 @@ const FEATURE_ENVIRONMENT = {
 // What the game reads when it starts, as run.sh and run.cmd set it up. `customTextures` is the custom
 // textures folder, for playing (texturePackFolders). `game` is which game (games.js): its renderer, display
 // and input settings are every game's, the rest only where the game has that feature.
-function buildEnvironment(settings, disc, root, { customTextures = null, pbrTextures = null, laterGenerations = false, packPokemon = false, noRepeats = false, baseForms = false,
+function buildEnvironment(settings, disc, root, { customTextures = null, pbrTextures = null, usumTextures = null, laterGenerations = false, gen6Randomizer = false, packPokemon = false, noRepeats = false, baseForms = false,
   spread = false, game = games.DEFAULT } = {}) {
   if (!root) throw new Error('The port folder is required to configure texture packs.');
   const env = {
@@ -467,7 +477,7 @@ function buildEnvironment(settings, disc, root, { customTextures = null, pbrText
     SMS_PRESENT_FILTER: settings.presentFilter || 'bilinear',
     SMS_FSR_MODE: settings.fsrMode || 'quality',
     // The game splits the list at ';' (and at ':' outside a drive letter) on every system.
-    SMS_TEXTURE_PACKS: texturePackFolders(settings, root, customTextures, pbrTextures).join(';') || '0',
+    SMS_TEXTURE_PACKS: texturePackFolders(settings, root, customTextures, pbrTextures, usumTextures).join(';') || '0',
     SMS_TEXTURE_PACK_PRELOAD: { all: 'all', play: '0' }[settings.textureLoading] || '1',
     // Video memory kept for HD textures, as run.sh has it.
     SMS_TEXTURE_PACK_MB: '3000',
@@ -477,7 +487,7 @@ function buildEnvironment(settings, disc, root, { customTextures = null, pbrText
   // Unset is hold at 4x, as in a game built before these settings.
   if (settings.fastForward === 'toggle') env.COLO_FAST_FORWARD = 'toggle';
   if (settings.fastForwardSpeed && settings.fastForwardSpeed !== 4) env.COLO_FAST_FORWARD_SPEED = String(settings.fastForwardSpeed);
-  const run = randomizer.environmentValue(settings, { laterGenerations, packPokemon, noRepeats, baseForms, spread });
+  const run = randomizer.environmentValue(settings, { laterGenerations, gen6Randomizer, packPokemon, noRepeats, baseForms, spread });
   if (run) env.COLO_RANDOMIZER = run;
   if (settings.hdModels === false) env.COLO_HD_MODELS = '0';
   // Unset is on in the game, as it is in a game built before these settings.
@@ -496,6 +506,7 @@ function buildEnvironment(settings, disc, root, { customTextures = null, pbrText
   if (settings.partnerPass === false) env.COLO_PARTNER_PASS = '0';
   // Unset is on in the game: the Trade Center opens before the story's end.
   if (settings.gbaTradeAnytime === false) env.COLO_GBA_TRADE_ANYTIME = '0';
+  if (settings.battleLighting === false) env.COLO_BATTLE_LIGHT = '0';
   if (settings.pokeSpotPool === false) env.COLO_POKESPOT_POOL = '0';
   if (settings.chooseHero === false) env.COLO_CHOOSE_HERO = '0';
   env.COLO_COOP = settings.coop === false ? '0' : '1';
@@ -729,6 +740,28 @@ function pbrModelsCommand(root, disc, work, numbers, platform = process.platform
   return { command: path.join(msys, 'mingw64', 'bin', 'python.exe'), args, cwd: path.dirname(args[0]), env: msysEnvironment(msys, environment) };
 }
 
+// Nintendo 3DS Pokémon models (scripts/3ds2pkx, for Generations 5 and 6): directly from a decrypted Ultra Sun / Ultra
+// Moon / Sun / Moon .3ds ROM, using the same build tools' Python.
+function usumModelsScript() { return launcherScript(path.join('3ds2pkx', 'make_models.py')); }
+function usumOutdated(models, numbers) {
+  let remade;
+  try { remade = JSON.parse(fs.readFileSync(launcherScript(path.join('3ds2pkx', 'remade.json')), 'utf8')).remade; } catch { return new Set(); }
+  if (!remade || typeof remade !== 'object') return new Set();
+  const outdated = new Set();
+  for (const number of numbers) {
+    let madeBy = 1;
+    try { madeBy = parseInt(fs.readFileSync(path.join(models, String(number), 'models-version.txt'), 'utf8'), 10) || 1; } catch { /* first version */ }
+    if (Object.entries(remade).some(([version, changed]) => Number(version) > madeBy && Array.isArray(changed) && changed.includes(number))) outdated.add(number);
+  }
+  return outdated;
+}
+function usumModelsCommand(rom, work, numbers, platform = process.platform, environment = process.env) {
+  const args = [usumModelsScript(), rom, work, ...numbers.map(String)];
+  if (platform !== 'win32') return { command: 'python3', args, cwd: path.dirname(args[0]), env: environment };
+  const { msys } = msysBash(environment);
+  return { command: path.join(msys, 'mingw64', 'bin', 'python.exe'), args, cwd: path.dirname(args[0]), env: msysEnvironment(msys, environment) };
+}
+
 // The system's libdrm_amdgpu, for the game to load before anything else on Linux. The game's graphics
 // drivers are the system's, and a newer Mesa needs this library from the same system: RADV 26.2 on a
 // Steam Deck calls amdgpu_va_manager_query_sw_info, which the build tools' older copy (2.4.129) lacks.
@@ -789,8 +822,9 @@ function gameRuntimeFolders(environment = process.env) {
   return [path.join(environment.MSYS2_ROOT || 'C:\\msys64', 'mingw64', 'bin')];
 }
 
-module.exports = { PORT_URL, TEXTURE_PACK, PBR_TEXTURE_PACK, texturePack, gameArch, platformInfo, dependencyPaths, isPort, placeMainDol, validateRom, normalizeSettings, moveToMetal, turnOnQuickBattles,
+module.exports = { PORT_URL, TEXTURE_PACK, PBR_TEXTURE_PACK, USUM_TEXTURE_PACK, texturePack, gameArch, platformInfo, dependencyPaths, isPort, placeMainDol, validateRom, normalizeSettings, moveToMetal, turnOnQuickBattles,
   texturePackDirectory, texturePackInstalled, hdVisualsInstalled, dropLeftOutTextures, customTextureDirectory, customTexturesPresent, texturePackFolders,
   pbrTextureDirectory, pbrTexturesInstalled, pbrTextureFolder, dropLeftOutPbrTextures, pbrTextureCommand,
   buildEnvironment, binaryPath, longPathProblem, pathCharacterProblem, nonAsciiPathProblem, playableInstall, useLauncherScripts, launcherScript,
-  gameBuildEnvironment, buildCommand, buildJobs, textureCommand, pbrModelsScript, pbrModelsCommand, pbrOutdated, pbrMakesCries, playsOwnModels, playsPackCries, gameRunCommand, gameRuntimeFolders, systemLibdrmAmdgpu };
+  gameBuildEnvironment, buildCommand, buildJobs, textureCommand, pbrModelsScript, pbrModelsCommand, pbrOutdated, pbrMakesCries, playsOwnModels, playsPackCries,
+  usumModelsScript, usumModelsCommand, usumOutdated, gameRunCommand, gameRuntimeFolders, systemLibdrmAmdgpu };

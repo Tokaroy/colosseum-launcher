@@ -29,9 +29,14 @@ test('generation 4 is there, with its Pokémon, moves and rules', () => {
 });
 
 test('settings keep only generations there is data for', () => {
-  assert.deepEqual(generations.normalize({}), { battleRules: 3, generationPokemon: [] });
-  assert.deepEqual(generations.normalize({ battleRules: '4', generationPokemon: [4, 4, 9] }), { battleRules: 4, generationPokemon: [4] });
-  assert.deepEqual(generations.normalize({ battleRules: 9 }), { battleRules: 3, generationPokemon: [] });
+  const plain = { battleRules: 3, generationPokemon: [], mechanics: [], mechanicChanges: {}, learnsets: 'auto', fairyType: false };
+  assert.deepEqual(generations.normalize({}), plain);
+  const four = generations.normalize({ battleRules: '4', generationPokemon: [4, 4, 9] });
+  assert.deepEqual([four.battleRules, four.generationPokemon, four.mechanics], [4, [4], ['physicalSpecialSplit', 'sandstormRockSpecialDefense']]);
+  assert.deepEqual(generations.normalize({ battleRules: 9 }), plain);
+  // the Fairy type only when it's asked for in so many words
+  assert.equal(generations.normalize({ fairyType: true }).fairyType, true);
+  assert.equal(generations.normalize({ fairyType: 'yes' }).fairyType, false);
 });
 
 test('new moves keep their numbers, three past their own, and play as the move named', () => {
@@ -50,6 +55,21 @@ test('new moves keep their numbers, three past their own, and play as the move n
   assert.equal(leafStorm.row[2], 12, 'Grass');
   const gift = moves.find(move => move.number === 363);
   assert.equal(gift.row.readUInt16BE(0x1a), 258, "Natural Gift plays as the port's own effect");
+});
+
+test("each new move has the trainer AI of a move the game has, which fits what it does", () => {
+  const game = tables(), data = generations.load(4);
+  game.moveRows[105][0x13] = 1; game.moveRows[105][0x34] = 2;   // (a drawback mark and a kind the AI reads: Roost takes Recover's)
+  const known = ['Recover', 'Quick Attack', 'Overheat', 'Slash', 'Strength', 'Water Gun', 'Rock Throw', 'Swift'];
+  const colosseum = { ...data.colosseum, moves: Object.fromEntries(Object.entries(data.colosseum.moves).map(([name, how]) => [name, how && { ...how, as: known.includes(how.as) ? how.as : 'Strength' }])) };
+  const moves = generations.newMoves(game, { ...data, colosseum });
+  const roost = moves.find(move => move.number === 355), suckerPunch = moves.find(move => move.number === 389);
+  assert.equal(roost.ai, 105, 'Roost is judged as Recover');
+  assert.deepEqual([roost.row[0x13], roost.row[0x34]], [1, 2]);
+  assert.equal(suckerPunch.ai, 98, 'Sucker Punch as Quick Attack');
+  // every move past the third generation's has one, a move the third generation has
+  const table = require('../src/generations/move-ai.json').moves;
+  for (let n = 355; n <= 621; n++) assert.ok(table[n], `move ${n}`);
 });
 
 test("moves have Pokémon Platinum's numbers and flags, and its engine's move lists", () => {
@@ -88,7 +108,8 @@ test('a new move gets all its own flags, and keeps a chance its stand-in plays a
   assert.equal(by('THUNDER FANG')[0x0b], 1, "King's Rock");
   assert.equal(by('MAGMA STORM')[5], 100, "Fire Spin's certain trap, where Platinum's data has 0");
   assert.equal(by('CHATTER')[5], 0, 'its own effect in Platinum, not the stand-in\'s');
-  assert.deepEqual([by('AQUA TAIL')[0x11], by('AQUA TAIL')[0x13]], [1, 1], 'Pressure and the AI\'s risk stay the stand-in\'s');
+  assert.equal(by('AQUA TAIL')[0x11], 1, "Pressure stays the stand-in's");
+  assert.equal(by('AQUA TAIL')[0x13], 0, "the AI's risk is its AI move's (Tackle's), not Strength's");
 });
 
 test("a generation's rules: categories by move, and the old moves it changed", () => {
@@ -171,7 +192,8 @@ test('a later generation\'s evolutions as Colosseum can make them', () => {
   assert.deepEqual(of(458), [{ into: 226, withPokemon: 223 }], 'Mantyke with a Remoraid');
   assert.deepEqual(of(439), [{ into: 122, knowsMove: 102 }], 'Mime Jr. knowing Mimic');
   assert.deepEqual(of(82), [{ into: 'generation:462', level: 40 }], 'Magneton: no magnetic field');
-  assert.deepEqual(of(133).slice(0, 2), [null, null], 'no mossy or icy rock for Eevee');
+  assert.deepEqual(of(133).slice(0, 2), [{ into: 'generation:470', item: 'Leaf Stone' }, { into: 'generation:471', heldItem: 'NeverMeltIce' }],
+    'no mossy or icy rock for Eevee: a Leaf Stone and NeverMeltIce');
   assert.deepEqual(of(112), [{ into: 'generation:464', level: 45 }], 'Rhydon: traded holding a Protector');
 });
 

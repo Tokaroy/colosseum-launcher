@@ -139,11 +139,13 @@ function renderDetail() {
   $('pokemon-edit').title = cantEdit || 'Edit this Pokémon in your save file';
   $('pokemon-edit-note').hidden = !cantEdit;
   $('pokemon-edit-note').textContent = cantEdit || '';
+  renderForm(pokemon);
   const problem = pokemon.tradeProblem || (!data.canTrade ? data.notice || 'Trading isn\'t possible right now.' : null);
   $('pokemon-trade').hidden = !pokemon.shadow;
   $('pokemon-trade').disabled = Boolean(problem) || Boolean(data.trades?.busy);
-  const note = pokemon.tradeLater ? 'It leaves your save, and a Shadow Pokémon another player sent comes back. As a Generation 4 Pokémon, it goes only to a player whose game has Generation 4 Pokémon turned on.'
-    : 'It leaves your save, and a Shadow Pokémon another player sent comes back.';
+  const note = pokemon.tradeGen6 ? 'It leaves your save, and a Shadow Pokémon another player sent comes back. As a Generation 5 or 6 Pokémon, it goes only to a player whose game has Generation 5 and 6 Pokémon turned on.'
+    : pokemon.tradeLater ? 'It leaves your save, and a Shadow Pokémon another player sent comes back. As a Generation 4 Pokémon, it goes only to a player whose game has Generation 4 Pokémon turned on.'
+      : 'It leaves your save, and a Shadow Pokémon another player sent comes back.';
   $('pokemon-trade-note').textContent = pokemon.shadow ? (problem || note) : 'Only Shadow Pokémon can go to Shadowtrade.';
 }
 
@@ -163,6 +165,32 @@ async function editPokemon() {
     });
   } catch (error) { setStatus(message(error)); }
 }
+// Change form (main.js changeForm, src/forms.js): the forms it can be, for now in place of the item that changes it in
+// the 3DS and DS games, made in the save while the game is closed
+function renderForm(pokemon) {
+  const forms = pokemon.forms, box = $('pokemon-form');
+  box.hidden = !forms;
+  if (!forms) return;
+  const select = $('pokemon-form-choice');
+  select.replaceChildren(...forms.choices.map(each => Object.assign(document.createElement('option'), { value: String(each.number), textContent: each.name, selected: each.number === forms.current })));
+  const running = data.source === 'live' || (data.notice && !data.canTrade && data.source !== 'card');
+  $('pokemon-form-change').disabled = Boolean(running);
+  $('pokemon-form-note').textContent = running ? 'Close the game to change its form: it changes in your save.'
+    : `In the 3DS and DS games, the ${forms.by} does this. Its stats, type and ability change with it, and its own move too.`;
+}
+async function changeForm() {
+  const pokemon = current();
+  if (!pokemon?.forms) return;
+  const to = Number($('pokemon-form-choice').value);
+  if (to === pokemon.forms.current) return;
+  $('pokemon-form-change').disabled = true;
+  try {
+    const done = await window.colo.changeForm({ area: pokemon.area, box: pokemon.box, slot: pokemon.slot }, { species: pokemon.species, rnd: pokemon.rnd, trainer: pokemon.trainer }, to);
+    setStatus(`${shown(pokemon)} is now ${done.name}.`);
+    await refresh();
+  } catch (error) { setStatus(message(error)); $('pokemon-form-change').disabled = false; }
+}
+$('pokemon-form-change').addEventListener('click', changeForm);
 
 function describeTrade(trade) {
   const row = document.createElement('div');
@@ -1042,7 +1070,7 @@ window.colo.onOnlineTrades(view => {
   if (visible) renderTradePanel();
 });
 
-// ---- Import from a GBA or DS save (main.js importView, src/save-import.js): the Import menu, then the file's party and
+// ---- Import from a GBA, DS or 3DS save (main.js importView, src/save-import.js): the Import menu, then the file's party and
 // boxes in a window of their own. Pokémon are picked (several at once) and copied into the save; one that can't come
 // says why, and what comes off it (an item the game hasn't got) is said too.
 let importView = null, importTab = 'party', importBox = 0, importPicked = new Map(), importFocus = null, importBusy = false;
@@ -1071,7 +1099,7 @@ function renderImport() {
   const file = importView?.file;
   if (!file) { if ($('save-import').open) $('save-import').close(); return; }
   const gameName = gameLabel(importView.game);
-  $('save-import-kind').textContent = file.kind === 'ds' ? 'IMPORT FROM A DS SAVE' : 'IMPORT FROM A GBA SAVE';
+  $('save-import-kind').textContent = file.kind === '3ds' ? 'IMPORT FROM A 3DS SAVE' : file.kind === 'ds' || file.kind === 'bw' ? 'IMPORT FROM A DS SAVE' : 'IMPORT FROM A GBA SAVE';
   $('save-import-title').textContent = `${file.trainer || 'Your'}'s ${file.gameName} save`;
   $('save-import-file').textContent = `${file.name} · ID ${String(file.trainerId).padStart(5, '0')}`;
   for (const name of ['party', 'boxes']) $(`save-import-tab-${name}`).setAttribute('aria-selected', String(importTab === name));
@@ -1198,6 +1226,8 @@ $('import-menu').addEventListener('toggle', event => {
 });
 $('import-gba').addEventListener('click', () => openImport('gba'));
 $('import-ds').addEventListener('click', () => openImport('ds'));
+$('import-bw').addEventListener('click', () => openImport('bw'));
+$('import-3ds').addEventListener('click', () => openImport('3ds'));
 $('save-import-tab-party').addEventListener('click', () => { importTab = 'party'; renderImport(); });
 $('save-import-tab-boxes').addEventListener('click', () => { importTab = 'boxes'; renderImport(); });
 $('save-import-box').addEventListener('change', event => { importBox = Number(event.target.value); renderImport(); });

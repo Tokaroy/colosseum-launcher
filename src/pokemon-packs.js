@@ -43,6 +43,8 @@ const ROW = {
 const ABILITY_COUNT = 77;   // Stench to Cacophony; the messages after them are other text
 const TM_TABLE = 0x80368018;
 const TM_COUNT = 50, HM_COUNT = 8, EVOLUTIONS = 5, LEVEL_MOVES = 20;
+// What a row has no room for goes in the MORE chunk (host/evolutions.c): up to these many more of each
+const MORE_EVOLUTIONS = 20, MORE_MOVES = 40;
 const MOVES = { offset: 0x11c7c4, count: 358, size: 0x38, name: 0x20 };
 const STATS = ['hp', 'attack', 'defense', 'spAttack', 'spDefense', 'speed'];
 const GROWTH = ['mediumFast', 'erratic', 'fluctuating', 'mediumSlow', 'fast', 'slow'];
@@ -51,11 +53,12 @@ const GROWTH = ['mediumFast', 'erratic', 'fluctuating', 'mediumSlow', 'fast', 's
 // in the party (its species), and a level for one gender.
 const EVOLVE = { friendship: 1, friendshipDay: 2, friendshipNight: 3, level: 4, trade: 5, tradeItem: 6, item: 7,
   attackAbove: 8, attackEqual: 9, defenseAbove: 10, personalityFirst: 11, personalitySecond: 12, alongside: 14, beauty: 15,
-  knowsMove: 16, withPokemon: 17, levelMale: 18, levelFemale: 19 };
+  knowsMove: 16, withPokemon: 17, levelMale: 18, levelFemale: 19, heldItem: 20, friendshipTypeMove: 21, levelPartyType: 22 };
 // Items that make a Pokémon evolve, by the game's numbers for them.
 const EVOLUTION_ITEMS = { 'sun stone': 93, 'moon stone': 94, 'fire stone': 95, 'thunder stone': 96, 'thunderstone': 96, 'water stone': 97,
   'leaf stone': 98, "king's rock": 187, 'deep sea tooth': 192, 'deepseatooth': 192, 'deep sea scale': 193, 'deepseascale': 193,
-  'metal coat': 199, 'dragon scale': 201, 'up-grade': 218 };
+  'metal coat': 199, 'dragon scale': 201, 'up-grade': 218,
+  'prism scale': 0x2a2, 'whipped dream': 0x2a3, 'sachet': 0x2a4, 'nevermeltice': 212, 'never-melt ice': 212 };
 // The letters the game's font has for a name.
 const NAME_CHARACTERS = /^[A-Za-z0-9 .'\-♂♀éÉ]+$/u;
 
@@ -435,12 +438,14 @@ const LEVEL_WITH = {
   gender: [['male', EVOLVE.levelMale], ['female', EVOLVE.levelFemale]],
   stats: [['attack', EVOLVE.attackAbove], ['equal', EVOLVE.attackEqual], ['defense', EVOLVE.defenseAbove]],
   personality: [[1, EVOLVE.personalityFirst], [2, EVOLVE.personalitySecond]],
-  alongside: [[true, EVOLVE.alongside]]
+  alongside: [[true, EVOLVE.alongside]],
+  // (host/evolutions.c's kind 22: a Dark type in the party, Pancham)
+  partyType: [['Dark', EVOLVE.levelPartyType]]
 };
 function evolutionBytes(evolution, tables, target) {
   if (!isObject(evolution) || evolution.into === undefined) throw new Error('each evolution needs "into": what it evolves into');
-  const methods = ['level', 'item', 'friendship', 'trade', 'knowsMove', 'withPokemon', 'beauty'].filter(method => evolution[method] !== undefined);
-  if (methods.length !== 1) throw new Error('each evolution needs one of "level", "item", "friendship", "trade", "knowsMove", "withPokemon" or "beauty"');
+  const methods = ['level', 'item', 'friendship', 'trade', 'knowsMove', 'withPokemon', 'beauty', 'heldItem'].filter(method => evolution[method] !== undefined);
+  if (methods.length !== 1) throw new Error('each evolution needs one of "level", "item", "friendship", "trade", "knowsMove", "withPokemon", "beauty" or "heldItem"');
   const withLevel = Object.keys(LEVEL_WITH).filter(field => evolution[field] !== undefined);
   if (withLevel.length > 1) throw new Error(`an evolution can have only one of ${Object.keys(LEVEL_WITH).map(field => `"${field}"`).join(', ')}`);
   if (withLevel.length && methods[0] !== 'level') throw new Error(`"${withLevel[0]}" goes with "level"`);
@@ -457,9 +462,23 @@ function evolutionBytes(evolution, tables, target) {
     method = EVOLVE.item;
     condition = EVOLUTION_ITEMS[key(evolution.item)];
     if (!condition) throw new Error(`"${evolution.item}" isn't an evolution item: use ${Object.keys(EVOLUTION_ITEMS).filter((k, at, all) => all.findIndex(o => EVOLUTION_ITEMS[o] === EVOLUTION_ITEMS[k]) === at).join(', ')}`);
+  } else if (methods[0] === 'heldItem') {
+    // levelling up holding the item (host/evolutions.c's kind 20: Glaceon, NeverMeltIce)
+    method = EVOLVE.heldItem;
+    condition = EVOLUTION_ITEMS[key(evolution.heldItem)];
+    if (!condition) throw new Error(`"heldItem": "${evolution.heldItem}" isn't an item the game has for it`);
   } else if (methods[0] === 'friendship') {
     if (![true, 'day', 'night'].includes(evolution.friendship)) throw new Error('"friendship" must be true, "day" or "night"');
     method = { true: EVOLVE.friendship, day: EVOLVE.friendshipDay, night: EVOLVE.friendshipNight }[evolution.friendship];
+    if (evolution.knowsType !== undefined) {
+      // high friendship knowing a move of the type (kind 21: Sylveon, a Fairy move); the type by the game's number
+      if (evolution.friendship !== true) throw new Error('"knowsType" goes with "friendship": true');
+      // (the Fairy type is the game's 19th, 18, whenever it has one: host/types.c)
+      const type = key(evolution.knowsType) === 'fairy' ? 18 : (tables.types || []).indexOf(key(evolution.knowsType));
+      if (type < 0) throw new Error(`"knowsType": the game has no ${evolution.knowsType} type`);
+      method = EVOLVE.friendshipTypeMove;
+      condition = type;
+    }
   } else if (methods[0] === 'knowsMove') {
     method = EVOLVE.knowsMove;
     condition = typeof evolution.knowsMove === 'string' ? tables.moves.get(key(evolution.knowsMove)) : evolution.knowsMove;
@@ -544,13 +563,17 @@ function buildRow(spec, tables, target) {
   // Its own National Pokédex number (a later generation's Pokémon have theirs), else its base's
   if (spec.national !== undefined) row.writeUInt16BE(integer(spec.national, 1, 2000, '"national"'), ROW.national);
   if (spec.cry !== undefined) row.writeUInt16BE(findSpecies(tables, spec.cry, 'cry').row.readUInt16BE(ROW.cry), ROW.cry);
+  // (past a row's twenty level-up moves and five evolutions, the rest go to the MORE chunk)
+  const more = { evolutions: [], moves: [] };
   if (spec.moves !== undefined) {
-    if (!Array.isArray(spec.moves) || !spec.moves.length || spec.moves.length > LEVEL_MOVES) throw new Error(`"moves" must list 1 to ${LEVEL_MOVES} [level, "Move"] pairs`);
+    const most = LEVEL_MOVES + MORE_MOVES;
+    if (!Array.isArray(spec.moves) || !spec.moves.length || spec.moves.length > most) throw new Error(`"moves" must list 1 to ${most} [level, "Move"] pairs`);
     row.fill(0, ROW.moves, ROW.moves + LEVEL_MOVES * 4);
     spec.moves.map(pair => {
       if (!Array.isArray(pair) || pair.length !== 2) throw new Error('each of "moves" must be [level, "Move"]');
       return [integer(pair[0], 1, 100, 'a move\'s level'), named(tables.moves, pair[1], 'move')];
     }).sort((a, b) => a[0] - b[0]).forEach(([level, move], i) => {
+      if (i >= LEVEL_MOVES) { more.moves.push([level, move]); return; }
       row[ROW.moves + i * 4] = level;
       row.writeUInt16BE(move, ROW.moves + i * 4 + 2);
     });
@@ -575,9 +598,13 @@ function buildRow(spec, tables, target) {
     }
   }
   if (spec.evolutions !== undefined) {
-    if (!Array.isArray(spec.evolutions) || spec.evolutions.length > EVOLUTIONS) throw new Error(`"evolutions" must list up to ${EVOLUTIONS} evolutions`);
+    const most = EVOLUTIONS + MORE_EVOLUTIONS;
+    if (!Array.isArray(spec.evolutions) || spec.evolutions.length > most) throw new Error(`"evolutions" must list up to ${most} evolutions`);
     row.fill(0, ROW.evolutions, ROW.evolutions + EVOLUTIONS * 6);
-    spec.evolutions.forEach((evolution, i) => evolutionBytes(evolution, tables, target).copy(row, ROW.evolutions + i * 6));
+    spec.evolutions.forEach((evolution, i) => {
+      const bytes = evolutionBytes(evolution, tables, target);
+      if (i < EVOLUTIONS) bytes.copy(row, ROW.evolutions + i * 6); else more.evolutions.push(bytes);
+    });
   }
   // The game's own Pokémon that evolve into this one: each an evolution ownRows adds to that Pokémon's, whose "into"
   // loadPacks fills in once this one has its row.
@@ -594,7 +621,7 @@ function buildRow(spec, tables, target) {
       evolvesFrom.push({ from: from.id, bytes: evolutionBytes({ ...how, into: THIS_ONE }, tables, value => (value === THIS_ONE ? 0 : target(value))) });
     }
   }
-  return { row, base, name, form, evolvesFrom, description: typeof spec.description === 'string' ? spec.description.slice(0, 500) : '' };
+  return { row, base, name, form, evolvesFrom, more, description: typeof spec.description === 'string' ? spec.description.slice(0, 500) : '' };
 }
 const THIS_ONE = Symbol('this Pokémon');
 
@@ -692,11 +719,12 @@ function loadPacks(dir, tables, registry) {
 
 // The game's file (host/pokemonpacks.c): chunks of Pokémon (SPEC), new moves (MOVE), battle rules (MECH, host/
 // mechanics.c), the game's own Pokémon as a later generation has them (ROWS, host/evolutions.c) and the game's own
-// Pokémon with models of their own (LOOK, host/packlooks.c). `contents` is { pokemon, moves, rules, ownRows,
-// relearner, looks } (src/generations.js build makes moves and rules, ownRows its ownSpecies, ownModels the looks), or
-// just the Pokémon. `relearner` has the Move Deleter offer to make a Pokémon remember a move too.
+// Pokémon with models of their own (LOOK, host/packlooks.c), and the Fairy type (TYPE, host/types.c). `contents` is
+// { pokemon, moves, rules, ownRows, relearner, looks, types } (src/generations.js build makes moves, rules and types,
+// ownRows its ownSpecies, ownModels the looks), or just the Pokémon. `relearner` has the Move Deleter offer to make a
+// Pokémon remember a move too.
 function compile(contents) {
-  const { pokemon = [], moves = [], rules = null, ownRows: own = [], relearner = false, looks = [] } = Array.isArray(contents) ? { pokemon: contents } : contents;
+  const { pokemon = [], moves = [], rules = null, ownRows: own = [], relearner = false, looks = [], types = null, speciesChanges = [] } = Array.isArray(contents) ? { pokemon: contents } : contents;
   const padded = buffer => Buffer.concat([buffer, Buffer.alloc((4 - buffer.length % 4) % 4)]);
   const utf16 = text => { const out = Buffer.alloc(text.length * 2); [...text].forEach((c, i) => out.writeUInt16BE(c.charCodeAt(0), i * 2)); return out; };
   const u32 = value => { const out = Buffer.alloc(4); out.writeUInt32BE(value >>> 0, 0); return out; };
@@ -720,6 +748,8 @@ function compile(contents) {
     for (const move of moves) {
       const head = Buffer.alloc(8), description = move.description.slice(0, 120);
       head.writeUInt16BE(move.id, 0); head.writeUInt16BE(move.name.length, 2); head.writeUInt16BE(description.length, 4);
+      // (the game's own move whose trainer AI it has: host/pokemonpacks.c, 0 for its row's own)
+      head.writeUInt16BE(move.ai || 0, 6);
       parts.push(head, move.row, padded(Buffer.concat([utf16(move.name), utf16(description)])));
     }
     chunk('MOVE', parts);
@@ -748,6 +778,50 @@ function compile(contents) {
       parts.push(id, each.evolutions, gap, each.moves);
     }
     chunk('ROWS', parts);
+  }
+  const more = [...pokemon, ...own].filter(each => each.more && (each.more.evolutions.length || each.more.moves.length));
+  if (more.length) {
+    // what a row has no room for (host/evolutions.c): u32 count, then each: u16 species, u8 evolutions, u8 moves, the
+    // evolutions (6 bytes each, as a row's), the level-up moves (u8 level, u8 0, u16 move). A game from before skips it.
+    const parts = [u32(more.length)];
+    for (const each of more) {
+      const head = Buffer.alloc(4), moves = Buffer.alloc(each.more.moves.length * 4);
+      head.writeUInt16BE(each.id, 0); head[2] = each.more.evolutions.length; head[3] = each.more.moves.length;
+      each.more.moves.forEach(([level, move], i) => { moves[i * 4] = level; moves.writeUInt16BE(move, i * 4 + 2); });
+      parts.push(head, ...each.more.evolutions, moves);
+    }
+    chunk('MORE', parts);
+  }
+  if (types) {
+    // the Fairy type (host/types.c): u8 version 1, u8 the types the game has (19), u16 0, u16 species count, u16 move
+    // count, then each species: u16 species, u8 u8 its two types; then each move: u16 move, u8 its type, u8 0. The game
+    // writes them into its tables as it does the rules' (MECH). A game from before skips the chunk, and has no Fairy type.
+    const head = Buffer.alloc(8), list = Buffer.alloc(types.species.length * 4 + types.moves.length * 4);
+    head[0] = 1; head[1] = types.count; head.writeUInt16BE(types.species.length, 4); head.writeUInt16BE(types.moves.length, 6);
+    types.species.forEach((each, i) => { list.writeUInt16BE(each.id, i * 4); list[i * 4 + 2] = each.types[0]; list[i * 4 + 3] = each.types[1]; });
+    const at = types.species.length * 4;
+    types.moves.forEach((each, i) => { list.writeUInt16BE(each.id, at + i * 4); list[at + i * 4 + 2] = each.type; });
+    chunk('TYPE', [head, list]);
+  }
+  const statChanges = speciesChanges.filter(each => each.stats || each.hidden), expChanges = speciesChanges.filter(each => each.exp);
+  if (statChanges.length) {
+    // the game's own Pokémon's base stats and hidden abilities as the mechanics have them (host/species.c): u32 count,
+    // then each: u16 species, u8 flags (1: its stats), u8 its hidden ability (0: none), u16 x 6 its base stats (a row's
+    // order). A game from before skips the chunk.
+    const parts = [u32(statChanges.length)];
+    for (const each of statChanges) {
+      const entry = Buffer.alloc(16);
+      entry.writeUInt16BE(each.id, 0); entry[2] = each.stats ? 1 : 0; entry[3] = each.hidden || 0;
+      (each.stats || []).forEach((value, i) => entry.writeUInt16BE(value, 4 + i * 2));
+      parts.push(entry);
+    }
+    chunk('SPCH', parts);
+  }
+  if (expChanges.length) {
+    // their base experience (host/species.c): u32 count, then each: u16 species, u16 its base experience
+    const list = Buffer.alloc(expChanges.length * 4);
+    expChanges.forEach((each, i) => { list.writeUInt16BE(each.id, i * 4); list.writeUInt16BE(each.exp, i * 4 + 2); });
+    chunk('SPEX', [u32(expChanges.length), list]);
   }
   const crying = pokemon.filter(each => each.cry);
   if (crying.length) {
@@ -812,7 +886,7 @@ function compile(contents) {
 }
 
 // A converted Pokémon's own model, icons and cry, as a pack's are, or none. A cry that can't be read is left out.
-function ownLooks(folder, tables) {
+function ownLooks(folder, tables, { faceReader = battleRevolutionFace } = {}) {
   const file = name => { const at = path.join(folder, name); return fs.existsSync(at) ? fs.readFileSync(at) : null; };
   const cryAt = path.join(folder, FILES.cry), wav = fs.existsSync(cryAt) && fs.statSync(cryAt).size <= MAX_WAV ? fs.readFileSync(cryAt) : null;
   let cry = null;
@@ -829,7 +903,7 @@ function ownLooks(folder, tables) {
     assets: { model, modelShiny: file(FILES.modelShiny) || undefined,
       body: body ? sprite(() => spriteFile('body', tables.headers.body, body)) : undefined,
       bodyShiny: bodyShiny ? sprite(() => spriteFile('body', tables.headers.body, bodyShiny)) : undefined,
-      face: face ? sprite(() => spriteFile('face', tables.headers.face, face, faceShiny, battleRevolutionFace)) : undefined },
+      face: face ? sprite(() => spriteFile('face', tables.headers.face, face, faceShiny, faceReader)) : undefined },
     images: { body, bodyShiny, face }, icon: boxIconOrNone(body, bodyShiny), cry, converted: true
   };
 }
@@ -860,10 +934,11 @@ function ownModels(tables, modelsDirectory, numbers = OWN_NATIONALS) {
 // for their looks with a Pokémon Colosseum has, and with that generation's new moves among the moves they can learn.
 // modelsDirectory: where Battle Revolution models are made (src/pbr-models.js), a folder for each National Pokédex number
 // with model.pkx, model-shiny.pkx and its icons: a Pokémon with one has its own looks there instead of a stand-in's.
-function generationPokemon(tables, built, { modelsDirectory = null } = {}) {
+function generationPokemon(tables, built, { modelsDirectory = null, modelsDirectories = null } = {}) {
   const generationsLib = require('./generations');
   // the generation's moves, and its abilities where its rules are on (the game has them then: host/gen4.c)
-  const withMoves = { ...tables, moves: new Map([...tables.moves, ...built.moves.map(move => [key(move.name), move.id])]),
+  const withMoves = { ...tables, ...(built.typeNames ? { types: built.typeNames } : {}),
+    moves: new Map([...tables.moves, ...built.moves.map(move => [key(move.name), move.id])]),
     abilities: new Map([...tables.abilities, ...(built.abilities || []).map(([name, id]) => [key(name), id])]) };
   const target = value => {
     const match = /^generation:(\d+)$/.exec(String(value));
@@ -874,9 +949,28 @@ function generationPokemon(tables, built, { modelsDirectory = null } = {}) {
   for (const { id, number, generation, spec } of built.species) {
     try {
       const made = buildRow(spec, withMoves, target);
-      const own = modelsDirectory ? ownLooks(path.join(modelsDirectory, String(number)), tables) : { assets: {}, images: {}, cry: null };
+      const is3ds = generation >= 5 || number >= 494;
+      const dir = modelsDirectories?.[generation] ?? (!is3ds ? modelsDirectory : null);
+      let own = dir ? ownLooks(path.join(dir, String(number)), tables, { faceReader: is3ds ? decodePng : battleRevolutionFace }) : { assets: {}, images: {}, cry: null };
+      // a form (722 on): its base's looks and cry, with its form's own model where it has one (the 3DS converter's
+      // forms/NAME folder, or Battle Revolution's for a fourth-generation Pokémon's)
+      const form = number >= generationsLib.FIRST_FORM ? generationsLib.load(6).species[number] : null;
+      if (form?.formOf) {
+        const base3ds = form.formOf >= 494, faceReader = base3ds ? decodePng : battleRevolutionFace;
+        const baseDir = base3ds ? (modelsDirectories?.[6] ?? modelsDirectories?.[5]) : (modelsDirectories?.[4] ?? modelsDirectory);
+        own = baseDir ? ownLooks(path.join(baseDir, String(form.formOf)), tables, { faceReader }) : { assets: {}, images: {}, cry: null };
+        for (const formDir of [modelsDirectories?.[6], baseDir].filter(Boolean)) {
+          const folder = form.folder && path.join(formDir, String(form.formOf), 'forms', form.folder);
+          if (!folder || !fs.existsSync(path.join(folder, FILES.model))) continue;
+          const looks = ownLooks(folder, tables, { faceReader: formDir === modelsDirectories?.[6] ? decodePng : faceReader });
+          own = { ...own, assets: { ...own.assets, ...looks.assets }, images: { ...own.images, ...looks.images } };
+          break;
+        }
+      }
       pokemon.push({ pack: `generation-${generation}`, folder: String(number), key: `generation:${number}`, id, ...made, national: number,
-        ...own, packName: `Generation ${generation}`, author: '', credits: 'Pokémon Showdown\'s data (MIT)', generation });
+        ...own, packName: `Generation ${generation}`, author: '',
+        credits: is3ds ? 'Pokémon Showdown\'s data (MIT); StarsMmd\'s Blender-Addon-Gamecube-Models (GPL-3.0) & SPICA' : 'Pokémon Showdown\'s data (MIT)',
+        generation, assetSource: is3ds ? '3ds' : 'pbr' });
     } catch (error) {
       problems.push({ pack: `generation-${generation}`, entry: `#${number} ${spec.name}`, message: error.message });
     }
@@ -903,7 +997,7 @@ function ownRows(tables, built, pokemon, packs = []) {
   const rowOf = species => {
     if (!changed.has(species.id)) changed.set(species.id, { species,
       evolutions: Buffer.from(species.row.subarray(ROW.evolutions, ROW.evolutions + EVOLUTIONS * 6)),
-      moves: Buffer.from(species.row.subarray(ROW.moves, ROW.moves + LEVEL_MOVES * 4)) });
+      moves: Buffer.from(species.row.subarray(ROW.moves, ROW.moves + LEVEL_MOVES * 4)), more: { evolutions: [], moves: [] } });
     return changed.get(species.id);
   };
   // An evolution in the row's first free place; false when all five are taken
@@ -921,23 +1015,31 @@ function ownRows(tables, built, pokemon, packs = []) {
     for (const evolution of own.evolutions) {
       let bytes;
       try { bytes = evolutionBytes(evolution, tables, target); } catch { continue; }
-      if (!add(row.evolutions, bytes)) problems.push({ pack: 'generation', entry: species.name, message: 'has no room for another evolution, so one is left out' });
+      // (past the row's five, in the MORE chunk: Eevee's Leafeon, Glaceon and Sylveon)
+      if (!add(row.evolutions, bytes)) {
+        if (row.more.evolutions.length < MORE_EVOLUTIONS) row.more.evolutions.push(bytes);
+        else problems.push({ pack: 'generation', entry: species.name, message: 'has no room for another evolution, so one is left out' });
+      }
     }
     row.moves.fill(0);
     own.levelUp.slice(0, LEVEL_MOVES).forEach(([level, move], i) => { row.moves[i * 4] = level; row.moves.writeUInt16BE(move, i * 4 + 2); });
+    row.more.moves = own.levelUp.slice(LEVEL_MOVES, LEVEL_MOVES + MORE_MOVES);
   }
   for (const each of packs) for (const { from, bytes } of each.evolvesFrom || []) {
     const species = tables.species.find(item => item.id === from);
     if (!species?.row) continue;
     const row = rowOf(species);
-    const already = Array.from({ length: EVOLUTIONS }, (_, i) => row.evolutions.subarray(i * 6, i * 6 + 6)).some(have => have.equals(bytes));
-    if (!already && !add(row.evolutions, bytes))
-      problems.push({ pack: each.pack, entry: each.folder, message: `${species.name} has no room for another evolution, so its evolution into this one is left out` });
+    const already = Array.from({ length: EVOLUTIONS }, (_, i) => row.evolutions.subarray(i * 6, i * 6 + 6)).some(have => have.equals(bytes)) ||
+      row.more.evolutions.some(have => have.equals(bytes));
+    if (!already && !add(row.evolutions, bytes)) {
+      if (row.more.evolutions.length < MORE_EVOLUTIONS) row.more.evolutions.push(bytes);
+      else problems.push({ pack: each.pack, entry: each.folder, message: `${species.name} has no room for another evolution, so its evolution into this one is left out` });
+    }
   }
   const rows = [...changed.values()]
-    .filter(({ species, evolutions, moves }) => !evolutions.equals(species.row.subarray(ROW.evolutions, ROW.evolutions + EVOLUTIONS * 6))
-      || !moves.equals(species.row.subarray(ROW.moves, ROW.moves + LEVEL_MOVES * 4)))
-    .map(({ species, evolutions, moves }) => ({ id: species.id, evolutions, moves }));
+    .filter(({ species, evolutions, moves, more }) => !evolutions.equals(species.row.subarray(ROW.evolutions, ROW.evolutions + EVOLUTIONS * 6))
+      || !moves.equals(species.row.subarray(ROW.moves, ROW.moves + LEVEL_MOVES * 4)) || more.evolutions.length || more.moves.length)
+    .map(({ species, evolutions, moves, more }) => ({ id: species.id, evolutions, moves, more }));
   return { rows, problems };
 }
 
@@ -1069,18 +1171,25 @@ function speciesRef(tables, id) {
 // A later generation's ability (77 on, which the game has under that generation's rules) by its name there
 function laterAbility(id) {
   if (id <= ABILITY_COUNT) return undefined;
-  try { return require('./generations').load(4).abilities[id === 124 ? 77 : id]?.name; } catch { return undefined; }   // 124: Tangled Feet
+  try {
+    const generations = require('./generations'), number = generations.abilityNumber(id);   // 124: Tangled Feet; 125 on: generations 5 and 6's
+    return (generations.load(4).abilities[number] || generations.load(6).abilities[number])?.name;
+  } catch { return undefined; }
 }
 
 // Where a later generation's Pokémon's looks and cry are from, for the Pokédex.
 function generationNote(each) {
-  const start = `Added by the Generation ${each.generation} Pokémon setting`, end = 'From Pokémon Showdown\'s data.';
+  const is3ds = each.assetSource === '3ds' || each.generation >= 5 || each.national >= 494;
+  const source = is3ds ? '3DS Pokémon ROM' : 'Battle Revolution disc';
+  const assetsName = is3ds ? '3DS Pokémon assets' : 'Battle Revolution assets';
+  const genLabel = each.generation === 6 ? '5 and 6' : each.generation;
+  const start = `Added by the Generation ${genLabel} Pokémon setting`, end = 'From Pokémon Showdown\'s data.';
   if (each.converted) {
-    const made = `with its ${each.cry ? 'model, icons and cry' : 'model and icons'} from your Battle Revolution disc (StarsMmd's Blender-Addon-Gamecube-Models writes the models)`;
+    const made = `with its ${each.cry ? 'model, icons and cry' : 'model and icons'} from your ${source} (StarsMmd's Blender-Addon-Gamecube-Models writes the models)`;
     return `${start}, ${made}.${each.cry ? '' : ` ${each.base.name}'s cry stands in for its own.`} ${end}`;
   }
-  if (each.cry) return `${start}, with its cry from your Battle Revolution disc. ${each.base.name} stands in for its looks until its Battle Revolution assets are made. ${end}`;
-  return `${start}. ${each.base.name} stands in for its looks and cry until its Battle Revolution assets are made. ${end}`;
+  if (each.cry) return `${start}, with its cry from your ${source}. ${each.base.name} stands in for its looks until its ${assetsName} are made. ${end}`;
+  return `${start}. ${each.base.name} stands in for its looks and cry until its ${assetsName} are made. ${end}`;
 }
 
 // A row's evolutions as the Pokédex names them: what each evolves into (a loaded Pokémon's key, else the game's
@@ -1109,7 +1218,7 @@ function rowEvolutions(row, start, pokemon, tables, from) {
 
 // What the Pokédex shows of each: as its own entries do (pokedex.js), and where it's from.
 function pokedexEntries(pokemon, tables) {
-  const TYPES = pokedex.TYPES;
+  const TYPES = pokedex.TYPE_NAMES;
   return pokemon.map(each => {
     const row = each.row, types = [TYPES[row[ROW.types]], TYPES[row[ROW.types + 1]]];
     const height = row.readUInt16BE(ROW.height);
@@ -1133,8 +1242,64 @@ function pokedexEntries(pokemon, tables) {
   });
 }
 
+// A Pokémon's other models made from a 3DS ROM (scripts/3ds2pkx make_pack.py), in `folder`/forms/<name>/ and listed in
+// forms/forms.json ([{ folder, name, form, female, kind, types, stats, abilities, height (m), weight (kg) }]): its female
+// model, Megas, Primal Reversion, regional, battle and other forms. As Pokédex looks, each then its shiny one:
+// [{ id: 'form:<name>' or 'form:<name>:shiny', label, title, note, info }], `title` and `note` saying what the form is in the game and
+// `info` what it has of its own in the Pokédex's shape (types, stats, abilities, height and weight as the entries
+// show them). One whose model isn't there is left out.
+const FORM_NOTES = {
+  female: ['Female look', 'How a female one looks in the 3DS games. The game shows female and male ones alike, as the usual model.'],
+  battle: ['Battle form', 'It changes into this form in battle, with these types and stats. The game shows its usual model while it\'s in this form.'],
+  mega: [null, null],
+  form: ['Other form', 'The game has no way to have this form: its model from your 3DS ROM, to look at.']
+};
+function formNote(each) {
+  if (each.kind === 'mega') {
+    const what = String(each.name).startsWith('Primal') ? 'Primal Reversion' : 'Mega Evolution';
+    return [what, `${what} isn't in the game, so no Pokémon becomes this: its model from your 3DS ROM, to look at.`];
+  }
+  return FORM_NOTES[each.kind] || FORM_NOTES.form;
+}
+function formInfo(each) {
+  const info = {};
+  if (Array.isArray(each.types) && each.types.length) info.types = each.types.map(String);
+  if (Array.isArray(each.stats) && each.stats.length === 6) info.stats = each.stats.map(Number);
+  if (Array.isArray(each.abilities) && each.abilities.length) info.abilities = each.abilities.map(String);
+  if (Number(each.height) > 0) {
+    const inches = Math.round(Number(each.height) * 39.3701);
+    info.height = `${Math.floor(inches / 12)}'${String(inches % 12).padStart(2, '0')}"`;
+  }
+  if (Number(each.weight) > 0) info.weight = `${(Number(each.weight) * 2.20462).toFixed(1)} lbs`;
+  return info;
+}
+const FORM_LOOK = 'form:';
+const FORM_FOLDER = /^[a-z0-9][a-z0-9-]{0,47}$/;
+function formLooks(folder) {
+  let listed;
+  try { listed = JSON.parse(fs.readFileSync(path.join(folder, 'forms', 'forms.json'), 'utf8')); } catch (_) { return []; }
+  if (!Array.isArray(listed)) return [];
+  const looks = [];
+  for (const each of listed) {
+    if (!FORM_FOLDER.test(String(each?.folder))) continue;
+    const dir = path.join(folder, 'forms', each.folder), label = String(each.name || each.folder);
+    if (!fs.existsSync(path.join(dir, FILES.model))) continue;
+    const [title, note] = formNote(each), info = formInfo(each);
+    looks.push({ id: `${FORM_LOOK}${each.folder}`, label, title, note, info });
+    if (fs.existsSync(path.join(dir, FILES.modelShiny))) looks.push({ id: `${FORM_LOOK}${each.folder}:shiny`, label: `Shiny ${label}`, title, note, info });
+  }
+  return looks;
+}
+// The model file of a look formLooks gave, under `folder`; an error for any other
+function formModelFile(folder, look) {
+  const [name, shiny, ...rest] = String(look).slice(FORM_LOOK.length).split(':');
+  if (!String(look).startsWith(FORM_LOOK) || !FORM_FOLDER.test(name) || rest.length || (shiny !== undefined && shiny !== 'shiny'))
+    throw new Error('That Pokémon has no such form.');
+  return path.join(folder, 'forms', name, shiny ? FILES.modelShiny : FILES.model);
+}
+
 module.exports = { FIRST_ID, LAST_ID, FIRST_PAST_GAP, REGISTRY_FILE, FILES, packsDirectory, readGameTables, readRegistry, writeRegistry, assignIds,
   decodePng, resize, encodeRgba8, spriteFile, battleRevolutionFace, boxIcon, buildRow, evolutionBytes, loadPacks, compile, generationPokemon, ownRows, ownModels, OWN_NATIONALS, pokedexEntries, readCry,
-  exportSpec, formatJson, ENTRY_FILE, PACK_FILE, FOLDER,
+  exportSpec, formatJson, ENTRY_FILE, PACK_FILE, FOLDER, FORM_LOOK, formLooks, formModelFile,
   // A species the original game hasn't: a pack's, or a later generation's
   isPackSpecies: id => (id >= FIRST_ID && id <= LAST_ID) || id >= 413 };

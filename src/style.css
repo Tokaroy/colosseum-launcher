@@ -493,6 +493,8 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .path-row strong, .backup-picker span { color: #4f3448; font-size: 13px; font-weight: 650; }
 .path-row .small-path { min-height: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .path-row > button, .path-row > .actions { flex: none; }
+.path-row.sub .small-path { white-space: normal; line-height: 1.45; }
+.path-row .actions { display: flex; gap: 8px; }
 /* Settings → Game Boy Advance: what a chosen file is, and what's wrong with it */
 .path-row .gba-note { color: #9a5a12; white-space: normal; }
 .path-row .gba-note.rom-error { color: #b3261e; }
@@ -875,6 +877,8 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .pokedex-stage-controls { position: absolute; top: 12px; right: 12px; display: flex; gap: 7px; }
 .pokedex-stage-controls label { display: grid; gap: 3px; color: var(--dex-muted); font-size: 10px; font-weight: 700; }
 .pokedex-stage-controls select { width: 112px; padding: 5px 8px; font-size: 12px; }
+/* Look names a 3DS form in full ("Shiny Mega Charizard X"); still kept off the motion and buttons beside it */
+#pokedex-form { width: auto; min-width: 112px; max-width: 220px; }
 
 /* Customize: the heroes down the left, the model, and its colours on the right (the Pokédex's stage and colours) */
 .customize-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(150px, 190px) minmax(0, 1fr) minmax(240px, 290px); }
@@ -911,6 +915,9 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .pokedex-cry { align-self: end; display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; font-size: 12px; }
 .pokedex-cry svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .pokedex-cry.playing { border-color: var(--dex-accent); color: var(--dex-accent); }
+.pokedex-shiny[aria-pressed="true"] { border-color: var(--dex-accent); color: var(--dex-accent); }
+.pokedex-shiny[aria-pressed="true"] svg { fill: currentColor; }
+.pokedex-shiny:disabled { opacity: .45; cursor: default; }
 .pokedex-info { flex: none; display: grid; gap: 10px; padding: 13px 18px 16px; border-top: 1px solid var(--dex-line); }
 .pokedex-heading { display: flex; align-items: baseline; gap: 9px; }
 .pokedex-number { color: var(--dex-muted); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -921,6 +928,7 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .pokedex-type[data-type="dragon"] { background: #5a35d6; } .pokedex-type[data-type="dark"] { background: #54433a; } .pokedex-type[data-type="fighting"] { background: #a82c24; }
 .pokedex-type[data-type="poison"] { background: #8c3a8c; } .pokedex-type[data-type="ground"] { background: #a8843a; } .pokedex-type[data-type="flying"] { background: #7a68c8; }
 .pokedex-type[data-type="bug"] { background: #84921c; } .pokedex-type[data-type="rock"] { background: #927c30; } .pokedex-type[data-type="ghost"] { background: #5c4a84; } .pokedex-type[data-type="steel"] { background: #7f7f96; }
+.pokedex-type[data-type="fairy"] { background: #c45c8a; }
 .pokedex-availability { display: flex; align-items: center; gap: 10px; padding: 8px 11px; border-radius: 9px; background: var(--dex-open); color: var(--dex-open-text); }
 .pokedex-availability .pokedex-lock { display: none; }
 .pokedex-availability.locked { background: var(--dex-locked); color: var(--dex-locked-text); }
@@ -1613,6 +1621,10 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 @media (max-width: 1060px) {
   .pe-row-identity { grid-template-columns: 1fr 1fr 1fr; }
 }
+.pokemon-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pokemon-form label { font-weight: 600; }
+.pokemon-form select { min-width: 0; max-width: 100%; }
+.pokemon-form .helper { flex-basis: 100%; margin: 0; }
 /* Online Trade (src/pokemon-page.js): the start card beside the grid, and the trade window that takes the page over
    while a room is open: the picker on the left, the two offers facing each other, Ready below. */
 .trade-start { display: grid; gap: 10px; align-content: start; padding-bottom: 14px; border-bottom: 1px solid var(--dex-line); }
@@ -1768,7 +1780,7 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .tw-move[data-type="ice"] { background: #3f9fa8; } .tw-move[data-type="dragon"] { background: #5a35d6; } .tw-move[data-type="dark"] { background: #54433a; }
 .tw-move[data-type="fighting"] { background: #a82c24; } .tw-move[data-type="poison"] { background: #8c3a8c; } .tw-move[data-type="ground"] { background: #a8843a; }
 .tw-move[data-type="flying"] { background: #7a68c8; } .tw-move[data-type="bug"] { background: #84921c; } .tw-move[data-type="rock"] { background: #927c30; }
-.tw-move[data-type="ghost"] { background: #5c4a84; } .tw-move[data-type="steel"] { background: #7f7f96; }
+.tw-move[data-type="ghost"] { background: #5c4a84; } .tw-move[data-type="steel"] { background: #7f7f96; } .tw-move[data-type="fairy"] { background: #c45c8a; }
 .tw-banner { display: flex; align-items: center; gap: 10px; padding: 8px 11px; border-radius: 11px; font-size: 12.5px; font-weight: 700; line-height: 1.35; }
 .tw-banner img { flex: none; width: 40px; height: 40px; }
 .tw-banner.evolve { background: #e3f4ec; color: #187657; }
@@ -1970,3 +1982,20 @@ pre { height: 120px; margin: 0; padding: 12px; overflow: auto; border-radius: 8p
 .jukebox-popped-note p { margin: 0; opacity: 0.75; }
 .jukebox-popped .jukebox-page > :not(.jukebox-popped-note) { display: none !important; }
 .jukebox-popped .jukebox-dock { display: none !important; }
+
+/* Settings → Later generations → Mechanics: a switch for each, under its summary */
+.mechanics-panel { padding: 10px 0; }
+.mechanics-panel > summary { cursor: pointer; list-style: none; display: flex; }
+.mechanics-panel > summary::-webkit-details-marker { display: none; }
+.mechanics-panel > summary > span { display: flex; flex-direction: column; gap: 3px; }
+.mechanics-panel > summary strong::after { content: ' ▸'; color: #b4889f; }
+.mechanics-panel[open] > summary strong::after { content: ' ▾'; }
+.mechanics-panel > summary small { color: #8a6f81; font-weight: 400; }
+.mechanics-list { margin-top: 8px; padding-left: 12px; border-left: 2px solid rgba(180, 136, 159, .35); }
+.mechanics-list .switch small .generation { font-weight: 600; }
+.online-mechanics { grid-column: 1 / -1; }
+.online-mechanics > summary { cursor: pointer; display: flex; gap: 8px; align-items: baseline; }
+.online-mechanics > summary small { font-weight: 400; }
+.online-mechanics > label, .online-mechanics .mechanics-list label { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; font-weight: 400; font-size: 12px; }
+.online-mechanics > label small, .online-mechanics .mechanics-list label small { display: block; opacity: .8; }
+.online-mechanics > label { margin-top: 8px; }

@@ -234,7 +234,7 @@ class LocalTrades {
     if (entry.stage === 'returning') {
       for (const side of entry.sides) {
         if (!side.taken || side.given) continue;
-        const own = convert.convert(side.game, unb64(side.data), { ...this.receiverFor(side.game), game: side.game, laterPokemon: true, laterMoves: true, laterItems: true });
+        const own = convert.convert(side.game, unb64(side.data), { ...this.receiverFor(side.game), game: side.game, laterPokemon: true, laterMoves: true, laterItems: true, gen6Pokemon: true, gen6Moves: true, gen6Items: true });
         if (!(await this.give(entry, side, own.bytes || unb64(side.data)))) return;
       }
     }

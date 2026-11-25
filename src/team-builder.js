@@ -7,7 +7,7 @@
   const $ = id => document.getElementById(id);
   const T = window.coloTeamSets;
   const PARTY_SIZE = 6;
-  const LIST_LIMIT = 400;
+  const LIST_LIMIT = 700;
   const message = error => String(error?.message || error).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
   const number = national => `#${String(national).padStart(3, '0')}`;
   const el = (tag, props = {}, ...children) => {
@@ -35,7 +35,13 @@
   // the Pokémon to pick from, with their abilities as the generation has them (Magnemite's Sturdy)
   const pickable = () => !later() ? species || []
     : [...(species || []).map(entry => later().species[entry.id] ? { ...entry, abilities: later().species[entry.id].abilities.map(each => each.name) } : entry), ...(later().dex || [])];
-  const movesOf = () => later()?.moves || data?.moves || [];
+  // and with the Fairy type setting on (data.fairy, main.js fairyBattleData), its moves, and the moves it made Fairy types
+  const movesOf = () => {
+    const base = later()?.moves || data?.moves || [], fairy = data?.fairy;
+    // (generation 6's moves are its types' already)
+    if (!fairy || generation >= 6) return base;
+    return [...base.map(move => fairy.retyped.includes(move.id) ? { ...move, type: 'Fairy' } : move), ...fairy.moves];
+  };
   // the items to hold: the disc's, and a later generation's own too (Life Orb), which play only under its rules
   const itemsOf = () => later()?.items || data?.items || [];
   const speciesInfo = id => (later() ? later().species[id] : data?.species[id]);
@@ -78,10 +84,12 @@
   const dex = () => ({ species: pickable(), moves: movesOf(), items: [...itemById.values()], balls: data.balls,
     abilities: id => speciesInfo(id)?.abilities || [], gender: id => speciesInfo(id)?.gender ?? T.GENDER.none });
 
-  function sprite(id, size, className = '') {
+  // A Pokémon's sprite, its shiny one for a shiny set where it has one (a later generation's Pokémon made from the
+  // player's 3DS ROM or Battle Revolution disc: main.js generationDex)
+  function sprite(id, size, className = '', shiny = false) {
     const entry = byId.get(id);
     if (!entry?.sprite) return el('span', { className: `tb-no-sprite ${className}`, textContent: entry ? '' : '?' });
-    const image = el('img', { src: entry.sprite, alt: '', width: size, height: size, className });
+    const image = el('img', { src: (shiny && entry.spriteShiny) || entry.sprite, alt: '', width: size, height: size, className });
     image.loading = 'lazy';
     return image;
   }
@@ -93,12 +101,15 @@
 
   const speciesName = id => byId.get(id)?.name || `#${id}`;
   const displayName = set => set.nickname || speciesName(set.species);
-  const learnset = id => new Map(speciesInfo(id)?.learnset || []);
+  const learnset = id => new Map([...(speciesInfo(id)?.learnset || []), ...(data?.fairy?.learnsets[id] || [])]);
   // Moves its species can't learn in any game of the party's generation: allowed, as Showdown's custom games allow them, and shown.
   const unlearnable = set => set.moves.filter(move => !learnset(set.species).has(move));
   // Whether the party has a Pokémon, move or held item only a Generation 4 party can have.
   const hasLater = sets => sets.some(set => T.speciesGeneration(set.species) >= 4 || set.moves.some(move => T.moveGeneration(move) >= 4)
     || T.itemGeneration(set.item) >= 4);
+  // what only a Generation 6 party has: a Pokémon or move of generations 5 and 6, a hidden ability, or one of its held items
+  const hasSixth = sets => sets.some(set => set.ability === T.HIDDEN_ABILITY || T.itemGeneration(set.item) >= 6
+    || T.speciesGeneration(set.species) >= 6 || set.moves.some(move => T.moveGeneration(move) >= 6));
 
   function setStatus(text) { $('party-editor-status').textContent = text || ''; }
 
@@ -113,7 +124,7 @@
         const odd = unlearnable(set).length;
         button.title = `${displayName(set)}: edit its set`;
         button.setAttribute('aria-current', String(i === current && view === 'set'));
-        button.append(...[sprite(set.species, 44),
+        button.append(...[sprite(set.species, 44, '', set.shiny),
           el('span', { className: 'tb-slot-text' },
             el('strong', { textContent: displayName(set) }),
             el('small', { textContent: set.item ? itemById.get(set.item)?.name || 'Item' : set.moves.length ? `${set.moves.length} move${set.moves.length === 1 ? '' : 's'}` : 'Level-up moves' })),
@@ -225,6 +236,8 @@
     if (!set) { $('tb-set').replaceChildren(); return; }
     const entry = byId.get(set.species), info = speciesInfo(set.species) || { abilities: [], gender: T.GENDER.none };
     const update = () => { refresh(); renderTeam(); };
+    const portraitParts = () => [sprite(set.species, 96, '', set.shiny), set.shiny ? el('span', { className: 'tb-shiny-mark', title: 'Shiny', textContent: '★' }) : null].filter(Boolean);
+    const portrait = el('div', { className: 'tb-portrait' }, ...portraitParts());
 
     // Who it is
     const nickname = el('input', { className: 'online-input', type: 'text', maxLength: T.NICKNAME_LENGTH, value: set.nickname, placeholder: entry?.name || '', spellcheck: false, autocomplete: 'off' });
@@ -241,7 +254,7 @@
     gender.addEventListener('change', () => { set.gender = gender.value; update(); });
 
     const shiny = el('input', { type: 'checkbox', checked: set.shiny });
-    shiny.addEventListener('change', () => { set.shiny = shiny.checked; update(); });
+    shiny.addEventListener('change', () => { set.shiny = shiny.checked; portrait.replaceChildren(...portraitParts()); update(); });
 
     const ball = el('select');
     for (const each of data.balls) ball.append(el('option', { value: each.id, textContent: each.name }));
@@ -252,7 +265,7 @@
     friendship.addEventListener('change', () => { set.friendship = Math.max(0, Math.min(255, Math.round(Number(friendship.value)) || 0)); friendship.value = set.friendship; refresh(); });
 
     const identity = el('div', { className: 'tb-identity' },
-      el('div', { className: 'tb-portrait' }, sprite(set.species, 96), set.shiny ? el('span', { className: 'tb-shiny-mark', title: 'Shiny', textContent: '★' }) : null),
+      portrait,
       el('div', { className: 'tb-identity-main' },
         el('div', { className: 'tb-species' },
           el('h2', { textContent: entry?.name || speciesName(set.species) }),
@@ -277,7 +290,7 @@
     const itemDoc = el('small', { className: 'tb-doc', textContent: itemById.get(set.item)?.doc || 'Choose an item for it to hold in battle.' });
 
     const ability = el('select');
-    for (const each of info.abilities) ability.append(el('option', { value: each.slot, textContent: each.name }));
+    for (const each of info.abilities) ability.append(el('option', { value: each.slot, textContent: each.hidden ? `${each.name} (hidden ability)` : each.name }));
     ability.value = String(info.abilities.some(each => each.slot === set.ability) ? set.ability : info.abilities[0]?.slot ?? 0);
     ability.disabled = info.abilities.length < 2;
     const abilityDoc = el('small', { className: 'tb-doc' });
@@ -591,7 +604,7 @@
   // --- The editor as a whole
   function render() {
     const note = loadError || (data && !data.gameTakesSets ? 'Your game is from before sets: it battles with these Pokémon\'s level-up moves until you update it from the Play page.' : '')
-      || (data && generation >= 4 && !later()?.dex?.length ? 'The Generation 4 Pokémon couldn\'t be read from your disc: the Activity log says why.' : '');
+      || (data && generation >= 4 && !later()?.dex?.length ? `The Generation ${generation >= 6 ? '4 to 6' : 4} Pokémon couldn't be read from your disc: the Activity log says why.` : '');
     $('party-dex-note').textContent = note;
     $('party-dex-note').hidden = !note;
     if (!data) { renderTeam(); return; }
@@ -636,6 +649,8 @@
     if (!$('party-editor').open) $('party-editor').showModal();
     $('party-slots').querySelector('button:not(:disabled)')?.focus();
     await load();
+    // a Generation 6 party once the launcher's data has it
+    $('party-generation').querySelector('option[value="6"]').disabled = !data?.generations?.[6] && generation < 6;
     useGeneration(generation);
     if (editing) render();
     if (view === 'picker') $('party-search').focus();
@@ -654,6 +669,11 @@
     if (wanted < 4 && hasLater(editing?.sets || [])) {
       event.target.value = String(generation);
       setStatus('Take out its Generation 4 Pokémon, moves and items first: a Generation 3 party can\'t have them.');
+      return;
+    }
+    if (wanted < 6 && hasSixth(editing?.sets || [])) {
+      event.target.value = String(generation);
+      setStatus('Take out its Generation 5 and 6 Pokémon and moves, hidden abilities and Generation 6 items first: only a Generation 6 party can have them.');
       return;
     }
     useGeneration(wanted);

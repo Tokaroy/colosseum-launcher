@@ -21,6 +21,8 @@ const SHORTEST_MOTION = 20;
 const MOTION_LABEL = { idle: 'Idle', physical: 'Physical move', special: 'Special move', hit: 'Hit', faint: 'Faint', extra: 'Extra' };
 
 let species = null, packProblems = [], canMakePacks = false, loading = null, visible = false, filter = 'all', selected = null, form = null, viewer = null;
+// The Look menu's choice (a look that isn't a shiny one) and the Shiny switch, which stays on from one Pokémon to the next
+let look = null, shiny = false;
 // The newest choice: a slower answer to an older one is dropped.
 let request = 0;
 // Each entry's button, by its key: a disc Pokémon's National Pokédex number, or a pack Pokémon's "pack:<pack>/<folder>".
@@ -67,6 +69,7 @@ function applyFilter() {
   const search = $('pokedex-search').value.trim().toLowerCase();
   let shown = 0;
   for (const entry of species) {
+    if (!entries.has(entry.key)) continue;   /* (a form row: not listed) */
     const show = matches(entry, search);
     entries.get(entry.key).hidden = !show;
     if (show) shown++;
@@ -125,20 +128,31 @@ function renderEntry(entry) {
   return button;
 }
 
+const isFormRow = entry => entry.status?.kind === 'generation' && entry.national >= 722;
 function renderList() {
   const disc = species.filter(entry => !entry.pack), available = disc.filter(entry => !entry.status.locked).length;
-  const packs = species.filter(entry => entry.status.kind === 'pack').length, later = species.filter(entry => entry.status.kind === 'generation').length;
+  // (a form with stats of its own, 722 on, is its base's: shown under its base's Look, not as an entry of its own)
+  const listed = species.filter(entry => !isFormRow(entry));
+  const packs = species.filter(entry => entry.status.kind === 'pack').length, later = listed.filter(entry => entry.status.kind === 'generation').length;
   $('pokedex-summary').textContent = `${disc.length} Pokémon on your disc. ${available} can be obtained in the game; the rest are locked away.` +
     (later ? ` ${later} more from later generations.` : '') +
     (packs ? ` ${packs} from your Pokémon packs.` : '');
   $('pokedex-pack-problems').hidden = !packProblems.length;
   $('pokedex-pack-problem-list').replaceChildren(...packProblems.map(text => Object.assign(document.createElement('li'), { textContent: text })));
   renderFilters();
-  $('pokedex-list').replaceChildren(...species.map(renderEntry));
+  $('pokedex-list').replaceChildren(...listed.map(renderEntry));
   applyFilter();
 }
 
 // --- The chosen Pokémon --------------------------------------------------------------
+
+// An entry as a look of its shows it: a 3DS form's own types, stats, abilities, height and weight, and what the form
+// is in the game in place of how the Pokémon can be had (pokemon-packs.js formLooks)
+function asLook(entry, id) {
+  const look = entry.forms.find(item => item.id === id);
+  if (!look?.note) return entry;
+  return { ...entry, ...look.info, status: { ...entry.status, label: look.title, note: look.note, locked: false, kind: 'form' } };
+}
 
 function renderInfo(entry) {
   $('pokedex-info').hidden = false;
@@ -228,10 +242,30 @@ function renderEvolutions(entry) {
     Object.assign(document.createElement('li'), { textContent: `${note.from.name} to ${note.into.join(' or ')}: ${note.text}` })));
 }
 
+// An entry's looks for the Look menu: each one but the shiny ones, with its shiny one beside it (labelled "Shiny" for
+// "Normal", else "Shiny <its name>") for the Shiny switch. A look with none (Castform's weather) shows the same shiny.
+function lookChoices(entry) {
+  const byLabel = new Map(entry.forms.map(item => [item.label, item]));
+  const shinyOf = label => byLabel.get(label === 'Normal' ? 'Shiny' : `Shiny ${label}`) || null;
+  const isShiny = item => item.label === 'Shiny' ? byLabel.has('Normal') : item.label.startsWith('Shiny ') && byLabel.has(item.label.slice('Shiny '.length));
+  return entry.forms.filter(item => !isShiny(item)).map(item => ({ ...item, shiny: shinyOf(item.label) }));
+}
+// The look shown: the chosen one, or its shiny one with the switch on
+function chosenLook(entry) {
+  const choices = lookChoices(entry), chosen = choices.find(item => item.id === look) || choices[0];
+  return chosen && shiny && chosen.shiny ? chosen.shiny.id : chosen?.id;
+}
+
 function renderForms(entry) {
-  $('pokedex-form-field').hidden = entry.forms.length < 2;
-  $('pokedex-form').replaceChildren(...entry.forms.map(item => new Option(item.label, item.id)));
-  $('pokedex-form').value = form;
+  const choices = lookChoices(entry), chosen = choices.find(item => item.id === look) || choices[0];
+  $('pokedex-form-field').hidden = choices.length < 2;
+  $('pokedex-form').replaceChildren(...choices.map(item => new Option(item.label, item.id)));
+  $('pokedex-form').value = chosen?.id ?? '';
+  const button = $('pokedex-shiny');
+  button.hidden = !choices.some(item => item.shiny);
+  button.disabled = !chosen?.shiny;
+  button.setAttribute('aria-pressed', String(shiny));
+  button.title = chosen?.shiny ? (shiny ? 'Show it as it usually looks' : 'Show its shiny look') : 'This look has no shiny one of its own';
 }
 
 // A model's motions to choose from: its battle motions, named by what the game plays them for, from its header; or, for
@@ -300,9 +334,10 @@ async function showModel(entry) {
 function select(entry) {
   selected = entry;
   cry.show(entry);
-  form = entry.forms[0]?.id;
+  look = lookChoices(entry)[0]?.id ?? null;
+  form = chosenLook(entry);
   for (const [key, button] of entries) button.classList.toggle('selected', key === entry.key);
-  renderInfo(entry);
+  renderInfo(asLook(entry, form));
   renderForms(entry);
   // Make a pack: for the game's own Pokémon (a pack's is one already)
   $('pokedex-make-pack').hidden = !canMakePacks || !/^\d+$/.test(entry.key);
@@ -347,9 +382,20 @@ async function load(choose = null) {
 const cry = createCry($('pokedex-cry'), { onError: setStatus });
 
 $('pokedex-search').addEventListener('input', () => { if (species) applyFilter(); });
-$('pokedex-form').addEventListener('change', event => {
-  form = event.target.value;
+// A look chosen, or the Shiny switch turned: the look's model and what it has of its own
+function showLook() {
+  form = chosenLook(selected);
+  renderInfo(asLook(selected, form));
+  renderForms(selected);
   showModel(selected);
+}
+$('pokedex-shiny').addEventListener('click', () => {
+  shiny = !shiny;
+  if (selected) showLook();
+});
+$('pokedex-form').addEventListener('change', event => {
+  look = event.target.value;
+  showLook();
 });
 $('pokedex-motion').addEventListener('change', async event => {
   const mine = ++request;
