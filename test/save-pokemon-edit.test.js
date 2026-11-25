@@ -487,7 +487,7 @@ test('personalityFor finds valid PID for any combination of nature, 12.5% female
   }
 });
 
-test('fallbackBattleData provides Gen 3 and Gen 4 species, moves, learnsets, items and balls without a disc', () => {
+test('fallbackBattleData provides Gen 3, 4, 5 and 6 species, moves, learnsets, items and balls without a disc', () => {
   const fb = edit.fallbackBattleData();
   assert.equal(fb.fallback, true);
   assert.equal(fb.balls.length, 12);
@@ -496,7 +496,114 @@ test('fallbackBattleData provides Gen 3 and Gen 4 species, moves, learnsets, ite
   assert.ok(fb.generations[4].items.length > 0);
   assert.ok(fb.species[197]?.abilities.length >= 1);
   assert.ok(fb.species[197]?.learnset.length > 0);
-  assert.ok(fb.generations[4].dex.length === 107);
+  assert.equal(fb.generations[4].dex.length, 107);
+  assert.ok(fb.generations[6].moves.length >= 610, 'Gen 6 includes Gen 1-6 moves');
+  assert.ok(fb.generations[6].items.some(item => item.id === 0x28a), 'Gen 6 includes Assault Vest');
+  assert.equal(fb.generations[6].dex.length, 107 + 228 + 26, 'Gen 6 dex includes Gen 4, Gen 5-6 and alternate forms');
+  assert.equal(fb.generations[6].species[520]?.name, 'Victini');
+  assert.equal(fb.generations[6].species[520]?.gender, teamSets.GENDER.none, 'Victini is genderless');
+  assert.equal(fb.generations[6].species[684]?.name, 'Greninja');
+  assert.equal(fb.generations[6].species[684]?.hidden?.name, 'Protean');
+  assert.ok(fb.generations[6].species[684]?.learnset.length > 0);
+  assert.equal(fb.generations[6].species[773]?.name, 'Hoopa-Unbound');
+});
+
+test('Gen 5 and Gen 6: editing species, forms, moves, items and hidden abilities works in Colosseum and XD', t => {
+  const dir = folder(t);
+  const mon = makeColosseumPokemon({ species: 197, level: 30 });
+  makeColosseumCard(dir, [{ party: [mon] }]);
+
+  const ctx = sp.cardCopies(dir, 'colosseum').copies[0].ctx;
+  const opened = edit.readSlot(ctx, { area: 'party', box: 0, slot: 0 });
+
+  // Validation rejects Gen 5-6 species, moves and items when disabled
+  assert.throws(() => edit.applyEdit(ctx, opened.place, opened.identity, { species: 521 }, { receiver: { game: 'colosseum', laterPokemon: true, gen6Pokemon: false } }), /Generation 5 and 6 Pokémon/);
+  assert.throws(() => edit.applyEdit(ctx, opened.place, opened.identity, { species: 684 }, { receiver: { game: 'colosseum', laterPokemon: true, gen6Pokemon: false } }), /Generation 5 and 6 Pokémon/);
+  assert.throws(() => edit.applyEdit(ctx, opened.place, opened.identity, { moves: [{ id: 506, ppUps: 0 }] }, { receiver: { game: 'colosseum', laterMoves: true, gen6Moves: false } }), /Generation 5 and 6 Pokémon/);
+  assert.throws(() => edit.applyEdit(ctx, opened.place, opened.identity, { moves: [{ id: 588, ppUps: 0 }] }, { receiver: { game: 'colosseum', laterMoves: true, gen6Moves: false, fairyType: false } }), /Gen 6 types/);
+  assert.throws(() => edit.applyEdit(ctx, opened.place, opened.identity, { item: 0x28a }, { receiver: { game: 'colosseum', laterItems: true, gen6Items: false } }), /X and Y battle rules/);
+
+  // Fairy move (Moonblast, Colosseum 588) is allowed when fairyType is on even without gen6Moves
+  edit.applyEdit(ctx, opened.place, opened.identity, {
+    moves: [{ id: 588, ppUps: 1 }]
+  }, { receiver: { game: 'colosseum', fairyType: true } });
+  const withFairy = edit.readSlot(ctx, opened.place);
+  assert.deepEqual(withFairy.pokemon.moves.map(m => [m.id, m.ppUps, m.pp]), [[588, 1, 18]]);
+
+  // Switch to Gen 5 Victini (520, genderless) with V-create (560) and Assault Vest (0x28a), with only Gen 5-6 Pokémon enabled
+  const gen6Receiver = { game: 'colosseum', laterPokemon: false, gen6Pokemon: true, gen6Moves: true, gen6Items: true, hiddenAbilities: true, gen6Stats: true };
+  edit.applyEdit(ctx, withFairy.place, withFairy.identity, {
+    species: 520,
+    nickname: '',
+    level: 50,
+    nature: 0,
+    item: 0x28a,
+    evs: [0, 0, 0, 0, 0, 0],
+    ivs: [31, 31, 31, 31, 31, 31],
+    moves: [{ id: 560, ppUps: 3 }]
+  }, { receiver: gen6Receiver });
+  const victini = edit.readSlot(ctx, opened.place);
+  assert.equal(victini.pokemon.species, 520);
+  assert.equal(victini.pokemon.rawNickname, 'VICTINI');
+  assert.equal(victini.pokemon.gender, '');
+  assert.equal(victini.pokemon.item, 0x28a);
+  assert.deepEqual(victini.pokemon.stats, [175, 120, 120, 120, 120, 120]);
+  assert.deepEqual(victini.pokemon.moves.map(m => [m.id, m.ppUps, m.pp]), [[560, 3, 8]]);
+
+  // Switch to Gen 6 Greninja (684) with Hidden Ability (Protean, slot 2 -> Colosseum 0xCC = 2) and Water Shuriken (597) + Dark Pulse (402, Gen 4 move allowed with gen6Moves)
+  edit.applyEdit(ctx, victini.place, victini.identity, {
+    species: 684,
+    nickname: '',
+    level: 50,
+    ability: 2,
+    moves: [{ id: 597, ppUps: 2 }, { id: 402, ppUps: 0 }]
+  }, { receiver: gen6Receiver });
+  const greninja = edit.readSlot(ctx, opened.place);
+  assert.equal(greninja.pokemon.species, 684);
+  assert.equal(greninja.pokemon.rawNickname, 'GRENINJA');
+  assert.equal(greninja.pokemon.ability, 2, 'Colosseum hidden ability written to 0xCC = 2 and read back');
+  assert.equal(sp.slotAt(ctx, opened.place).bytes[0xcc], 2);
+  assert.deepEqual(greninja.pokemon.moves.map(m => [m.id, m.ppUps, m.pp]), [[597, 2, 28], [402, 0, 15]]);
+
+  // XD: Gen 6 Hoopa-Unbound (alternate form 747 -> Colosseum 773 -> XD 775), Greninja hidden ability (0x1D bit 0x10), Gen 6 item & move
+  const xdDir = folder(t);
+  makeXdCard(xdDir, [{ party: [makeXdPokemon({ species: 133, level: 20, flagsExtra: 0x05 })] }]);
+  const xdOpen = edit.readSlot(sp.cardCopies(xdDir, 'xd').copies[0].ctx, { area: 'party', box: 0, slot: 0 });
+  sp.editCard(xdDir, 'xd', c => edit.applyEdit(c, xdOpen.place, xdOpen.identity, {
+    species: 684,
+    nickname: '',
+    level: 40,
+    ability: 2,
+    item: 0x28a,    // Assault Vest -> XD 0x2B8
+    moves: [{ id: 588, ppUps: 1 }]   // Moonblast -> XD 605
+  }, { receiver: { ...gen6Receiver, game: 'xd' } }));
+  const xdAfter = sp.cardCopies(xdDir, 'xd').copies[0].ctx;
+  const xdSlot = sp.slotAt(xdAfter, xdOpen.place);
+  assert.equal(xdSlot.bytes.readUInt16BE(0), 686, 'Greninja shifted +2 in XD');
+  assert.equal(xdSlot.bytes.readUInt16BE(0x02), 0x2b8, 'Gen 6 item shifted +0x2E in XD');
+  assert.equal(xdSlot.bytes.readUInt16BE(0x80), 605, 'Gen 6 move shifted +17 in XD');
+  assert.equal(xdSlot.bytes[0x1d] & 0x50, 0x10, 'XD hidden ability sets bit 0x10 and clears bit 0x40');
+  assert.equal(xdSlot.bytes[0x1d] & 0x05, 0x05, 'other XD flag bits preserved');
+  const xdReread = edit.readSlot(xdAfter, xdOpen.place);
+  assert.equal(xdReread.pokemon.species, 684);
+  assert.equal(xdReread.pokemon.ability, 2);
+  assert.equal(xdReread.pokemon.item, 0x28a);
+
+  // Switch to alternate form Hoopa-Unbound (Colosseum 773 -> XD 775) and confirm default nickname is HOOPA
+  sp.editCard(xdDir, 'xd', c => edit.applyEdit(c, xdReread.place, xdReread.identity, {
+    species: 773,
+    nickname: '',
+    ability: 0,
+    moves: [{ id: 624, ppUps: 0 }]
+  }, { receiver: { ...gen6Receiver, game: 'xd' } }));
+  const xdFormCtx = sp.cardCopies(xdDir, 'xd').copies[0].ctx;
+  const xdFormSlot = sp.slotAt(xdFormCtx, xdOpen.place);
+  assert.equal(xdFormSlot.bytes.readUInt16BE(0), 775, 'Hoopa-Unbound shifted +2 in XD');
+  assert.equal(xdFormSlot.bytes[0x1d] & 0x50, 0x00, 'switching back to slot 0 clears hidden ability bit');
+  const xdFormRead = edit.readSlot(xdFormCtx, xdOpen.place).pokemon;
+  assert.equal(xdFormRead.species, 773);
+  assert.equal(xdFormRead.rawNickname, 'HOOPA');
+  assert.equal(xdFormRead.nickname, '');
 });
 
 test('edited flag: marks modified Pokémon in Colosseum and XD, blocks Shadowtrade, and survives Online Trades', t => {

@@ -3,7 +3,7 @@
 (() => {
   const $ = id => document.getElementById(id);
   const T = window.coloTeamSets;
-  const LIST_LIMIT = 400;
+  const LIST_LIMIT = 700;
   const SHEDINJA = 303;
   const message = error => String(error?.message || error).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
   const number = national => `#${String(national).padStart(3, '0')}`;
@@ -36,45 +36,57 @@
     if (!session) return { abilities: [], gender: T.GENDER.none, learnset: [] };
     const pack = session.packById.get(id);
     if (pack) return { gender: pack.gender, abilities: pack.abilities, learnset: [] };
-    const b = battle(), later = b.generations?.[4]?.species?.[id], own = b.species?.[id];
-    const row = (rules() >= 4 || receiver().laterMoves) ? (later || own) : (own || later);
+    const b = battle(), gen6 = b.generations?.[6]?.species?.[id], gen4 = b.generations?.[4]?.species?.[id], own = b.species?.[id];
+    if (id >= 520 && id <= 773) return gen6 || { abilities: [], gender: T.GENDER.none, learnset: [] };
+    const row = (rules() >= 6 || receiver().gen6Moves || receiver().hiddenAbilities) ? (gen6 || gen4 || own)
+      : (rules() >= 4 || receiver().laterMoves) ? (gen4 || own || gen6)
+        : (own || gen4 || gen6);
     return row || { abilities: [], gender: T.GENDER.none, learnset: [] };
   }
 
   function movesOf() {
-    const b = battle();
-    return receiver().laterMoves ? (b.generations?.[4]?.moves || b.moves || []) : (b.moves || []);
+    const b = battle(), r = receiver();
+    if (r.gen6Moves) return b.generations?.[6]?.moves || b.generations?.[4]?.moves || b.moves || [];
+    const base = r.laterMoves ? (b.generations?.[4]?.moves || b.moves || []) : (b.moves || []);
+    if (r.fairyType && b.fairy) {
+      return [...base.map(move => b.fairy.retyped.includes(move.id) ? { ...move, type: 'Fairy' } : move), ...b.fairy.moves];
+    }
+    return base;
   }
 
   function itemsOf() {
-    const b = battle();
-    return receiver().laterItems ? (b.generations?.[4]?.items || b.items || []) : (b.items || []);
+    const b = battle(), r = receiver();
+    if (r.gen6Items) return b.generations?.[6]?.items || b.generations?.[4]?.items || b.items || [];
+    return r.laterItems ? (b.generations?.[4]?.items || b.items || []) : (b.items || []);
   }
 
   function pickable() {
     if (!session) return [];
-    const allowLater = Boolean(receiver().laterPokemon), isXd = session.game === 'xd';
+    const r = receiver(), allowGen4 = Boolean(r.laterPokemon), allowGen6 = Boolean(r.gen6Pokemon), isXd = session.game === 'xd';
     const out = [];
     for (const entry of session.byId.values()) {
       const id = entry.id;
       const isGen3 = (id >= 1 && id <= 251) || (id >= 277 && id <= 411);
       const isXdOwn = isXd && (id === 464 || id === 472);
       const isGen4 = id >= 413 && id <= 519;
-      if (isGen3 || isXdOwn || (isGen4 && allowLater) || entry.pack) out.push(entry);
+      const isGen56 = id >= 520 && id <= 773;
+      if (isGen3 || isXdOwn || (isGen4 && allowGen4) || (isGen56 && allowGen6) || entry.pack) out.push(entry);
     }
     return out.sort((a, b) => (Boolean(a.pack) - Boolean(b.pack)) || ((a.national || 9999) - (b.national || 9999)) || a.name.localeCompare(b.name));
   }
 
-  function sprite(id, size, className = '') {
+  function sprite(id, size, className = '', shiny = false) {
     const entry = session?.byId.get(id);
     if (!entry?.sprite) return el('span', { className: `tb-no-sprite ${className}`, textContent: entry ? '' : '?' });
-    const image = el('img', { src: entry.sprite, alt: '', width: size, height: size, className });
+    const image = el('img', { src: (shiny && entry.spriteShiny) || entry.sprite, alt: '', width: size, height: size, className });
     image.loading = 'lazy';
     return image;
   }
 
   function categoryOf(move, hidden) {
-    if (rules() >= 4) return battle().categories?.[4]?.[move.id] || move.category;
+    if (rules() >= 4 || receiver().physicalSpecialSplit) {
+      return battle().categories?.[rules()]?.[move.id] || battle().categories?.[4]?.[move.id] || move.category;
+    }
     if (move.id === T.HIDDEN_POWER && hidden) return T.category(hidden.type);
     return move.power ? T.category(move.type) : 'Status';
   }
@@ -90,8 +102,8 @@
   }
 
   const speciesName = id => session?.byId.get(id)?.name || `#${id}`;
-  const learnset = id => new Map(speciesInfo(id)?.learnset || []);
-  const moveGen = () => (receiver().laterMoves ? 4 : 3);
+  const learnset = id => new Map([...(speciesInfo(id)?.learnset || []), ...(receiver().fairyType ? (battle().fairy?.learnsets?.[id] || []) : [])]);
+  const moveGen = () => (receiver().gen6Moves || rules() >= 6 ? 6 : receiver().laterMoves || rules() >= 4 ? 4 : 3);
   const maxPpOf = (move, ppUps) => (move?.pp ? Math.floor(move.pp * (5 + ppUps) / 5) : null);
 
   function updateFooter() {
@@ -148,7 +160,7 @@
       const total = (entry.stats || []).reduce((sum, stat) => sum + stat, 0);
       row.append(sprite(entry.id, 36),
         el('span', { className: 'tb-dex-name' }, el('strong', { textContent: entry.name }),
-          el('small', { textContent: entry.pack ? 'Pack' : number(entry.national) })),
+          el('small', { textContent: entry.pack ? 'Pack' : entry.national > 721 ? 'Form' : number(entry.national) })),
         el('span', { className: 'tb-dex-types' }, ...(entry.types || []).map(typeChip)),
         el('span', { className: 'tb-dex-abilities', textContent: (entry.abilities || []).join(' / ') }),
         ...(entry.stats || [0, 0, 0, 0, 0, 0]).map(stat => el('span', { className: 'tb-dex-stat', textContent: stat })),
@@ -167,7 +179,8 @@
     const info = speciesInfo(id);
     const options = T.genders(info.gender);
     draft.gender = options.length === 1 ? options[0] : (options.includes(draft.gender) ? draft.gender : (options[0] || ''));
-    if (!info.abilities.some(a => a.slot === draft.ability)) draft.ability = info.abilities[0]?.slot ?? 0;
+    const abilities = (info.abilities || []).filter(a => a.slot !== 2 || receiver().hiddenAbilities);
+    if (!abilities.some(a => a.slot === draft.ability)) draft.ability = abilities[0]?.slot ?? 0;
     saveError = '';
     view = 'set';
     render();
@@ -228,7 +241,7 @@
     const shiny = el('input', { type: 'checkbox', checked: draft.shiny });
     const portrait = el('div', { className: 'tb-portrait' });
     const drawPortrait = () => {
-      portrait.replaceChildren(...[sprite(draft.species, 96), draft.shiny ? el('span', { className: 'tb-shiny-mark', title: 'Shiny', textContent: '★' }) : null].filter(Boolean));
+      portrait.replaceChildren(...[sprite(draft.species, 96, '', draft.shiny), draft.shiny ? el('span', { className: 'tb-shiny-mark', title: 'Shiny', textContent: '★' }) : null].filter(Boolean));
     };
     drawPortrait();
     shiny.addEventListener('change', () => { draft.shiny = shiny.checked; drawPortrait(); });
@@ -257,7 +270,7 @@
       el('div', { className: 'tb-identity-main' },
         el('div', { className: 'tb-species' },
           el('h2', { textContent: entry?.name || speciesName(draft.species) }),
-          el('span', { className: 'pokedex-number', textContent: entry ? (entry.pack ? 'Pack' : number(entry.national)) : '' }),
+          el('span', { className: 'pokedex-number', textContent: entry ? (entry.pack ? 'Pack' : entry.national > 721 ? 'Form' : number(entry.national)) : '' }),
           el('span', { className: 'pokedex-types' }, ...(entry?.types || []).map(typeChip)),
           draft.shadow ? el('span', { className: 'badge shadow-badge', textContent: 'Shadow Pokémon' }) : null,
           draft.edited ? el('span', { className: 'badge edited-badge', textContent: 'Edited', title: 'Modified with the save editor' }) : null,
@@ -296,8 +309,8 @@
     itemWrap.append(itemInput, itemClear);
 
     const ability = el('select');
-    const abilities = info.abilities || [];
-    for (const each of abilities) ability.append(el('option', { value: each.slot, textContent: each.name }));
+    const abilities = (info.abilities || []).filter(each => each.slot !== 2 || receiver().hiddenAbilities || draft.ability === 2);
+    for (const each of abilities) ability.append(el('option', { value: each.slot, textContent: each.hidden || each.slot === 2 ? `${each.name} (Hidden)` : each.name }));
     if (!abilities.length) ability.append(el('option', { value: draft.ability, textContent: `Ability slot ${draft.ability + 1}` }));
     ability.value = String(abilities.some(each => each.slot === draft.ability) ? draft.ability : abilities[0]?.slot ?? draft.ability);
     draft.ability = Number(ability.value);
@@ -631,7 +644,8 @@
     const matches = move => !query || key(move.name).includes(query) || key(move.type) === query
       || key(categoryOf(move, move.id === T.HIDDEN_POWER ? hidden : null)) === query;
     const taken = new Set(draft.moves.filter((m, i) => i !== slot && !m.shadow).map(m => m.id));
-    const own = [...learned].map(([id, how]) => [session.moveById.get(id), how]).filter(([move]) => move && matches(move) && !taken.has(move.id));
+    const allowedMoves = new Map(movesOf().map(m => [m.id, m]));
+    const own = [...learned].map(([id, how]) => [allowedMoves.get(id), how]).filter(([move]) => move && matches(move) && !taken.has(move.id));
     own.sort((a, b) => a[0].name.localeCompare(b[0].name));
     const rows = own.map(([move, how]) => moveRow(move, how, move.id === T.HIDDEN_POWER ? hidden : null));
     if (query || !own.length) {
@@ -711,12 +725,24 @@
     const { catalog, pokemon } = data;
     const byId = new Map((catalog.dex || []).map(entry => [entry.id, entry]));
     const packById = new Map((catalog.packSpecies || []).map(entry => [entry.id, entry]));
-    const b = catalog.battle || {};
-    const moveList = catalog.receiver?.laterMoves ? (b.generations?.[4]?.moves || b.moves || []) : (b.moves || []);
-    const moveById = new Map(moveList.map(m => [m.id, m]));
-    for (const m of b.generations?.[4]?.moves || []) if (!moveById.has(m.id)) moveById.set(m.id, m);
+    const b = catalog.battle || {}, r = catalog.receiver || {};
+    const primaryMoves = (r.gen6Moves || catalog.battleRules >= 6) ? (b.generations?.[6]?.moves || b.generations?.[4]?.moves || b.moves || [])
+      : (r.laterMoves || catalog.battleRules >= 4) ? (b.generations?.[4]?.moves || b.moves || [])
+        : (b.moves || []);
+    const moveById = new Map(primaryMoves.map(m => [m.id, m]));
+    for (const list of [b.generations?.[6]?.moves, b.generations?.[4]?.moves, b.fairy?.moves, b.moves]) {
+      for (const m of list || []) if (!moveById.has(m.id)) moveById.set(m.id, m);
+    }
+    if (r.fairyType && b.fairy && !(r.gen6Moves || catalog.battleRules >= 6)) {
+      for (const id of b.fairy.retyped || []) {
+        const existing = moveById.get(id);
+        if (existing) moveById.set(id, { ...existing, type: 'Fairy' });
+      }
+    }
     const itemById = new Map((b.items || []).map(item => [item.id, item]));
-    for (const item of b.generations?.[4]?.items || []) if (!itemById.has(item.id)) itemById.set(item.id, item);
+    for (const list of [b.generations?.[6]?.items, b.generations?.[4]?.items]) {
+      for (const item of list || []) if (!itemById.has(item.id)) itemById.set(item.id, item);
+    }
 
     const draft = {
       species: pokemon.species,

@@ -1651,7 +1651,7 @@ let pokedexPacks = new Map();   // key -> the pack Pokémon, for its model
 // A later generation's Pokémon as the team builder lists them for a party of that generation (the Pokédex's shape:
 // id, name, national, types, abilities, stats, sprite), whether or not its Pokémon are turned on for the story: the
 // icon made from the player's Battle Revolution disc, else its stand-in's.
-let generationDexCache = null;
+const generationDexCache = new Map();
 function generationDex(rom, generation = 4) {
   if (packTables?.rom !== rom) packTables = { rom, tables: pokemonPacks.readGameTables(rom) };
   const dirOf = n => (n >= 494 ? usumModels() : pbrModels());
@@ -1661,7 +1661,7 @@ function generationDex(rom, generation = 4) {
   const built = generations.build(packTables.tables, { battleRules: generation, generationPokemon: generations.pokemonGenerations(generation), fairyType });
   const { pokemon } = pokemonPacks.generationPokemon(packTables.tables, built);
   const stamp = `${rom}:${generation}:${fairyType}:${pokemon.filter(each => made(each.national)).map(each => each.national).join(',')}`;
-  if (generationDexCache?.stamp === stamp) return generationDexCache.list;
+  if (generationDexCache.get(generation)?.stamp === stamp) return generationDexCache.get(generation).list;
   const disc = withHdSprites(rom, pokedexData.list(rom));
   const list = pokemonPacks.pokedexEntries(pokemon, packTables.tables).map((entry, i) => {
     const each = pokemon[i];
@@ -1671,7 +1671,7 @@ function generationDex(rom, generation = 4) {
     const spriteShiny = made(each.national) && fs.existsSync(shinyFile) ? `data:image/png;base64,${fs.readFileSync(shinyFile).toString('base64')}` : null;
     return { id: each.id, name: entry.name, national: each.national, types: entry.types, abilities: entry.abilities, stats: entry.stats, sprite, spriteShiny, generation };
   });
-  generationDexCache = { stamp, list };
+  generationDexCache.set(generation, { stamp, list });
   return list;
 }
 
@@ -2756,7 +2756,17 @@ async function importPokemon(places) {
 // --- Edit a Pokémon in the save (src/save-pokemon-edit.js): only while that game is closed. Reads the Pokémon and the
 // disc's moves/items/species/pack data for the editor, validates and backs up the save before writing changes back.
 function saveEditCatalog(game) {
-  const receiver = tradeReceiver(game), battleRules = Number(config.settings?.battleRules) || 3;
+  const chosen = generations.normalize(withFairyType(config.settings || {}));
+  const baseReceiver = tradeReceiver(game);
+  const receiver = {
+    ...baseReceiver,
+    gen6Items: baseReceiver.gen6Items || chosen.mechanics.includes('items'),
+    fairyType: Boolean(chosen.fairyType),
+    hiddenAbilities: chosen.mechanics.includes('hiddenAbilities'),
+    gen6Stats: chosen.mechanics.includes('gen6Stats'),
+    physicalSpecialSplit: chosen.mechanics.includes('physicalSpecialSplit')
+  };
+  const battleRules = chosen.battleRules;
   let battle = null;
   if (teamDiscReady()) {
     try {
@@ -2766,7 +2776,7 @@ function saveEditCatalog(game) {
         try { dex = generationDex(rom, Number(gen)); } catch (_) { /* without sprites */ }
         return [gen, { ...each, dex }];
       }));
-      battle = { ...raw, generations: later,
+      battle = { ...raw, generations: later, fairy: fairyBattleData(rom),
         categories: Object.fromEntries(generations.available().filter(each => each.generation > generations.COLOSSEUM_RULES)
           .map(each => [each.generation, generations.moveCategories(each.generation)])) };
     } catch (_) { /* fallback below */ }
@@ -2819,10 +2829,12 @@ function saveEditCatalog(game) {
       else dexByColosseum.set(entry.id, entry);
     }
   }
-  const gen4Dex = battle.generations?.[4]?.dex || [];
-  for (const entry of gen4Dex) {
-    if (!dexByColosseum.has(entry.id)) dexByColosseum.set(entry.id, entry);
-    else if (!entry.sprite && dexByColosseum.get(entry.id)?.sprite) entry.sprite = dexByColosseum.get(entry.id).sprite;
+  const dexOrder = (battleRules >= 6 || receiver.gen6Stats) ? [6, 4] : [4, 6];
+  for (const gen of dexOrder) {
+    for (const entry of battle.generations?.[gen]?.dex || []) {
+      if (!dexByColosseum.has(entry.id)) dexByColosseum.set(entry.id, entry);
+      else if (!entry.sprite && dexByColosseum.get(entry.id)?.sprite) entry.sprite = dexByColosseum.get(entry.id).sprite;
+    }
   }
 
   return { game, receiver, battleRules, battle, dex: [...dexByColosseum.values()], packSpecies };
@@ -2831,17 +2843,27 @@ function saveEditCatalog(game) {
 function editOptionsFor(catalog) {
   const packMap = new Map(catalog.packSpecies.map(p => [p.id, p]));
   const battle = catalog.battle, rules = catalog.battleRules;
-  const moveList = rules >= 4 ? (battle.generations?.[4]?.moves || battle.moves || []) : (battle.moves || []);
+  const moveList = rules >= 6 ? (battle.generations?.[6]?.moves || battle.generations?.[4]?.moves || battle.moves || [])
+    : rules >= 4 ? (battle.generations?.[4]?.moves || battle.moves || []) : (battle.moves || []);
   const ppByMove = new Map(moveList.map(m => [m.id, m.pp]));
-  // Include Gen 4 move PPs even when battleRules < 4 if Gen 4 Pokémon/moves are enabled.
-  for (const m of battle.generations?.[4]?.moves || []) if (!ppByMove.has(m.id)) ppByMove.set(m.id, m.pp);
+  // Include Gen 4, Gen 5-6 and Fairy move PPs even when battleRules is lower.
+  for (const list of [battle.generations?.[4]?.moves, battle.generations?.[6]?.moves, battle.fairy?.moves]) {
+    for (const m of list || []) if (!ppByMove.has(m.id)) ppByMove.set(m.id, m.pp);
+  }
   const speciesInfo = id => {
     const pack = packMap.get(id);
-    if (pack) return { id: pack.id, name: pack.name, stats: pack.stats, growthRate: pack.growthRate, gender: pack.gender, abilityCount: Math.max(1, pack.abilities.length) };
-    const base = savePokemonEdit.defaultSpeciesInfo(id);
+    if (pack) return { id: pack.id, name: pack.name, stats: pack.stats, growthRate: pack.growthRate, gender: pack.gender, abilityCount: Math.max(1, pack.abilities.length), hasHidden: false };
+    const base = savePokemonEdit.defaultSpeciesInfo(id, { gen6Stats: Boolean(catalog.receiver?.gen6Stats) });
     if (!base) return null;
-    const discRow = (rules >= 4 ? battle.generations?.[4]?.species?.[id] : null) || battle.species?.[id];
-    return discRow ? { ...base, gender: discRow.gender ?? base.gender, abilityCount: Math.max(1, discRow.abilities?.length || base.abilityCount) } : base;
+    const discRow = (rules >= 6 || id >= 520 ? battle.generations?.[6]?.species?.[id] : null)
+      || (rules >= 4 ? battle.generations?.[4]?.species?.[id] : null)
+      || battle.species?.[id]
+      || battle.generations?.[6]?.species?.[id]
+      || battle.generations?.[4]?.species?.[id];
+    if (!discRow) return base;
+    const regularCount = (discRow.abilities || []).filter(a => a.slot < 2).length;
+    const hasHidden = Boolean(discRow.hidden || (discRow.abilities || []).some(a => a.slot === 2) || base.hasHidden);
+    return { ...base, gender: discRow.gender ?? base.gender, abilityCount: Math.max(1, regularCount || base.abilityCount), hasHidden };
   };
   return { receiver: catalog.receiver, speciesInfo, movePp: id => ppByMove.get(id) || savePokemonEdit.defaultMovePp(id), allowedPackSpecies: new Set(packMap.keys()) };
 }

@@ -1293,6 +1293,8 @@ test('Customize rules lists only the mechanics the battle rules can play, and sa
   assert.deepEqual(listed(), M.MECHANICS.filter(each => each.id !== 'gen6Types').map(each => each.id));
   assert.equal(ui.elements.get('mechanics-changed').textContent, '· 2 changed');
   assert.match(ui.elements.get('battle-rules-note').textContent, /^X and Y's damage, critical hits and status, hidden abilities and the Fairy type\./);
+  const html = fs.readFileSync(path.resolve(__dirname, '../src/index.html'), 'utf8');
+  assert.match(html, /<details\b[^>]*\bid="mechanics-panel"[^>]*\bopen\b/, 'Customize rules in Settings is open by default');
 });
 
 test('index.html loads mechanics.js and every helper script renderer.js reads before renderer.js', () => {

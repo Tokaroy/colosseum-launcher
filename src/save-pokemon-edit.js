@@ -17,14 +17,22 @@ const teamSets = require('./team-sets');
 const saveImport = require('./save-import');
 const entries = require('./shadow-entries');
 const gen4 = require('./generations/gen4.json');
+const gen6 = require('./generations/gen6.json');
+const fairy = require('./generations/fairy.json');
 const gen3Learnsets = require('./generations/gen3-learnsets.json').species;
 const gen4Learnsets = require('./generations/gen4-learnsets.json').species;
+const gen6Learnsets = require('./generations/gen6-learnsets.json').species;
 const gen4Items = require('./generations/gen4-items.json').items;
+const gen6Items = require('./generations/gen6-items.json').items;
 
 const SHADOW_MOVES = { colosseum: [355, 357], xd: [355, 374] };
 const LATER_SPECIES = [413, 519];
+const GEN6_SPECIES = [520, 773];
 const LATER_MOVES = [358, 470];
+const GEN6_MOVES = [471, 624];
+const FAIRY_MOVES = [577, 580, 586, 587, 588, 608, 611];
 const LATER_ITEMS = [0x224, 0x289];
+const GEN6_ITEMS = [0x28a, 0x2a4];
 const XD_BONSLY_COLO = 464, XD_MUNCHLAX_COLO = 472;
 const SHEDINJA = 303;
 const GROWTH = ['mediumFast', 'erratic', 'fluctuating', 'mediumSlow', 'fast', 'slow'];
@@ -99,34 +107,40 @@ function statsOf(species, base, { level, ivs, evs, nature }) {
   });
 }
 
-// Gender ratio from gen4.json's percentage (0, 12.5, 25, 50, 75, 100, or null for genderless) to the game's 0..255 byte.
+// Gender ratio from gen4/gen6.json's percentage (0, 12.5, 25, 50, 75, 100, or 'genderless'/null) to the game's 0..255 byte.
 function genderRatioOf(entry) {
-  if (!entry || entry.gender === null || entry.gender === undefined) return teamSets.GENDER.none;
+  if (!entry || entry.gender === null || entry.gender === undefined || entry.gender === 'genderless' || typeof entry.gender !== 'number') return teamSets.GENDER.none;
   if (entry.gender === 0) return teamSets.GENDER.male;
   if (entry.gender === 100) return teamSets.GENDER.female;
-  return Math.round(entry.gender * 256 / 100) - 1;
+  return Math.max(0, Math.min(254, Math.round(entry.gender * 256 / 100) - 1));
 }
 
-// Default species metadata for any Gen 1–4 species (Colosseum numbering), from gen4.json.
-function defaultSpeciesInfo(colosseumId) {
+// Default species metadata for any Gen 1–6 species or alternate form (Colosseum numbering), from gen4/gen6.json.
+function defaultSpeciesInfo(colosseumId, { gen6Stats = false } = {}) {
   const national = saveImport.nationalOf(colosseumId);
-  const entry = national ? gen4.species[national] : null;
+  const entry = national
+    ? ((colosseumId >= GEN6_SPECIES[0] || gen6Stats) ? (gen6.species[national] || gen4.species[national]) : (gen4.species[national] || gen6.species[national]))
+    : null;
   if (!entry) return null;
   const s = entry.stats;
+  const uniqueAbilities = [...new Set(entry.abilities || [])];
   return {
     id: colosseumId,
     national,
     name: entry.name,
+    gameName: entry.gameName || entry.name,
     stats: [s.hp, s.attack, s.defense, s.spAttack, s.spDefense, s.speed],
     growthRate: entry.growthRate || 'mediumFast',
     gender: genderRatioOf(entry),
-    abilityCount: Math.min(2, (entry.abilities || []).length || 1)
+    abilityCount: Math.max(1, Math.min(2, uniqueAbilities.length || 1)),
+    hasHidden: Boolean(gen6.species[national]?.hidden)
   };
 }
 
 function defaultMovePp(colosseumId) {
   const national = colosseumId >= 358 ? colosseumId - 3 : colosseumId;
-  return gen4.moves[national]?.pp || 0;
+  if (colosseumId >= GEN6_MOVES[0]) return gen6.moves[national]?.pp || fairy.newMoves[national]?.pp || 0;
+  return gen4.moves[national]?.pp || gen6.moves[national]?.pp || 0;
 }
 
 // A personality value matching nature, gender and shininess for this Pokémon's own `otId`.
@@ -217,7 +231,7 @@ function readSlot(ctx, place, { speciesInfo = defaultSpeciesInfo } = {}) {
   const info = speciesInfo(species) || defaultSpeciesInfo(species);
   const genderRatio = info?.gender ?? teamSets.GENDER.none;
   const rawNickname = readUtf16(b, x ? 0x4e : 0x2e, 10);
-  const defaultUpper = (info?.name || '').toUpperCase().slice(0, teamSets.NICKNAME_LENGTH);
+  const defaultUpper = (info?.gameName || info?.name || '').toUpperCase().slice(0, teamSets.NICKNAME_LENGTH);
   const nickname = defaultUpper && rawNickname === defaultUpper ? '' : rawNickname;
   const evs = [0, 1, 2, 3, 4, 5].map(i => b.readUInt16BE((x ? 0x9c : 0x98) + 2 * i));
   const ivs = [0, 1, 2, 3, 4, 5].map(i => (x ? b[0xa8 + i] : b.readUInt16BE(0xa4 + 2 * i)));
@@ -242,7 +256,7 @@ function readSlot(ctx, place, { speciesInfo = defaultSpeciesInfo } = {}) {
       item: item > 0 ? item : 0,
       rawItem,
       heldKeyItem: item < 0,
-      ability: x ? ((b[0x1d] >> 6) & 1) : (b[0xcc] & 1),
+      ability: x ? ((b[0x1d] & 0x10) ? 2 : ((b[0x1d] >> 6) & 1)) : (b[0xcc] === 2 ? 2 : (b[0xcc] & 1)),
       moves,
       evs: evs.map(v => Math.min(255, v)),
       ivs: ivs.map(v => Math.min(31, v)),
@@ -265,6 +279,7 @@ function speciesAllowed(game, colosseumId, { receiver = {}, allowedPackSpecies =
   if ((colosseumId >= 1 && colosseumId <= 251) || (colosseumId >= 277 && colosseumId <= 411)) return true;
   if (game === 'xd' && (colosseumId === XD_BONSLY_COLO || colosseumId === XD_MUNCHLAX_COLO)) return true;
   if (within(LATER_SPECIES, colosseumId)) return Boolean(receiver.laterPokemon);
+  if (within(GEN6_SPECIES, colosseumId)) return Boolean(receiver.gen6Pokemon);
   if (allowedPackSpecies && allowedPackSpecies.has(colosseumId)) return true;
   return false;
 }
@@ -273,7 +288,9 @@ function moveAllowed(colosseumId, { receiver = {}, originalMoves = new Set() } =
   if (!Number.isInteger(colosseumId) || colosseumId <= 0) return false;
   if (originalMoves.has(colosseumId)) return true;
   if (colosseumId >= 1 && colosseumId <= 354) return true;
-  if (within(LATER_MOVES, colosseumId)) return Boolean(receiver.laterMoves);
+  if (within(LATER_MOVES, colosseumId)) return Boolean(receiver.laterMoves || receiver.gen6Moves);
+  if (FAIRY_MOVES.includes(colosseumId)) return Boolean(receiver.gen6Moves || receiver.fairyType);
+  if (within(GEN6_MOVES, colosseumId)) return Boolean(receiver.gen6Moves);
   return false;
 }
 
@@ -299,13 +316,15 @@ function applyEdit(ctx, place, identity, changes, options = {}) {
     if (current.shadow) throw new Error('A Shadow Pokémon\'s species can\'t be changed.');
     const wanted = Number(changes.species);
     if (!speciesAllowed(game, wanted, { receiver, allowedPackSpecies, originalSpecies: current.species }))
-      throw new Error(within(LATER_SPECIES, wanted)
-        ? 'Turn on Generation 4 Pokémon under Settings → Gameplay to use that Pokémon.'
-        : 'That Pokémon isn\'t available in this game.');
+      throw new Error(within(GEN6_SPECIES, wanted)
+        ? 'Turn on Generation 5 and 6 Pokémon under Settings → Gameplay to use that Pokémon.'
+        : within(LATER_SPECIES, wanted)
+          ? 'Turn on Generation 4 Pokémon under Settings → Gameplay to use that Pokémon.'
+          : 'That Pokémon isn\'t available in this game.');
     nextSpecies = wanted;
   }
   const speciesChanged = nextSpecies !== current.species;
-  const info = speciesInfo(nextSpecies) || defaultSpeciesInfo(nextSpecies);
+  const info = speciesInfo(nextSpecies) || defaultSpeciesInfo(nextSpecies, { gen6Stats: Boolean(receiver.gen6Stats) });
   if (!info) throw new Error(`Missing species data for Pokémon #${nextSpecies}.`);
 
   // Level & EXP
@@ -327,13 +346,15 @@ function applyEdit(ctx, place, identity, changes, options = {}) {
 
   // Nickname
   const cleanedNick = changes.nickname !== undefined ? teamSets.cleanNickname(changes.nickname) : current.nickname;
-  const defaultUpper = (info.name || '').toUpperCase().slice(0, teamSets.NICKNAME_LENGTH);
+  const defaultUpper = (info.gameName || info.name || '').toUpperCase().slice(0, teamSets.NICKNAME_LENGTH);
   const storedNick = cleanedNick || defaultUpper || current.rawNickname;
 
   // Ball, Friendship, Ability
   const ball = int(Number(changes.ball), 1, 12, current.ball);
   const friendship = int(Number(changes.friendship), 0, 255, current.friendship);
-  const ability = info.abilityCount < 2 ? 0 : (Number(changes.ability) === 1 ? 1 : 0);
+  const wantedAbility = changes.ability !== undefined ? Number(changes.ability) : current.ability;
+  const canHidden = Boolean(info.hasHidden && (receiver.hiddenAbilities || current.ability === 2));
+  const ability = wantedAbility === 2 && canHidden ? 2 : (info.abilityCount < 2 ? 0 : (wantedAbility === 1 ? 1 : 0));
 
   // Held item (keep rawItem intact if unchanged, e.g. a non-battle item the user didn't alter)
   let nextRawItem = current.rawItem;
@@ -345,6 +366,8 @@ function applyEdit(ctx, place, identity, changes, options = {}) {
       if (!Number.isInteger(wantedItem) || wantedItem < 0 || wantedItem > 0xffff) throw new Error('Invalid held item.');
       if (wantedItem > 0 && within(LATER_ITEMS, wantedItem) && !receiver.laterItems)
         throw new Error('Turn on Generation 4 battle rules under Settings → Gameplay to hold a Generation 4 item.');
+      if (wantedItem > 0 && within(GEN6_ITEMS, wantedItem) && !receiver.gen6Items)
+        throw new Error('Turn on X and Y battle rules (or Gen 6 items) under Settings → Gameplay to hold a Generation 5 or 6 item.');
       nextRawItem = wantedItem ? convert.itemFromColosseum(game, wantedItem) : 0;
     }
   }
@@ -371,9 +394,13 @@ function applyEdit(ctx, place, identity, changes, options = {}) {
     const id = typeof item === 'number' ? item : Number(item.id);
     if (!id) continue;
     if (!moveAllowed(id, { receiver, originalMoves: origNormalIds }))
-      throw new Error(within(LATER_MOVES, id)
-        ? 'Turn on Generation 4 Pokémon or battle rules under Settings → Gameplay to teach that move.'
-        : `Move #${id} isn't available in this game.`);
+      throw new Error(FAIRY_MOVES.includes(id)
+        ? 'Turn on Gen 6 types, Generation 5 and 6 Pokémon, or X and Y battle rules under Settings → Gameplay to teach that move.'
+        : within(GEN6_MOVES, id)
+          ? 'Turn on Generation 5 and 6 Pokémon or X and Y battle rules under Settings → Gameplay to teach that move.'
+          : within(LATER_MOVES, id)
+            ? 'Turn on Generation 4 Pokémon or battle rules under Settings → Gameplay to teach that move.'
+            : `Move #${id} isn't available in this game.`);
     const k = `n:${id}`;
     if (seen.has(k)) continue;
     seen.add(k);
@@ -456,7 +483,7 @@ function applyEdit(ctx, place, identity, changes, options = {}) {
   evs.forEach((v, i) => b.writeUInt16BE(v, (x ? 0x9c : 0x98) + 2 * i));
   ivs.forEach((v, i) => { if (x) b[0xa8 + i] = v & 0x1f; else b.writeUInt16BE(v & 0x1f, 0xa4 + 2 * i); });
   b.writeUInt16BE(friendship, x ? 0x06 : 0xb0);
-  if (x) b[0x1d] = (b[0x1d] & ~0x40) | (ability ? 0x40 : 0);
+  if (x) b[0x1d] = ability === 2 ? ((b[0x1d] & ~0x40) | 0x10) : ((b[0x1d] & ~0x50) | (ability ? 0x40 : 0));
   else b[0xcc] = ability;
 
   // Mark the Pokémon as edited whenever any field changed (bit 7 of flagAmari; never cleared once set).
@@ -496,19 +523,24 @@ function applyEdit(ctx, place, identity, changes, options = {}) {
   };
 }
 
-// Fallback battle data built from bundled Gen 4/Gen 3 JSON when Colosseum's disc isn't set up (e.g. an XD-only setup).
+// Fallback battle data built from bundled Gen 3–6 JSON when Colosseum's disc isn't set up (e.g. an XD-only setup).
 function fallbackBattleData() {
   const abilityByName = new Map();
-  for (const [id, entry] of Object.entries(gen4.abilities)) abilityByName.set(entry.name, { id: Number(id), name: entry.name, doc: entry.description || '' });
+  for (const [id, entry] of Object.entries(gen6.abilities)) abilityByName.set(entry.name, { id: Number(id), name: entry.name, doc: entry.description || '' });
+  for (const [id, entry] of Object.entries(gen4.abilities)) if (!abilityByName.has(entry.name)) abilityByName.set(entry.name, { id: Number(id), name: entry.name, doc: entry.description || '' });
 
   const moveId = n => (n >= 355 ? n + 3 : n);
-  const allMoves = Object.entries(gen4.moves).map(([n, m]) => ({
+  const allMoves4 = Object.entries(gen4.moves).map(([n, m]) => ({
     id: moveId(Number(n)), national: Number(n), name: m.name, type: m.type, power: m.power, accuracy: m.accuracy,
     pp: m.pp, priority: m.priority, category: m.category, contact: Boolean(m.contact), doc: m.description || ''
   }));
-  const gen3Moves = allMoves.filter(m => m.national <= 354)
+  const gen3Moves = allMoves4.filter(m => m.national <= 354)
     .map(m => ({ ...m, category: m.power ? teamSets.category(m.type) : 'Status' }));
-  const gen4Moves = allMoves.filter(m => m.id <= 470);
+  const gen4Moves = allMoves4.filter(m => m.id <= 470);
+  const gen6Moves = Object.entries(gen6.moves).map(([n, m]) => ({
+    id: moveId(Number(n)), national: Number(n), name: m.name, type: m.type, power: m.power, accuracy: m.accuracy,
+    pp: m.pp, priority: m.priority, category: m.category, contact: Boolean(m.contact), doc: m.description || ''
+  }));
 
   const learnList = (entry, shift) => {
     if (!entry) return [];
@@ -545,6 +577,30 @@ function fallbackBattleData() {
     if (national > 386) dex4.push({ ...dexEntry, generation: 4 });
   }
 
+  const species6 = {}, dex6 = [];
+  for (const [natStr, entry] of Object.entries(gen6.species)) {
+    const national = Number(natStr);
+    const id = national > 721 ? national + 26 : saveImport.speciesFromNational(national);
+    if (!id) continue;
+    const gender = genderRatioOf(entry);
+    const own = (entry.abilities || []).map((name, slot) => {
+      const a = abilityByName.get(name);
+      return { slot, id: a?.id || 0, name, doc: a?.doc || '' };
+    }).filter((a, i, arr) => !i || a.name !== arr[0].name);
+    const hiddenAbility = entry.hidden && !own.some(a => a.name === entry.hidden)
+      ? { slot: 2, id: abilityByName.get(entry.hidden)?.id || 0, name: entry.hidden, doc: abilityByName.get(entry.hidden)?.doc || '', hidden: true }
+      : null;
+    const abilities = hiddenAbility ? [...own, hiddenAbility] : own;
+    const s = entry.stats;
+    const stats = [s.hp, s.attack, s.defense, s.spAttack, s.spDefense, s.speed];
+    const ls6 = new Map(learnList(gen6Learnsets[national] || entry, true));
+    for (const [m, how] of species4[id]?.learnset || []) if (!ls6.has(m)) ls6.set(m, /\(Gen \d\)$/.test(how) ? how : `${how} (Gen 4)`);
+    species6[id] = { name: entry.name, national, gender, abilities, ...(hiddenAbility ? { hidden: hiddenAbility } : {}), learnset: [...ls6] };
+    if (national > 386) {
+      dex6.push({ id, national, name: entry.name, types: entry.types, abilities: own.map(a => a.name), stats, sprite: null, generation: national <= 493 ? 4 : 6 });
+    }
+  }
+
   return {
     fallback: true,
     moves: gen3Moves,
@@ -552,7 +608,10 @@ function fallbackBattleData() {
     balls: BALLS,
     species: species3,
     dex: dex3,
-    categories: { 4: Object.fromEntries(gen4Moves.map(m => [m.id, m.category])) },
+    categories: {
+      4: Object.fromEntries(gen4Moves.map(m => [m.id, m.category])),
+      6: Object.fromEntries(gen6Moves.map(m => [m.id, m.category]))
+    },
     generations: {
       4: {
         generation: 4,
@@ -560,6 +619,13 @@ function fallbackBattleData() {
         items: gen4Items.map(item => ({ ...item, berry: Boolean(item.berry), generation: 4 })).sort((a, b) => a.name.localeCompare(b.name)),
         species: species4,
         dex: dex4
+      },
+      6: {
+        generation: 6,
+        moves: gen6Moves,
+        items: gen6Items.map(item => ({ ...item, berry: Boolean(item.berry), generation: item.id >= GEN6_ITEMS[0] ? 6 : 4 })).sort((a, b) => a.name.localeCompare(b.name)),
+        species: species6,
+        dex: dex6
       }
     }
   };
