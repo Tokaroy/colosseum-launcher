@@ -3244,13 +3244,19 @@ function readStory() {
   return storyCache;
 }
 
+// The battle rules of a room this player would host, from the Online page's choices: what crossLater reads
+function ownRoomRules() {
+  const setup = config.online || {};
+  return { battleRules: Number(setup.battleRules) || generations.COLOSSEUM_RULES, fairy: setup.fairy === true, mechanics: setup.mechanics || undefined };
+}
+
 // What the Online page shows of it.
 function storyState() {
   const { party, error } = readStory();
   return { error, supported: binaryReady() && onlineFeatures(config.repo).story,
     trainer: party?.trainer || null, leftOut: party?.leftOut || 0, packsLeftOut: party?.packsLeftOut || 0,
     // why each of its Pokémon that a room for both games can't take stays home from one (src/crossplay.js)
-    crossLeftOut: party ? crossplay.storyMembers(party.members, storyParty.wireMember, partyNames(), config.online.battleRules === 4 ? crossLater() : {}).leftOut.map(each => each.why[0]) : [],
+    crossLeftOut: party ? crossplay.storyMembers(party.members, storyParty.wireMember, partyNames(), config.online.battleRules >= 4 ? crossLater(ownRoomRules()) : {}).leftOut.map(each => each.why[0]) : [],
     members: (party?.members || []).map(member => ({ species: member.species, nickname: member.nickname, level: member.level, shiny: member.shiny,
       // all the team builder needs to copy it into a party of the player's own
       set: { species: member.species, nickname: member.nickname, item: member.item, ability: member.ability, nature: member.rnd % 25,
@@ -3275,13 +3281,13 @@ function storyBlocked(size) {
 
 // The party to battle with in a room of `size` each: species, and for the Story party its Pokémon whole. In a room for
 // both games (cross), a Story party's Pokémon that the other game wouldn't make the same stay home (src/crossplay.js).
-function battleParty(size, { cross = false, platinum = false } = {}) {
+function battleParty(size, { cross = false, platinum = false, rules = ownRoomRules() } = {}) {
   if (config.online.selected === parties.STORY) {
     const blocked = storyBlocked(size);
     if (blocked) throw new Error(blocked);
     let members = readStory().party.members;
     if (cross) {
-      const { kept, leftOut } = crossplay.storyMembers(members, storyParty.wireMember, partyNames(), platinum ? crossLater() : {});
+      const { kept, leftOut } = crossplay.storyMembers(members, storyParty.wireMember, partyNames(), platinum ? crossLater(rules) : {});
       if (leftOut.length && kept.length < size) {
         const why = leftOut.map(each => each.why[0]).join(' ');
         throw Object.assign(new Error(`Your Story party has ${kept.length} Pokémon a room for both games can take, and this room plays ${size} each. ${why}`),
@@ -3353,7 +3359,7 @@ function partyFor(rules, { cross = false } = {}) {
   const own = config.online.selected === parties.STORY ? null : parties.selectedParty(config.online);
   const mismatch = parties.rulesProblem(own, rules.battleRules);
   if (mismatch) throw Object.assign(new Error(mismatch), { problems: [mismatch] });
-  const chosen = battleParty(rules.size, { cross, platinum });
+  const chosen = battleParty(rules.size, { cross, platinum, rules });
   const problems = formats.problems(rules, chosen.party, chosen.members || null, partyNames());
   // a room for both games: only what both games make alike (src/crossplay.js), or the battle would go otherwise
   if (cross) problems.push(...crossplay.problems(chosen.party, chosen.members || null, partyNames(), (platinum || rules.fairy) ? crossLater(rules) : {}).filter(each => !problems.includes(each)));
