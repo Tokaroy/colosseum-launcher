@@ -885,6 +885,15 @@ function compile(contents) {
   return Buffer.concat([header, ...chunks]);
 }
 
+// compile's file for a game that reads at most `limit` bytes of it: { bytes, looks, withLooks }. Over the limit, the
+// game's own Pokémon's models (Replace all models: contents.looks) are left out, and withLooks is the size it would have
+// been with them (0 when they're in, or there are none). bytes can still be over the limit: the caller doesn't start the game.
+function compileWithin(contents, limit) {
+  const bytes = compile(contents), looks = contents.looks || [];
+  if (bytes.length <= limit || !looks.length) return { bytes, looks, withLooks: 0 };
+  return { bytes: compile({ ...contents, looks: [] }), looks: [], withLooks: bytes.length };
+}
+
 // A converted Pokémon's own model, icons and cry, as a pack's are, or none. A cry that can't be read is left out.
 function ownLooks(folder, tables, { faceReader = battleRevolutionFace } = {}) {
   const file = name => { const at = path.join(folder, name); return fs.existsSync(at) ? fs.readFileSync(at) : null; };
@@ -1338,7 +1347,7 @@ function formModelFile(folder, look) {
 }
 
 module.exports = { FIRST_ID, LAST_ID, FIRST_PAST_GAP, REGISTRY_FILE, FILES, packsDirectory, readGameTables, readRegistry, writeRegistry, assignIds,
-  decodePng, resize, encodeRgba8, spriteFile, battleRevolutionFace, boxIcon, buildRow, evolutionBytes, loadPacks, compile, generationPokemon, ownRows, ownModels, OWN_NATIONALS, pokedexEntries, applyBuiltToPokedex, laterAbility, abilityDisplayName, readCry,
+  decodePng, resize, encodeRgba8, spriteFile, battleRevolutionFace, boxIcon, buildRow, evolutionBytes, loadPacks, compile, compileWithin, generationPokemon, ownRows, ownModels, OWN_NATIONALS, pokedexEntries, applyBuiltToPokedex, laterAbility, abilityDisplayName, readCry,
   exportSpec, formatJson, ENTRY_FILE, PACK_FILE, FOLDER, FORM_LOOK, formLooks, formModelFile,
   // A species the original game hasn't: a pack's, or a later generation's
   isPackSpecies: id => (id >= FIRST_ID && id <= LAST_ID) || id >= 413 };

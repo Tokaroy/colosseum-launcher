@@ -603,6 +603,19 @@ test('Replace all models: the game\'s own Pokémon\'s Battle Revolution models g
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+test('a file over the game\'s limit leaves out Replace all models\' models first, and says when the rest is still too big', () => {
+  const looks = [{ id: 25, national: 25, model: Buffer.alloc(0x400, 1), modelShiny: Buffer.alloc(0x400, 2) }];
+  const relearner = true, full = packs.compile({ relearner, looks }), alone = packs.compile({ relearner });
+  const fits = packs.compileWithin({ relearner, looks }, full.length);
+  assert.ok(fits.bytes.equals(full), 'under the limit, all of it');
+  assert.deepEqual([fits.looks, fits.withLooks], [looks, 0]);
+  const cut = packs.compileWithin({ relearner, looks }, full.length - 1);
+  assert.ok(cut.bytes.equals(alone), 'over it, without the looks');
+  assert.deepEqual([cut.looks, cut.withLooks], [[], full.length], 'and how big it would have been with them');
+  const still = packs.compileWithin({ relearner }, alone.length - 1);
+  assert.ok(still.bytes.length > alone.length - 1 && still.withLooks === 0, 'nothing to leave out: still too big, for the caller to stop');
+});
+
 test('a pack\'s cry.wav and a Battle Revolution one are read beside their Pokémon; a bad one is said, or left out', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'packs-cry-'));
   try {
