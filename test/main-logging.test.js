@@ -279,3 +279,13 @@ test('XD gets the later generations the settings ask for, and its packs, made fr
     /Pokémon packs weren't loaded: XD's Pokémon packs and later generations are made from Pokémon Colosseum's disc\. Choose Colosseum on the Play page/);
   assert.equal(runtime.teamDiscReady(), false);
 });
+
+// crossLater reads the room's rules it is given: called with none (as main's Story party code did after generation 6's
+// rules gave it that argument), it threw whenever the Online page's state was made, which the launcher's update check
+// reported as its own failure
+test('every call of crossLater passes the room\'s rules', () => {
+  const source = fs.readFileSync(path.resolve(__dirname, '../src/main.js'), 'utf8');
+  const calls = [...source.matchAll(/(?<!function )crossLater\(([^)]*)\)/g)].map(match => match[1].trim());
+  assert.ok(calls.length >= 3);
+  assert.deepEqual(calls.filter(argument => !argument), []);
+});
