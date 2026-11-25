@@ -75,8 +75,14 @@
       card.append(copy);
     }
     if (!usable) return card;
-    // with a Generation 4 Pokémon, it battles under Platinum's rules, as a Generation 4 party does
-    const choose = () => { setup.selected = STORY; if (storyGeneration() >= 4) setup.battleRules = 4; save(); };
+    // with a Generation 4 Pokémon, it battles under Diamond and Pearl rules at least, as a Generation 4 party does; with a
+    // Generation 5 or 6 one, under X and Y's
+    const choose = () => {
+      const generation = storyGeneration(), rules = generation >= 5 ? 6 : generation >= 4 ? 4 : 0;
+      setup.selected = STORY;
+      if (setup.battleRules < rules) setup.battleRules = rules;
+      save();
+    };
     card.addEventListener('click', choose);
     card.addEventListener('keydown', event => { if (event.target === card && (event.key === ' ' || event.key === 'Enter')) { event.preventDefault(); choose(); } });
     return card;
@@ -157,9 +163,9 @@
   }
 
   // The Story party's Pokémon as sets of the player's own, to change as they like.
-  // The Story party's generation: the fourth's when one of its Pokémon is, or knows one of its moves.
+  // The Story party's generation: the latest of its Pokémon's, their moves' and their held items'.
   const storyGeneration = () => Math.max(3, ...state.story.members.flatMap(({ species, set }) =>
-    [window.coloTeamSets.speciesGeneration(species), ...(set?.moves || []).map(window.coloTeamSets.moveGeneration)]));
+    [window.coloTeamSets.speciesGeneration(species), window.coloTeamSets.itemGeneration(set?.item), ...(set?.moves || []).map(window.coloTeamSets.moveGeneration)]));
 
   async function copyStory() {
     await builder().load();
