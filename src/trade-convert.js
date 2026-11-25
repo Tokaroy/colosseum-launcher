@@ -32,7 +32,7 @@ function speciesToColosseum(game, id) {
   if (game === 'colosseum') return id;
   if (id === XD_BONSLY) return COLO_BONSLY;
   if (id === XD_MUNCHLAX) return COLO_MUNCHLAX;
-  return id >= 415 && id <= 749 ? id - 2 : id;
+  return id >= 415 && id <= GEN6_SPECIES[1] + 2 ? id - 2 : id;
 }
 function speciesFromColosseum(game, id) {
   if (game === 'colosseum') return id;

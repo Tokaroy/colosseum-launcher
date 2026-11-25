@@ -159,6 +159,7 @@ async function editPokemon() {
     await window.coloPokemonEditor.open({ area: pokemon.area, box: pokemon.box, slot: pokemon.slot }, {
       onSaved: async ({ result, backup }) => {
         selected = { area: result.area, box: result.box, slot: result.slot };
+        dexFor = null;
         await refresh();
         setStatus(`Saved changes to ${result.nickname} in your save file.${backup ? ' Your previous save was backed up.' : ''}`);
       }

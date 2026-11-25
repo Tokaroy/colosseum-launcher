@@ -77,6 +77,13 @@ test('the fourth generation\'s numbers and XD\'s own Bonsly and Munchlax', () =>
   assert.equal(tc.moveFromColosseum('xd', 400), 417);
   assert.deepEqual(tc.moveToColosseum('xd', 360), { id: 0, shadow: true });
   assert.equal(tc.itemFromColosseum('xd', 0x237), 0x265);
+  // Gen 5, Gen 6 and alternate form rows (up to 773 -> XD 775) round-trip cleanly
+  assert.equal(tc.speciesFromColosseum('xd', 520), 522);
+  assert.equal(tc.speciesToColosseum('xd', 522), 520);
+  assert.equal(tc.speciesFromColosseum('xd', 684), 686);
+  assert.equal(tc.speciesToColosseum('xd', 686), 684);
+  assert.equal(tc.speciesFromColosseum('xd', 773), 775);
+  assert.equal(tc.speciesToColosseum('xd', 775), 773);
   // a later Pokémon round trip through XD lands where it was
   const bonsly = colosseum({ species: 464 });
   const there = tc.convert('colosseum', bonsly, anyReceiver('xd')).bytes;
