@@ -42,7 +42,7 @@
     "Magnet Rise": { "as": "Charge", "effect": 235, "exact": true },
     "Flare Blitz": { "as": "Double-Edge", "effect": 219, "exact": true },
     "Force Palm": { "as": "Body Slam", "exact": true },
-    "Aura Sphere": { "as": "Swift", "exact": true },
+    "Aura Sphere": { "as": "Mist Ball", "effectAs": "Swift", "exact": true },
     "Rock Polish": { "as": "Agility", "exact": true },
     "Poison Jab": { "as": "Poison Sting", "exact": true },
     "Dark Pulse": { "as": "Bite", "exact": true },

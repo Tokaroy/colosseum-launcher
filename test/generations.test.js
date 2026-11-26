@@ -324,3 +324,22 @@ test('Ice Shard and other Gen 4 priority moves keep +1 priority while playing ty
   assert.equal(data.colosseum.moves['Bullet Punch'].as, 'Meteor Mash');
   assert.equal(data.colosseum.moves['Vacuum Wave'].as, 'Mach Punch');
 });
+
+test('Aura Sphere plays Mist Ball animation while keeping Swift never-miss effect', () => {
+  const game = tables(), data = generations.load(4);
+  assert.equal(data.colosseum.moves['Aura Sphere'].as, 'Mist Ball');
+  assert.equal(data.colosseum.moves['Aura Sphere'].effectAs, 'Swift');
+  game.moves.set('mist ball', 296);
+  game.moves.set('swift', 129);
+  game.moveRows[296].writeUInt16BE(72, 0x1a);   // Mist Ball lowers Sp. Atk
+  game.moveRows[296][5] = 50;
+  game.moveRows[129].writeUInt16BE(17, 0x1a);   // Swift never misses
+  game.moveRows[129][5] = 0;
+  const colosseum = { ...data.colosseum, moves: { 'Aura Sphere': data.colosseum.moves['Aura Sphere'] } };
+  const narrow = { ...data, newMoves: [396, 396], colosseum };
+  const [aura] = generations.newMoves(game, narrow);
+  assert.equal(aura.name, 'AURA SPHERE');
+  assert.equal(aura.as, 'Mist Ball');
+  assert.equal(aura.row.readUInt16BE(0x1a), 17, 'keeps Swift never-miss effect');
+  assert.equal(aura.row[5], 0, 'does not inherit Mist Ball side-effect chance');
+});

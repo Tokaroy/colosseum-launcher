@@ -659,6 +659,12 @@ def _special_material(gf_mat, tex_dict=None, images=None, max_size=256):
         return mat
     if 'pm0769_y_effb' in shader or 'pm0770_z_effb' in shader:   # colour and alpha: times stage 0's constant's alpha
         return nothing if _stage_constant(gf_mat, 0)[3] <= 0 else None
+    # Victini's V-aura (pm0150_51_neuron2), Tepig's tail flare (pm_pokabu_tail), Kyurem's glow (pm_chonchie_glow)
+    # and Xerneas's back aura (pm0768_x_back) fade via stage 4's constant alpha; zebraika_thunder fades via stage 3 RGB.
+    if any(k in shader for k in ('pm0150_51_neuron2', 'pm_pokabu_tail', 'pm_chonchie_glow', 'pm0768_x_back')):
+        return nothing if _stage_constant(gf_mat, 4)[3] <= 0 else None
+    if 'pm_zebraika_thunder' in shader:
+        return nothing if max(_stage_constant(gf_mat, 3)[:3]) <= 0 else None
     if 'kyogresp_lay1_core' in shader:
         # stage 1: its colour; 2: toward its pale colour by the vertex shader's alpha (FIRE_GLOW, as for fire);
         # 3: plus a dark one times its alpha; 5: times (stage 2's alpha + white), so twice; alpha: stage 4's
