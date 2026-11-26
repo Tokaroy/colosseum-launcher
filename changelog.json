@@ -1,6 +1,7 @@
 {
   "beta": {
     "launcher": [
+      "Battle Revolution HD textures now include 4x upscaled Generation 4 battle portraits (in both Colosseum and XD, normal and shiny) and Colosseum body sprites, so Generation 4 Pokémon look as sharp as the rest of the cast with HD textures on.",
       "Fixed Victini showing a floating static fire aura above its head, and hid similar idle-off glow meshes on Tepig, Kyurem and Xerneas.",
       "Aura Sphere now plays Mist Ball's energy sphere animation instead of Swift while still never missing.",
       "Fixed 3DS models of Scraggy, Reuniclus, Chandelure, Malamar, Avalugg, Zygarde and other Generation 5 and 6 Pokémon showing missing faces, solid purple flame boxes, opaque jelly or ice shells, or white streaks over their bodies.",
