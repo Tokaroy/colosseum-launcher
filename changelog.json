@@ -1,6 +1,8 @@
 {
   "beta": {
     "launcher": [
+      "Fixed Victini showing a floating static fire aura above its head, and hid similar idle-off glow meshes on Tepig, Kyurem and Xerneas.",
+      "Aura Sphere now plays Mist Ball's energy sphere animation instead of Swift while still never missing.",
       "Fixed 3DS models of Scraggy, Reuniclus, Chandelure, Malamar, Avalugg, Zygarde and other Generation 5 and 6 Pokémon showing missing faces, solid purple flame boxes, opaque jelly or ice shells, or white streaks over their bodies.",
       "Fixed the Pokédex 3D viewer failing with an error when playing special attack animations on models with flame cores, such as Braixen and Delphox.",
       "Fixed Lampent and Doublade evolving at a lower level than their previous forms: Lampent now evolves into Chandelure at level 50 and Doublade into Aegislash at level 45.",
@@ -35,6 +37,7 @@
       "Choosing the Story party online with a Generation 5 or 6 Pokémon in it switches the room to X and Y battle rules, as one with a Generation 4 Pokémon switches to Diamond and Pearl rules."
     ],
     "game": [
+      "Fixed Colosseum crashing at the end of a turn during Rain, Sandstorm or Hail under X and Y battle rules.",
       "Fixed online co-op doors staying closed for the other player when opened, and stopped the joining player from disconnecting during long cutscenes or having a finished battle restart on rejoin.",
       "Fixed online co-op battles going out of step on turn one when the two games rolled different enemy Pokémon.",
       "Fixed the randomizer with No repeated families picking a gift Pokémon from the same family as a Shadow Pokémon or another gift, in both Colosseum and XD.",
