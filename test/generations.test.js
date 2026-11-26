@@ -299,3 +299,28 @@ test("the team builder's categories under generation 4's rules are each move's o
   assert.equal(categories[14], 'Status', 'Swords Dance');
   assert.equal(Object.keys(categories).length, generations.FIRST_NEW_MOVE - 1, 'moves 1 to 354, the numbers Colosseum shares with later games');
 });
+
+test('item-evolution fallback levels stay above the pre-evolution level (Lampent, Doublade)', () => {
+  const data = generations.load(6);
+  const spec = generations.speciesSpec(tables(), data, 608, [], false);   // Lampent (evolves from Litwick at Lv 41)
+  assert.ok(spec.evolutions.length >= 1);
+  assert.equal(spec.evolutions[0].into, 'generation:609', 'Chandelure');
+  assert.ok(spec.evolutions[0].level > 41, `expected Lampent evolution level > 41, got ${spec.evolutions[0].level}`);
+  assert.equal(spec.evolutions[0].level, 50);
+  const doublade = generations.speciesSpec(tables(), data, 680, [], false);   // Doublade (evolves from Honedge at Lv 35)
+  assert.equal(doublade.evolutions[0].into, 'generation:681', 'Aegislash');
+  assert.ok(doublade.evolutions[0].level > 35, `expected Doublade evolution level > 35, got ${doublade.evolutions[0].level}`);
+  assert.equal(doublade.evolutions[0].level, 45);
+});
+
+test('Ice Shard and other Gen 4 priority moves keep +1 priority while playing type-matching animations', () => {
+  const data = generations.load(4);
+  assert.equal(data.moves[420].name, 'Ice Shard');
+  assert.equal(data.moves[420].priority, 1);
+  assert.equal(data.colosseum.moves['Ice Shard'].as, 'Icicle Spear');
+  assert.equal(data.colosseum.moves['Ice Shard'].effect, 0);
+  assert.equal(data.colosseum.moves['Aqua Jet'].as, 'Waterfall');
+  assert.equal(data.colosseum.moves['Shadow Sneak'].as, 'Shadow Punch');
+  assert.equal(data.colosseum.moves['Bullet Punch'].as, 'Meteor Mash');
+  assert.equal(data.colosseum.moves['Vacuum Wave'].as, 'Mach Punch');
+});

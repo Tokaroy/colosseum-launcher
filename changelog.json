@@ -1,6 +1,10 @@
 {
   "beta": {
     "launcher": [
+      "Fixed 3DS models of Scraggy, Reuniclus, Chandelure, Malamar, Avalugg, Zygarde and other Generation 5 and 6 Pokémon showing missing faces, solid purple flame boxes, opaque jelly or ice shells, or white streaks over their bodies.",
+      "Fixed the Pokédex 3D viewer failing with an error when playing special attack animations on models with flame cores, such as Braixen and Delphox.",
+      "Fixed Lampent and Doublade evolving at a lower level than their previous forms: Lampent now evolves into Chandelure at level 50 and Doublade into Aegislash at level 45.",
+      "Ice Shard, Aqua Jet, Shadow Sneak, Bullet Punch and Vacuum Wave now play type-matching attack animations instead of Quick Attack while keeping their increased priority.",
       "Fixed later generations, Gen 6 types and Battle Revolution models not reaching the game in Colosseum and XD when you had many of them on at once, such as Replace all models with Generation 4 and 6 Pokémon. If the game's Pokémon still come to more than the game can read, the launcher leaves out Replace all models and says so in the log, or tells you what to turn off, instead of starting the game without them.",
       "Fixed the Pokédex showing stale types, abilities, or base stats after changing Battle rules, Generation 4/5/6 Pokémon, or Customize rules settings: it now refreshes automatically and shows updated Gen 4 and Gen 6 abilities, hidden abilities, Fairy types, and Gen 6 base stats right away.",
       "Edit Pokémon on the Pokémon tab now supports Generation 5 and 6 Pokémon (Victini to Volcanion and their alternate forms), their moves and held items, Fairy-type moves and hidden abilities whenever those settings are turned on under Gameplay.",
@@ -31,6 +35,13 @@
       "Choosing the Story party online with a Generation 5 or 6 Pokémon in it switches the room to X and Y battle rules, as one with a Generation 4 Pokémon switches to Diamond and Pearl rules."
     ],
     "game": [
+      "Fixed online co-op doors staying closed for the other player when opened, and stopped the joining player from disconnecting during long cutscenes or having a finished battle restart on rejoin.",
+      "Fixed online co-op battles going out of step on turn one when the two games rolled different enemy Pokémon.",
+      "Fixed the randomizer with No repeated families picking a gift Pokémon from the same family as a Shadow Pokémon or another gift, in both Colosseum and XD.",
+      "Fixed the Relic Stone quest in Agate Village in Pokémon XD softlocking if your first purified Shadow Pokémon came from Shadowtrade or Extra Shadows.",
+      "Fixed Flamethrower and other moving battle particles in Pokémon XD stopping short in front of the attacker at 60 fps and 120 fps.",
+      "Fixed saving anywhere in Colosseum in the middle of a story scene (such as Phenac City before rescuing Rui) locking the save on Continue; saves already stuck there now recover to the last PC so the scene can be replayed.",
+      "Improved wireless Nintendo Switch Pro Controller detection over Bluetooth on macOS.",
       "Fixed later generations, Gen 6 types and Battle Revolution models not loading when you had many of them on at once. If the launcher's Pokémon can't be read, the game now stops with a message instead of starting without them, which made saved Pokémon forget their later generations' moves.",
       "Gen 6 types: with the setting on, both games have the Fairy type, with generation 6's type chart, a Fairy type picture in each game's own style on every screen that shows types, and its new moves, Draining Kiss giving back three quarters of the damage. With it off again, a Pokémon that learned a Fairy move forgets it, leaving the slot empty, and the same for a Generation 4 move with Generation 4 off, so a save from either still loads.",
       "Generation 6 mechanics in Colosseum and XD: each of X and Y's battle changes plays when the launcher turns it on, with damage worked out as Pokémon Showdown does, Assault Vest, Eviolite, Rocky Helmet and Weakness Policy as held items, and a Pokémon's hidden ability in online battles.",
