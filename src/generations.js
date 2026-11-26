@@ -358,7 +358,26 @@ const intoOf = number => number > 386 ? `generation:${number}` : number;
 // the port adds knowing a move, a Pokémon in the party, and a level for one gender (host/evolutions.c). The game keeps
 // no time of day, so an evolution by friendship in the day or at night is by friendship; an item or a place the game
 // hasn't is a level, or no evolution (gen<N>-colosseum.json: Eevee's mossy and icy rocks).
-function evolutionOf(data, evolution, usable) {
+// Highest level-up evolution that produces `number` (0 when none), so a fallback item/place level never sits at or
+// below the level a Pokémon itself evolved at (Lampent evolves from Litwick at 41 -> Chandelure 50; Doublade 35 -> Aegislash 45).
+function preEvolutionLevel(data, number) {
+  if (!number) return 0;
+  let max = 0;
+  for (const entry of Object.values(data.species)) {
+    for (const ev of entry.evolutions || []) {
+      if (ev.into === number && ev.level && ev.level > max) max = ev.level;
+    }
+  }
+  return max;
+}
+
+function fallbackLevel(data, fromNumber, level) {
+  if (!level) return 0;
+  const pre = preEvolutionLevel(data, fromNumber);
+  return pre && level <= pre ? Math.ceil((pre + 6) / 5) * 5 : level;
+}
+
+function evolutionOf(data, evolution, usable, fromNumber = 0) {
   const into = intoOf(evolution.into), gender = evolution.gender ? { gender: evolution.gender } : {};
   if (evolution.other) return null;   // the third generation's, which the game's own Pokémon have as it has them
   if (evolution.level) return { into, level: evolution.level, ...gender, ...(evolution.partyType ? { partyType: evolution.partyType } : {}) };
@@ -372,13 +391,15 @@ function evolutionOf(data, evolution, usable) {
   if (item) {
     const level = data.colosseum.evolutionItems[item];
     if (level === undefined) return evolution.item ? { into, item } : evolution.heldItem ? null : { into, trade: item };
-    return level ? { into, level, ...gender } : null;
+    const adjusted = fallbackLevel(data, fromNumber, level);
+    return adjusted ? { into, level: adjusted, ...gender } : null;
   }
   if (evolution.place) {
     // a level, or (Eevee's Moss Rock and Ice Rock) an item the game has to use or hold
     const way = data.colosseum.evolutionPlaces?.[evolution.place];
     if (way && typeof way === 'object') return way.item ? { into, item: way.item } : way.heldItem ? { into, heldItem: way.heldItem } : null;
-    return way ? { into, level: way } : null;
+    const adjusted = fallbackLevel(data, fromNumber, way);
+    return adjusted ? { into, level: adjusted } : null;
   }
   return null;
 }
@@ -398,7 +419,7 @@ function ownSpecies(tables, data, moves, evolveData = data) {
     if (!entry || !each.row) continue;
     const evolveFrom = evolveData?.species[each.national];
     const evolutions = (evolveFrom?.evolutions || []).filter(evolution => evolution.into > 386 || evolution.trade === 'Prism Scale')
-      .map(evolution => evolutionOf(evolveData, evolution, usable)).filter(Boolean);
+      .map(evolution => evolutionOf(evolveData, evolution, usable, each.national)).filter(Boolean);
     out.push({ id: each.id, national: each.national, levelUp: levelUpMoves(entry, usable), evolutions });
   }
   return out;
@@ -434,7 +455,7 @@ function speciesSpec(tables, data, number, moves, ownAbilities, learnData = null
   }
   if (!abilities.length) abilities.push(...entry.abilities.map(name => data.colosseum.abilities[name]).filter(Boolean));
   const moveList = levelUpMoves(learns, usable);
-  const evolutions = entry.evolutions.map(evolution => evolutionOf(data, evolution, usable)).filter(Boolean);
+  const evolutions = entry.evolutions.map(evolution => evolutionOf(data, evolution, usable, number)).filter(Boolean);
   const types = [...new Set(entry.types)];
   return {
     base: (STAND_INS[types[0]] || STAND_INS.Normal)[stageOf(data, number) - 1],
