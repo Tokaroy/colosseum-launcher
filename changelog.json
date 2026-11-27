@@ -1,6 +1,7 @@
 {
   "beta": {
     "launcher": [
+      "Fixed Online Trades refusing to offer a Generation 5 or 6 Pokémon, or one that knows a Generation 5, 6 or Fairy move or holds a Generation 5 or 6 item, saying the other player's game didn't have them turned on. The other player's launcher now says whether their game can take it.",
       "Updated Generation 4, 5, 6 and Fairy move animations to match their move types while keeping their exact battle effects, including Charge Beam, Grass Knot, Power Gem, Leaf Storm, Dazzling Gleam, Energy Ball, Focus Blast, Flash Cannon, Draco Meteor, Dragon Pulse, Bug Buzz and more.",
       "Battle Revolution HD textures now include 4x upscaled Generation 4 battle portraits (in both Colosseum and XD, normal and shiny) and Colosseum body sprites, so Generation 4 Pokémon look as sharp as the rest of the cast with HD textures on.",
       "Fixed Victini showing a floating static fire aura above its head, and hid similar idle-off glow meshes on Tepig, Kyurem and Xerneas.",
