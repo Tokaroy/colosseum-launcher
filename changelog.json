@@ -1,6 +1,7 @@
 {
   "beta": {
     "launcher": [
+      "Updated Generation 4, 5, 6 and Fairy move animations to match their move types while keeping their exact battle effects, including Charge Beam, Grass Knot, Power Gem, Leaf Storm, Dazzling Gleam, Energy Ball, Focus Blast, Flash Cannon, Draco Meteor, Dragon Pulse, Bug Buzz and more.",
       "Battle Revolution HD textures now include 4x upscaled Generation 4 battle portraits (in both Colosseum and XD, normal and shiny) and Colosseum body sprites, so Generation 4 Pokémon look as sharp as the rest of the cast with HD textures on.",
       "Fixed Victini showing a floating static fire aura above its head, and hid similar idle-off glow meshes on Tepig, Kyurem and Xerneas.",
       "Aura Sphere now plays Mist Ball's energy sphere animation instead of Swift while still never missing.",
@@ -38,6 +39,7 @@
       "Choosing the Story party online with a Generation 5 or 6 Pokémon in it switches the room to X and Y battle rules, as one with a Generation 4 Pokémon switches to Diamond and Pearl rules."
     ],
     "game": [
+      "Fixed Generation 4, 5 and 6 ability descriptions on Colosseum's Pokémon Summary screen showing garbled apostrophes and overlapping the STATS heading.",
       "Fixed Colosseum crashing at the end of a turn during Rain, Sandstorm or Hail under X and Y battle rules.",
       "Fixed online co-op doors staying closed for the other player when opened, and stopped the joining player from disconnecting during long cutscenes or having a finished battle restart on rejoin.",
       "Fixed online co-op battles going out of step on turn one when the two games rolled different enemy Pokémon.",
