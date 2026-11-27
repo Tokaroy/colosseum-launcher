@@ -518,7 +518,7 @@
             <p class="preset-tip"><strong>Movies:</strong> <strong>A</strong> or the fast-forward button skips a movie.</p>
             <h2 class="group-title" data-feature="randomizer">Randomizer</h2>
             <div class="settings-group" data-feature="randomizer">
-              <label class="switch"><span><strong>Randomize new games</strong><small>Swaps the game's Pokémon for others, chosen by a seed. It starts with your next New Game and stays with that save: an existing save is never changed.</small></span><input id="randomizer" type="checkbox"><i></i></label>
+              <label class="switch"><span><strong>Randomize new games</strong><small>Swaps the game's Pokémon for others, chosen by a seed. Starts with your next New Game and stays with that save; to update an existing save, use the button under Your save below.</small></span><input id="randomizer" type="checkbox"><i></i></label>
               <div id="randomizer-options" class="randomizer-options" hidden>
                 <div class="field randomizer-seed"><span>Seed<small>The same seed and choices make the same run, so you can share them. Fights stay the same when you lose and try again.</small></span><input id="randomizerSeed" type="text" maxlength="8" spellcheck="false" aria-label="Randomizer seed"><button id="randomizer-reroll" class="subtle" type="button">New seed</button></div>
                 <label class="switch"><span><strong id="randomizer-starters-title">Starters</strong><small id="randomizer-starters-note">Your first two Pokémon, instead of Espeon and Umbreon.</small></span><input id="randomizerStarters" type="checkbox"><i></i></label>
@@ -534,7 +534,7 @@
                 <label class="switch"><span><strong>No repeats</strong><small id="randomizer-no-repeats-note"></small></span><input id="randomizerNoRepeats" type="checkbox"><i></i></label>
                 <label class="switch"><span><strong>First forms only</strong><small id="randomizer-base-forms-note"></small></span><input id="randomizerBaseForms" type="checkbox"><i></i></label>
               </div>
-              <div class="field randomizer-save"><span>Your save<small id="randomizer-save-note"></small></span><button id="randomizer-spoilers" class="subtle" type="button" hidden>Show spoilers</button></div>
+              <div class="field randomizer-save"><span>Your save<small id="randomizer-save-note"></small></span><div class="actions"><button id="randomizer-apply" class="subtle" type="button" hidden>Apply to current save</button><button id="randomizer-spoilers" class="subtle" type="button" hidden>Show spoilers</button></div></div>
             </div>
             <h2 class="group-title" data-feature="generations">Later generations</h2>
             <p id="generations-disc-note" class="preset-tip generations-disc-note" hidden></p>
@@ -813,6 +813,18 @@
         <div id="usum-offer-check" class="disc-check" role="alert" hidden><div><strong id="usum-offer-check-title"></strong><small id="usum-offer-check-detail"></small></div></div>
         <p class="pbr-offer-warning"><strong>Without it, they use stand-ins.</strong> Each Generation 5 and 6 Pokémon looks and sounds like a Pokémon from Colosseum, in the game and the Pokédex. You can add your decrypted .3ds ROM later under Settings → Gameplay, below Generation 5 and 6 Pokémon.</p>
         <div class="actions pbr-offer-actions"><button id="usum-offer-skip" class="subtle" data-close-modal>Use stand-ins</button><button id="usum-offer-confirm" class="solid">Choose ROM</button></div>
+      </div>
+    </dialog>
+
+    <dialog id="randomizer-apply-confirm" class="launcher-modal pbr-offer" aria-labelledby="randomizer-apply-title">
+      <div class="modal-head"><div><p class="eyebrow">RANDOMIZER</p><h1 id="randomizer-apply-title">Apply randomizer settings to your save?</h1><p>Your save is backed up first, so you can undo this from the Saves tab.</p></div><button class="modal-close" data-close-modal aria-label="Close">×</button></div>
+      <div class="modal-body">
+        <div class="randomizer-apply-diff">
+          <div><span class="randomizer-apply-label">Current save</span><strong id="randomizer-apply-before"></strong></div>
+          <div><span class="randomizer-apply-label">After applying</span><strong id="randomizer-apply-after"></strong></div>
+        </div>
+        <p id="randomizer-apply-lead" class="pbr-offer-lead"></p>
+        <div class="actions pbr-offer-actions"><button class="subtle" data-close-modal>Cancel</button><button id="randomizer-apply-go" class="solid" type="button">Apply to save</button></div>
       </div>
     </dialog>
 
