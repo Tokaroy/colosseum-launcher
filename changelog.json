@@ -1,6 +1,7 @@
 {
   "beta": {
     "launcher": [
+      "Apply randomizer settings to your active save: under Settings → Gameplay → Randomizer, you can now enable randomization on a normal save, update a randomized save's generations, seed or options (such as adding Gen 5 and 6 mid-run), or revert a randomized save back to normal without losing progress. Your save is backed up first, Pokémon you already have stay untouched, and already-snagged Shadow Pokémon keep their names in the Snag List and Shadow Monitor.",
       "Fixed Online Trades refusing to offer a Generation 5 or 6 Pokémon, or one that knows a Generation 5, 6 or Fairy move or holds a Generation 5 or 6 item, saying the other player's game didn't have them turned on. The other player's launcher now says whether their game can take it.",
       "Updated Generation 4, 5, 6 and Fairy move animations to match their move types while keeping their exact battle effects, including Charge Beam, Grass Knot, Power Gem, Leaf Storm, Dazzling Gleam, Energy Ball, Focus Blast, Flash Cannon, Draco Meteor, Dragon Pulse, Bug Buzz and more.",
       "Battle Revolution HD textures now include 4x upscaled Generation 4 battle portraits (in both Colosseum and XD, normal and shiny) and Colosseum body sprites, so Generation 4 Pokémon look as sharp as the rest of the cast with HD textures on.",
@@ -40,6 +41,7 @@
       "Choosing the Story party online with a Generation 5 or 6 Pokémon in it switches the room to X and Y battle rules, as one with a Generation 4 Pokémon switches to Diamond and Pearl rules."
     ],
     "game": [
+      "Already-snagged Shadow Pokémon now lock their species in your save so updating or removing randomizer settings mid-run keeps their names in the Snag List and Shadow Monitor, and randomizer runs using only Generation 5 or 6 Pokémon now save properly on a New Game.",
       "Fixed Generation 4, 5 and 6 ability descriptions on Colosseum's Pokémon Summary screen showing garbled apostrophes and overlapping the STATS heading.",
       "Fixed Colosseum crashing at the end of a turn during Rain, Sandstorm or Hail under X and Y battle rules.",
       "Fixed online co-op doors staying closed for the other player when opened, and stopped the joining player from disconnecting during long cutscenes or having a finished battle restart on rejoin.",
