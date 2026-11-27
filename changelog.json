@@ -81,7 +81,8 @@
       "Remembering a move costs 100 Poké Coupons in both games: XD's Move Teacher in Mt. Battle's Pokémon Center charges 100 instead of 1,000, and Colosseum's Move Relearner (the Move Deleter in the same place) now charges 100 too, where it was free.",
       "Shadow aura: a Shadow Pokémon keeps its black aura for the whole battle once Rui or the Snag Machine has spotted it, not only at that moment and in Hyper Mode, in Colosseum and XD. Turn it on under Gameplay.",
       "Celebi in Colosseum: once you've purified every Shadow Pokémon of the story, talk to Eagun in his house in Agate Village and he gives you Celebi, as the Japanese extra disc did. With a full party, he asks you to make room and gives it next time.",
-      "Fixed the Battle Revolution models (the Generation 4 Pokémon, and every Pokémon with Replace all models) looking a fifth darker since 0.6.1: they're as bright as before again, in battle and in the Pokédex. Models you've already made are made again by themselves."
+      "Fixed the Battle Revolution models (the Generation 4 Pokémon, and every Pokémon with Replace all models) looking a fifth darker since 0.6.1: they're as bright as before again, in battle and in the Pokédex. Models you've already made are made again by themselves.",
+      "Fixed a controller on some non-Nintendo Wii U GameCube adapters doing nothing in the game while it worked in Dolphin: the game now starts these adapters the way Dolphin does, and tries again when one is slow to respond."
     ]
   },
   "releases": [
