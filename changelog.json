@@ -41,6 +41,7 @@
       "Choosing the Story party online with a Generation 5 or 6 Pokémon in it switches the room to X and Y battle rules, as one with a Generation 4 Pokémon switches to Diamond and Pearl rules."
     ],
     "game": [
+      "Storm Drain and Lightning Rod now follow generation-accurate redirection rules: Hidden Power is no longer redirected under Diamond and Pearl rules, while Electrify, Ion Deluge, Techno Blast drives and Pledge combos are redirected under X and Y rules.",
       "Fixed textures and shadows randomly disappearing or glitching out during battles in Pokémon XD when using detailed Generation 4, 5 or 6 Pokémon models (such as Skiddo or Thundurus Therian).",
       "Already-snagged Shadow Pokémon now lock their species in your save so updating or removing randomizer settings mid-run keeps their names in the Snag List and Shadow Monitor, and randomizer runs using only Generation 5 or 6 Pokémon now save properly on a New Game.",
       "Fixed Generation 4, 5 and 6 ability descriptions on Colosseum's Pokémon Summary screen showing garbled apostrophes and overlapping the STATS heading.",
