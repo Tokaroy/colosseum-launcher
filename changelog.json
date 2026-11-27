@@ -75,7 +75,8 @@
       "More Shadow Pokémon: the P★DA's Snag List (Shadow Monitor in XD) lists the story's Shadow Pokémon first and the extras after them, marked EXTRA in purple, and each one you met but didn't snag names its trainer, so you can tell which trainers still have a story Shadow Pokémon.",
       "Fixed a snagged extra Shadow Pokémon showing another Pokémon's name in Colosseum's Snag List.",
       "Illusion works: Zorua and Zoroark come out looking like the last Pokémon in your party, with its name, model and portrait, until a move's damage hits them and the illusion wears off.",
-      "Co-op battles say who chooses when a player has no Pokémon out, such as XD's first Shadow battle with only Eevee in the party: the other player chooses for it, and the battle carries on for both."
+      "Co-op battles say who chooses when a player has no Pokémon out, such as XD's first Shadow battle with only Eevee in the party: the other player chooses for it, and the battle carries on for both.",
+      "Remembering a move costs 100 Poké Coupons in both games: XD's Move Teacher in Mt. Battle's Pokémon Center charges 100 instead of 1,000, and Colosseum's Move Relearner (the Move Deleter in the same place) now charges 100 too, where it was free."
     ]
   },
   "releases": [
