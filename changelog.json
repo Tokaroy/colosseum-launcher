@@ -88,7 +88,8 @@
       "The fast-forward box now sits lower on screen, so it no longer covers the opposing Pokémon's information in battle or part of the menu.",
       "Colosseum-e card battles from the Japanese release: Phenac Stadium's left door now opens to the e-Reader reception, where dumps of your own e-Reader cards scan without a Game Boy Advance, with every level, Poké Coupon and item reward, and the VR TRAINERS' Shadow Togepi, Mareep and Scizor to snag. Each scan gives the card with the easiest level left to win, so a fight you lost or skipped comes back after the others.",
       "Fixed e-Reader card battles writing over their own saved data, which showed a difficulty tab's name as a white box.",
-      "Fixed Shadow Pokémon added by More Shadow Pokémon in XD losing their heart gauge and showing ???? for every move, with no move to use in battle, after loading a save at Mt. Battle or turning the option down. Once you've been somewhere in the story with this update, they keep both everywhere."
+      "Fixed Shadow Pokémon added by More Shadow Pokémon in XD losing their heart gauge and showing ???? for every move, with no move to use in battle, after loading a save at Mt. Battle or turning the option down. Once you've been somewhere in the story with this update, they keep both everywhere.",
+      "In-game Quit menu: pressing Start in the field in Colosseum and XD now includes QUIT above EXIT, opening a confirmation pop-up with options to Close Game, return to the Main Menu, or Reload Save."
     ]
   },
   "releases": [
