@@ -40,7 +40,8 @@
       "A female Espurr evolves into a female Meowstic, and Pumpkaboo of each size into Gourgeist of the same size.",
       "Importing from a DS or 3DS save brings a Pokémon's form along (Wash Rotom, Therian Landorus, Black Kyurem, a female Meowstic) with Generation 5 and 6 Pokémon.",
       "Generation 6 moves whose names were cut off mid-word in battle have names that fit, such as PHANTOMFORCE, LIGHTOFRUIN and THOUS.ARROWS.",
-      "Choosing the Story party online with a Generation 5 or 6 Pokémon in it switches the room to X and Y battle rules, as one with a Generation 4 Pokémon switches to Diamond and Pearl rules."
+      "Choosing the Story party online with a Generation 5 or 6 Pokémon in it switches the room to X and Y battle rules, as one with a Generation 4 Pokémon switches to Diamond and Pearl rules.",
+      "e-Reader cards on the Pokémon page (Colosseum): import your e-Reader card dumps or use a folder of them, see which levels of each card your save has won, and pick the card your next scan in the game gives, to replay a fight you lost or play one you skipped."
     ],
     "game": [
       "Storm Drain and Lightning Rod now follow generation-accurate redirection rules: Hidden Power is no longer redirected under Diamond and Pearl rules, while Electrify, Ion Deluge, Techno Blast drives and Pledge combos are redirected under X and Y rules.",
@@ -84,7 +85,9 @@
       "Fixed the Battle Revolution models (the Generation 4 Pokémon, and every Pokémon with Replace all models) looking a fifth darker since 0.6.1: they're as bright as before again, in battle and in the Pokédex. Models you've already made are made again by themselves.",
       "Fixed a controller on some non-Nintendo Wii U GameCube adapters doing nothing in the game while it worked in Dolphin: the game now starts these adapters the way Dolphin does, and tries again when one is slow to respond.",
       "Move Tutor: Infinite TMs is now Infinite TMs and Move Tutors, and also covers XD's Move Tutor in Agate Village: she teaches each of her moves as many times as you like, instead of only once. Which moves she offers still follows the story.",
-      "The fast-forward box now sits lower on screen, so it no longer covers the opposing Pokémon's information in battle or part of the menu."
+      "The fast-forward box now sits lower on screen, so it no longer covers the opposing Pokémon's information in battle or part of the menu.",
+      "Colosseum-e card battles from the Japanese release: Phenac Stadium's left door now opens to the e-Reader reception, where dumps of your own e-Reader cards scan without a Game Boy Advance, with every level, Poké Coupon and item reward, and the VR TRAINERS' Shadow Togepi, Mareep and Scizor to snag. Each scan gives the card with the easiest level left to win, so a fight you lost or skipped comes back after the others.",
+      "Fixed e-Reader card battles writing over their own saved data, which showed a difficulty tab's name as a white box."
     ]
   },
   "releases": [
